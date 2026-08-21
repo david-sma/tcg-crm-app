@@ -55,8 +55,8 @@ availabilityRouter.post('/me', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Windows must be an array of day entries.' });
     }
 
-    // Validate repeat_weeks (e.g. 1 = this week only, 2, 4, 8, 12, or indefinite up to 12 weeks ahead)
-    const repeatCount = Math.max(1, Math.min(Number(repeat_weeks) || 1, 24));
+    // Validate repeat_weeks (e.g. 1 = this week only, or ongoing up to 104 weeks ~ 2 years)
+    const repeatCount = Math.max(1, Math.min(Number(repeat_weeks) || 1, 104));
 
     // Validate windows
     const typedWindows: AvailabilityWindow[] = windows.map((w: any) => ({
@@ -263,7 +263,7 @@ availabilityRouter.post('/on-behalf', requireRole('manager'), async (req: Reques
       return res.status(404).json({ error: 'Staff member not found.' });
     }
 
-    const repeatCount = Math.max(1, Math.min(Number(repeat_weeks) || 1, 24));
+    const repeatCount = Math.max(1, Math.min(Number(repeat_weeks) || 1, 104));
 
     const typedWindows: AvailabilityWindow[] = windows.map((w: any) => ({
       day_of_week: Number(w.day_of_week) as any,

@@ -24,7 +24,7 @@ export const EnterAvailabilityModal: React.FC<EnterAvailabilityModalProps> = ({
   onSuccess,
 }) => {
   const [reason, setReason] = useState('Communicated manually via WhatsApp');
-  const [repeatOption, setRepeatOption] = useState<'single' | '4weeks' | '8weeks' | '12weeks' | 'indefinite'>('single');
+  const [repeatOption, setRepeatOption] = useState<'single' | 'indefinite'>('single');
   const [windows, setWindows] = useState<AvailabilityWindow[]>(() => {
     if (initialWindows && initialWindows.length > 0) return initialWindows;
     return Array.from({ length: 7 }, (_, i) => ({
@@ -96,11 +96,7 @@ export const EnterAvailabilityModal: React.FC<EnterAvailabilityModalProps> = ({
       setSubmitting(true);
       setError('');
 
-      let repeatWeeks = 1;
-      if (repeatOption === '4weeks') repeatWeeks = 4;
-      else if (repeatOption === '8weeks') repeatWeeks = 8;
-      else if (repeatOption === '12weeks') repeatWeeks = 12;
-      else if (repeatOption === 'indefinite') repeatWeeks = 16;
+      const repeatWeeks = repeatOption === 'indefinite' ? 104 : 1;
 
       await apiFetch('/api/availability/on-behalf', {
         method: 'POST',
@@ -240,37 +236,51 @@ export const EnterAvailabilityModal: React.FC<EnterAvailabilityModalProps> = ({
             })}
           </div>
           {/* Repeat Schedule & Duration Option */}
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
               <Repeat className="w-3.5 h-3.5 text-[#5371FF]" />
-              <span>Repeat Schedule / Duration</span>
+              <span>Schedule Duration & Routine</span>
             </div>
-            <p className="text-[11px] text-slate-500">Apply this availability across future weeks automatically</p>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 pt-1">
-              {[
-                { id: 'single', label: '1 Week', sub: 'This only' },
-                { id: '4weeks', label: '4 Weeks', sub: '1 month' },
-                { id: '8weeks', label: '8 Weeks', sub: '2 months' },
-                { id: '12weeks', label: '12 Weeks', sub: '3 months' },
-                { id: 'indefinite', label: 'Ongoing', sub: '16 weeks' },
-              ].map((opt) => {
-                const isSelected = repeatOption === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setRepeatOption(opt.id as any)}
-                    className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-[#5371FF] bg-[#5371FF]/10 text-[#5371FF] font-bold ring-1 ring-[#5371FF]'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="text-xs">{opt.label}</div>
-                    <div className="text-[9px] text-slate-400">{opt.sub}</div>
-                  </button>
-                );
-              })}
+            <p className="text-[11px] text-slate-500">Choose whether these hours apply to this week only or as an ongoing regular routine</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setRepeatOption('single')}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  repeatOption === 'single'
+                    ? 'border-[#5371FF] bg-[#5371FF]/10 text-[#5371FF] font-bold ring-1 ring-[#5371FF]'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <div className="text-xs font-bold">This Week Only</div>
+                  <div className="text-[10px] text-slate-500 font-normal">Week of {weekStartDate}</div>
+                </div>
+                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${repeatOption === 'single' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
+                  {repeatOption === 'single' && <div className="w-1 h-1 rounded-full bg-white" />}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRepeatOption('indefinite')}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  repeatOption === 'indefinite'
+                    ? 'border-[#5371FF] bg-[#5371FF]/10 text-[#5371FF] font-bold ring-1 ring-[#5371FF]'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <div className="text-xs font-bold flex items-center gap-1">
+                    <span>Ongoing Schedule</span>
+                    <span className="text-[9px] px-1 py-0.2 rounded-sm bg-[#5371FF]/20 text-[#5371FF]">Indefinite</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-normal">Repeats across all future weeks</div>
+                </div>
+                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${repeatOption === 'indefinite' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
+                  {repeatOption === 'indefinite' && <div className="w-1 h-1 rounded-full bg-white" />}
+                </div>
+              </button>
             </div>
           </div>
         </form>

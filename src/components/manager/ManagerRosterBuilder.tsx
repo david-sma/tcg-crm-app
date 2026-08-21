@@ -292,9 +292,20 @@ export const ManagerRosterBuilder: React.FC = () => {
                           {shift.user_name || shift.staff_name || 'Staff Member'}
                         </span>
                         {shift.label && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800">
-                            {shift.label}
-                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {shift.label.split(',').map((tag: string, idx: number) => {
+                              const trimmed = tag.trim();
+                              if (!trimmed) return null;
+                              return (
+                                <span
+                                  key={idx}
+                                  className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#5371FF]/10 text-[#5371FF] border border-[#5371FF]/20"
+                                >
+                                  {trimmed}
+                                </span>
+                              );
+                            })}
+                          </div>
                         )}
                         {(shift.is_contained_in_availability ?? shift.is_contained ?? true) ? (
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -380,10 +391,19 @@ export const ManagerRosterBuilder: React.FC = () => {
                       </div>
 
                       {shift.label && (
-                        <div className="mt-1">
-                          <span className="text-[10px] font-medium px-1.5 py-0.2 rounded-sm bg-blue-100 text-blue-800">
-                            {shift.label}
-                          </span>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {shift.label.split(',').map((tag: string, idx: number) => {
+                            const trimmed = tag.trim();
+                            if (!trimmed) return null;
+                            return (
+                              <span
+                                key={idx}
+                                className="text-[9px] font-semibold px-1.5 py-0.2 rounded-sm bg-[#5371FF]/10 text-[#5371FF] border border-[#5371FF]/20"
+                              >
+                                {trimmed}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
 

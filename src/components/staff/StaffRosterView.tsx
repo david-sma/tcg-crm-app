@@ -214,9 +214,20 @@ export const StaffRosterView: React.FC<StaffRosterViewProps> = ({ initialWeek })
                                   {calculateShiftDuration(shift.start_datetime, shift.finish_datetime)}
                                 </span>
                                 {shift.label && (
-                                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
-                                    {shift.label}
-                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {shift.label.split(',').map((tag: string, idx: number) => {
+                                      const trimmed = tag.trim();
+                                      if (!trimmed) return null;
+                                      return (
+                                        <span
+                                          key={idx}
+                                          className="text-xs font-medium px-2 py-0.5 rounded-md bg-[#5371FF]/10 text-[#5371FF] border border-[#5371FF]/25"
+                                        >
+                                          {trimmed}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
                                 )}
                               </div>
 

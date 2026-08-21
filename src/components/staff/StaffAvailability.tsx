@@ -14,7 +14,7 @@ export const StaffAvailability: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copying, setCopying] = useState(false);
-  const [repeatOption, setRepeatOption] = useState<'single' | '4weeks' | '8weeks' | '12weeks' | 'indefinite'>('single');
+  const [repeatOption, setRepeatOption] = useState<'single' | 'indefinite'>('single');
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // Initialize empty default 7 days
@@ -166,12 +166,8 @@ export const StaffAvailability: React.FC = () => {
       setSaving(true);
       setMessage(null);
 
-      // Convert repeatOption to number of weeks
-      let repeatWeeks = 1;
-      if (repeatOption === '4weeks') repeatWeeks = 4;
-      else if (repeatOption === '8weeks') repeatWeeks = 8;
-      else if (repeatOption === '12weeks') repeatWeeks = 12;
-      else if (repeatOption === 'indefinite') repeatWeeks = 16; // 16 weeks ahead
+      // Convert repeatOption to number of weeks (1 week vs 104 weeks ongoing ~ 2 years)
+      const repeatWeeks = repeatOption === 'indefinite' ? 104 : 1;
 
       const response = await apiFetch('/api/availability/me', {
         method: 'POST',
@@ -187,10 +183,10 @@ export const StaffAvailability: React.FC = () => {
       if (repeatWeeks > 1) {
         setMessage({
           type: 'success',
-          text: `Availability saved and successfully repeated for ${repeatWeeks} weeks starting from ${selectedWeek}!`,
+          text: `Availability saved as your ongoing regular routine starting from ${selectedWeek}!`,
         });
       } else {
-        setMessage({ type: 'success', text: 'Availability saved successfully!' });
+        setMessage({ type: 'success', text: 'Availability saved for this week successfully!' });
       }
 
       loadAvailability(selectedWeek);
@@ -398,38 +394,54 @@ export const StaffAvailability: React.FC = () => {
             <Repeat className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-slate-900">Repeat Schedule / Duration</h3>
-            <p className="text-[11px] text-slate-500">Apply this routine to future weeks automatically without needing to re-enter</p>
+            <h3 className="text-xs font-bold text-slate-900">Schedule Duration & Routine</h3>
+            <p className="text-[11px] text-slate-500">Choose whether these hours apply to this week only or as your ongoing regular routine</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
-          {[
-            { id: 'single', label: 'This Week Only', desc: '1 week' },
-            { id: '4weeks', label: 'Next 4 Weeks', desc: '1 month' },
-            { id: '8weeks', label: 'Next 8 Weeks', desc: '2 months' },
-            { id: '12weeks', label: 'Next 12 Weeks', desc: '3 months' },
-            { id: 'indefinite', label: 'Ongoing / Regular', desc: 'Next 16 weeks' },
-          ].map((opt) => {
-            const isSelected = repeatOption === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setRepeatOption(opt.id as any)}
-                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  isSelected
-                    ? 'border-[#5371FF] bg-[#5371FF]/5 ring-1 ring-[#5371FF] shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
-                }`}
-              >
-                <div className={`text-xs font-bold ${isSelected ? 'text-[#5371FF]' : 'text-slate-800'}`}>
-                  {opt.label}
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</div>
-              </button>
-            );
-          })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <button
+            id="repeat-opt-single-btn"
+            type="button"
+            onClick={() => setRepeatOption('single')}
+            className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              repeatOption === 'single'
+                ? 'border-[#5371FF] bg-[#5371FF]/5 ring-2 ring-[#5371FF]/30 shadow-xs'
+                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+            }`}
+          >
+            <div>
+              <div className={`text-xs font-bold ${repeatOption === 'single' ? 'text-[#5371FF]' : 'text-slate-900'}`}>
+                This Week Only
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Applies strictly to week of {selectedWeek}</div>
+            </div>
+            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${repeatOption === 'single' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
+              {repeatOption === 'single' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </div>
+          </button>
+
+          <button
+            id="repeat-opt-ongoing-btn"
+            type="button"
+            onClick={() => setRepeatOption('indefinite')}
+            className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              repeatOption === 'indefinite'
+                ? 'border-[#5371FF] bg-[#5371FF]/5 ring-2 ring-[#5371FF]/30 shadow-xs'
+                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+            }`}
+          >
+            <div>
+              <div className={`text-xs font-bold flex items-center gap-1.5 ${repeatOption === 'indefinite' ? 'text-[#5371FF]' : 'text-slate-900'}`}>
+                <span>Ongoing Regular Schedule</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-[#5371FF]/15 text-[#5371FF]">Indefinite</span>
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Repeats across all future weeks automatically</div>
+            </div>
+            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${repeatOption === 'indefinite' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
+              {repeatOption === 'indefinite' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </div>
+          </button>
         </div>
       </div>
 

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, KeyboardEvent } from 'react';
 import { apiFetch } from '../../lib/api.ts';
 import { DAY_NAMES, getDayDateStr, formatTimeToNZ } from '../../lib/dateUtils.ts';
 import type { DraftShift, User } from '../../types/index.ts';
-import { X, Clock, AlertTriangle, Trash2, ShieldAlert } from 'lucide-react';
+import { X, Clock, AlertTriangle, Trash2, ShieldAlert, Plus, Tag } from 'lucide-react';
 
 interface ShiftEditModalProps {
   isOpen: boolean;
@@ -16,6 +16,15 @@ interface ShiftEditModalProps {
   defaultUserId?: string;
   onSuccess: () => void;
 }
+
+const DEFAULT_PRESETS = [
+  'Residential Clean',
+  'Office / Commercial',
+  'End of Tenancy',
+  'Carpet & Deep Clean',
+  'Builders Clean',
+  'Rubbish Removal',
+];
 
 export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   isOpen,
@@ -39,7 +48,11 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   const [finishTime, setFinishTime] = useState<string>(
     shiftToEdit ? formatTimeToNZ(shiftToEdit.finish_datetime) : '17:00'
   );
-  const [label, setLabel] = useState(shiftToEdit?.label || '');
+  
+  // Selected labels array for multi-selection
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [customInput, setCustomInput] = useState('');
+  
   const [notes, setNotes] = useState(shiftToEdit?.notes || '');
   const [overrideReason, setOverrideReason] = useState(shiftToEdit?.override_reason || '');
 
@@ -54,7 +67,19 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
       setDayIndex(shiftToEdit.start_day_of_week);
       setStartTime(formatTimeToNZ(shiftToEdit.start_datetime));
       setFinishTime(formatTimeToNZ(shiftToEdit.finish_datetime));
-      setLabel(shiftToEdit.label || '');
+      
+      // Parse multi-labels if comma-separated or string
+      if (shiftToEdit.label) {
+        const parsed = shiftToEdit.label
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        setSelectedLabels(parsed);
+      } else {
+        setSelectedLabels([]);
+      }
+      
+      setCustomInput('');
       setNotes(shiftToEdit.notes || '');
       setOverrideReason(shiftToEdit.override_reason || '');
     } else {
@@ -66,7 +91,8 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
       setDayIndex(defaultDayIndex ?? 0);
       setStartTime('08:00');
       setFinishTime('17:00');
-      setLabel('');
+      setSelectedLabels([]);
+      setCustomInput('');
       setNotes('');
       setOverrideReason('');
     }
@@ -75,6 +101,55 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   }, [shiftToEdit, defaultUserId, defaultDayIndex, activeStaff, isOpen]);
 
   if (!isOpen) return null;
+
+  // Toggle or add a label
+  const toggleLabel = (lbl: string) => {
+    const trimmed = lbl.trim();
+    if (!trimmed) return;
+    if (selectedLabels.includes(trimmed)) {
+      setSelectedLabels(selectedLabels.filter((l) => l !== trimmed));
+    } else {
+      setSelectedLabels([...selectedLabels, trimmed]);
+    }
+  };
+
+  const removeLabel = (lbl: string) => {
+    setSelectedLabels(selectedLabels.filter((l) => l !== lbl));
+  };
+
+  // Add custom labels when user types comma or presses Enter
+  const handleCustomInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addCustomLabels(customInput);
+    } else if (e.key === 'Backspace' && customInput === '' && selectedLabels.length > 0) {
+      removeLabel(selectedLabels[selectedLabels.length - 1]);
+    }
+  };
+
+  const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.includes(',')) {
+      addCustomLabels(val);
+    } else {
+      setCustomInput(val);
+    }
+  };
+
+  const addCustomLabels = (text: string) => {
+    const tokens = text
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    if (tokens.length > 0) {
+      const newItems = tokens.filter((t) => !selectedLabels.includes(t));
+      if (newItems.length > 0) {
+        setSelectedLabels((prev) => [...prev, ...newItems]);
+      }
+      setCustomInput('');
+    }
+  };
 
   // Detect overnight
   const isNight = finishTime <= startTime;
@@ -91,6 +166,22 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
       return;
     }
 
+    // Auto-commit any remaining text in customInput
+    let finalLabels = [...selectedLabels];
+    if (customInput.trim()) {
+      const remaining = customInput
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      for (const item of remaining) {
+        if (!finalLabels.includes(item)) {
+          finalLabels.push(item);
+        }
+      }
+    }
+
+    const mergedLabel = finalLabels.join(', ') || null;
+
     try {
       setSubmitting(true);
       setError('');
@@ -105,7 +196,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             start_time: startTime,
             finish_time: finishTime,
             is_overnight: isNight,
-            label: label.trim() || null,
+            label: mergedLabel,
             notes: notes.trim() || null,
             override_reason: overrideReason.trim() || null,
             draft_revision_number: draftRevisionNumber,
@@ -122,7 +213,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             start_time: startTime,
             finish_time: finishTime,
             is_overnight: isNight,
-            label: label.trim() || null,
+            label: mergedLabel,
             notes: notes.trim() || null,
             override_reason: overrideReason.trim() || null,
             draft_revision_number: draftRevisionNumber,
@@ -275,48 +366,73 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             </div>
           )}
 
-          {/* Label & Notes */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="shift-label-input" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Cleaning Job / Shift Label
+          {/* Multiple Labels & Interactive Tag Pills */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Shift Labels / Jobs (Multiple Selection)
               </label>
-              <span className="text-[10px] text-slate-400">Quick presets</span>
+              <span className="text-[11px] text-slate-400">Click presets or type custom</span>
             </div>
             
-            {/* Quick Presets */}
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {[
-                'Residential Clean',
-                'Office / Commercial',
-                'End of Tenancy',
-                'Carpet & Deep Clean',
-                'Builders Clean',
-                'Rubbish Removal',
-              ].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setLabel(preset)}
-                  className={`px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all cursor-pointer ${
-                    label === preset
-                      ? 'bg-sky-100 text-sky-800 border-sky-300 font-semibold'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {preset}
-                </button>
-              ))}
+            {/* Quick Presets Toggle Badges */}
+            <div className="flex flex-wrap gap-1.5">
+              {DEFAULT_PRESETS.map((preset) => {
+                const isSelected = selectedLabels.includes(preset);
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => toggleLabel(preset)}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-[#5371FF] text-white border-[#5371FF] font-bold shadow-xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>{preset}</span>
+                    {isSelected && <X className="w-3 h-3 text-white/80" />}
+                  </button>
+                );
+              })}
             </div>
 
-            <input
-              id="shift-label-input"
-              type="text"
-              placeholder="e.g. Residential Clean, Office Clean, Lead Specialist"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-sky-600"
-            />
+            {/* Interactive Tag Field (Pills + Input with comma support) */}
+            <div className="p-2 min-h-[46px] bg-white border border-slate-300 rounded-xl focus-within:ring-2 focus-within:ring-[#5371FF] focus-within:border-[#5371FF] transition-all flex flex-wrap items-center gap-1.5">
+              {selectedLabels.map((lbl) => (
+                <span
+                  key={lbl}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#5371FF]/10 text-[#5371FF] border border-[#5371FF]/25 animate-in fade-in zoom-in-95 duration-100"
+                >
+                  <Tag className="w-3 h-3 text-[#5371FF]" />
+                  <span>{lbl}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeLabel(lbl)}
+                    className="p-0.5 hover:bg-[#5371FF]/20 rounded-md text-[#5371FF] cursor-pointer"
+                    title={`Remove ${lbl}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+
+              <input
+                id="shift-label-custom-input"
+                type="text"
+                value={customInput}
+                onChange={handleCustomInputChange}
+                onKeyDown={handleCustomInputKeyDown}
+                onBlur={() => {
+                  if (customInput.trim()) addCustomLabels(customInput);
+                }}
+                placeholder={selectedLabels.length === 0 ? "Type custom label and press comma (,) or Enter..." : "Add another (press , or Enter)..."}
+                className="flex-1 min-w-[150px] p-1 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden bg-transparent"
+              />
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Tip: Separate multiple custom labels with a comma (e.g. <em>Steam Clean, Team Lead</em>).
+            </p>
           </div>
 
           <div>
@@ -329,7 +445,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               placeholder="e.g. Bring keycard, carpet steamer, or meet at Morrin Rd depot"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-sky-600"
+              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#5371FF]"
             />
           </div>
 
@@ -360,7 +476,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               type="button"
               onClick={handleDelete}
               disabled={deleting || submitting}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl transition-colors cursor-pointer ${
                 confirmDelete
                   ? 'bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-xs'
                   : 'text-rose-600 hover:bg-rose-50'
@@ -377,7 +493,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="py-2 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors"
+              className="py-2 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -386,7 +502,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               type="submit"
               form="shift-edit-form"
               disabled={submitting || deleting}
-              className="py-2 px-4 rounded-xl bg-slate-900 text-white font-medium text-xs hover:bg-slate-800 transition-colors shadow-xs disabled:opacity-50"
+              className="py-2 px-4 rounded-xl bg-slate-900 text-white font-medium text-xs hover:bg-slate-800 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
             >
               {submitting ? 'Saving...' : shiftToEdit ? 'Update Shift' : 'Create Shift'}
             </button>
@@ -396,3 +512,4 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
     </div>
   );
 };
+
