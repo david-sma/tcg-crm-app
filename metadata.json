@@ -1,0 +1,6 @@
+{
+  "name": "The Cleaning Guys NZ - Roster Portal",
+  "description": "Mobile-first workforce scheduling, shift management, and availability portal for The Cleaning Guys Auckland team (Pacific/Auckland timezone).",
+  "requestFramePermissions": ["notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
