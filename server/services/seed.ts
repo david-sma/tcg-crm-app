@@ -9,10 +9,8 @@ import crypto from 'crypto';
 export async function bootstrapInitialData() {
   const existingUsers = await db.select().from(users);
 
-  // If users already exist, check if Mike or other members need updating/syncing
+  // If users already exist in the database, keep existing data intact without modifying or deleting
   if (existingUsers.length > 0) {
-    // If old placeholder users exist or phone numbers don't match, sync the exact team
-    await syncExactTeam();
     return;
   }
 
@@ -159,15 +157,6 @@ export async function syncExactTeam() {
           ],
         });
       }
-    }
-  }
-
-  // Deactivate or remove any old dummy accounts that are not in TEAM_MEMBERS
-  const allowedPhones = new Set(TEAM_MEMBERS.map(m => normalizePhone(m.rawPhone).e164));
-  const allCurrent = await db.select().from(users);
-  for (const u of allCurrent) {
-    if (!allowedPhones.has(u.phone_e164)) {
-      await db.delete(users).where(eq(users.id, u.id));
     }
   }
 }
