@@ -19,7 +19,14 @@ try {
 
 export async function createInAppNotification(params: {
   userId: string;
-  type: 'ROSTER_PUBLISHED' | 'ROSTER_REVISED' | 'AVAILABILITY_CHANGED' | 'CONFLICT_REPORTED';
+  type:
+    | 'ROSTER_PUBLISHED'
+    | 'ROSTER_REVISED'
+    | 'AVAILABILITY_CHANGED'
+    | 'CONFLICT_REPORTED'
+    | 'SHIFT_STARTED'
+    | 'TIMESHEET_SUBMITTED'
+    | 'TIMESHEET_APPROVED';
   title: string;
   body: string;
   relatedEntityType?: string;

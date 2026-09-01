@@ -98,6 +98,10 @@ export interface PublishedShiftSnapshot {
   label?: string | null;
   notes?: string | null;
   override_reason?: string | null;
+  response_status?: StaffResponseStatus;
+  response_reason?: string | null;
+  response_note?: string | null;
+  responded_at?: string | null;
 }
 
 export type StaffResponseStatus = 'pending' | 'acknowledged' | 'conflict';
@@ -131,12 +135,13 @@ export interface StaffRosterResponse {
   shifts_count: number;
   shift_count?: number;
   snapshot_id?: string;
+  shifts?: PublishedShiftSnapshot[];
 }
 
 export interface NotificationItem {
   id: string;
   user_id: string;
-  type: 'ROSTER_PUBLISHED' | 'ROSTER_REVISED' | 'AVAILABILITY_CHANGED' | 'CONFLICT_REPORTED';
+  type: 'ROSTER_PUBLISHED' | 'ROSTER_REVISED' | 'AVAILABILITY_CHANGED' | 'CONFLICT_REPORTED' | 'TIMESHEET_SUBMITTED' | 'TIMESHEET_APPROVED' | 'SHIFT_STARTED';
   title: string;
   body: string;
   related_entity_type?: string | null;
@@ -152,10 +157,81 @@ export interface AuditEvent {
   actor_name?: string | null;
   actor_role?: string | null;
   event_type: string;
-  action: string;
+  action?: string;
   entity_type: string;
   entity_id: string;
   metadata?: Record<string, any> | null;
   ip_address?: string | null;
   created_at: string;
 }
+
+export type ShiftReportStatus = 'in_progress' | 'completed' | 'manager_approved' | 'manager_overridden';
+export type ClockInType = 'base_arrival' | 'first_job';
+export type ClockOutType = 'last_job' | 'closing_shift';
+
+export interface ShiftReport {
+  id: string;
+  user_id: string;
+  user_name?: string;
+  user_phone?: string;
+  roster_version_shift_id?: string | null;
+  shift_date: string; // YYYY-MM-DD
+  week_start_date: string; // YYYY-MM-DD (Monday)
+  day_of_week: DayOfWeekIndex;
+  clock_in_at: string; // ISO
+  clock_in_photo?: string | null;
+  clock_in_type: ClockInType;
+  clock_in_location?: string | null;
+  clock_out_at?: string | null; // ISO
+  clock_out_photo?: string | null;
+  clock_out_type?: ClockOutType | null;
+  clock_out_location?: string | null;
+  break_minutes: number; // 0, 15, 30, 45, 60
+  worked_with?: string[] | null; // coworker names
+  staff_notes?: string | null;
+  status: ShiftReportStatus;
+  total_worked_minutes: number;
+  manager_override_start_at?: string | null;
+  manager_override_finish_at?: string | null;
+  manager_override_break_minutes?: number | null;
+  manager_override_reason?: string | null;
+  manager_overridden_by_id?: string | null;
+  manager_overridden_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Computed / joined helpers
+  scheduled_start?: string | null;
+  scheduled_finish?: string | null;
+  scheduled_duration_minutes?: number | null;
+}
+
+export type TimesheetStatus = 'draft' | 'submitted' | 'approved';
+
+export interface WeeklyTimesheet {
+  id: string;
+  user_id: string;
+  user_name?: string;
+  user_phone?: string;
+  week_start_date: string; // YYYY-MM-DD
+  staff_signed_name?: string | null;
+  staff_signed_at?: string | null;
+  supervisor_signed_name?: string | null;
+  supervisor_signed_at?: string | null;
+  supervisor_id?: string | null;
+  status: TimesheetStatus;
+  total_worked_hours: string;
+  manager_notes?: string | null;
+  reports?: ShiftReport[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DayTimesheetRow {
+  date: string; // YYYY-MM-DD
+  day_of_week: number;
+  day_name: string;
+  short_day: string;
+  report?: ShiftReport | null;
+  scheduled_shift?: PublishedShiftSnapshot | null;
+}
+

@@ -505,6 +505,32 @@ rosterRouter.get('/responses', async (req: Request, res: Response) => {
       .where(eq(staffRosterSnapshots.roster_version_id, rosterWeek.latest_published_version_id))
       .orderBy(users.name);
 
+    // Also fetch all published shifts for this version to include per-shift status
+    const allVersionShifts = await db
+      .select({
+        id: rosterVersionShifts.id,
+        user_id: rosterVersionShifts.user_id,
+        start_datetime: rosterVersionShifts.start_datetime,
+        finish_datetime: rosterVersionShifts.finish_datetime,
+        start_day_of_week: rosterVersionShifts.start_day_of_week,
+        label: rosterVersionShifts.label,
+        notes: rosterVersionShifts.notes,
+        response_status: rosterVersionShifts.response_status,
+        response_reason: rosterVersionShifts.response_reason,
+        response_note: rosterVersionShifts.response_note,
+        responded_at: rosterVersionShifts.responded_at,
+      })
+      .from(rosterVersionShifts)
+      .where(eq(rosterVersionShifts.roster_version_id, rosterWeek.latest_published_version_id))
+      .orderBy(rosterVersionShifts.start_datetime);
+
+    const shiftsByUser = new Map<string, typeof allVersionShifts>();
+    for (const sh of allVersionShifts) {
+      const list = shiftsByUser.get(sh.user_id) || [];
+      list.push(sh);
+      shiftsByUser.set(sh.user_id, list);
+    }
+
     const snapshots = rawSnapshots.map((s) => ({
       id: s.id,
       snapshot_id: s.id,
@@ -520,6 +546,7 @@ rosterRouter.get('/responses', async (req: Request, res: Response) => {
       conflict_reason: s.response_reason,
       conflict_note: s.response_note,
       responded_at: s.responded_at,
+      shifts: shiftsByUser.get(s.user_id) || [],
     }));
 
     const summary = {

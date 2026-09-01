@@ -111,6 +111,10 @@ export const rosterVersionShifts = pgTable('roster_version_shifts', {
   label: text('label'),
   notes: text('notes'),
   override_reason: text('override_reason'),
+  response_status: text('response_status').notNull().default('pending'), // 'pending' | 'acknowledged' | 'conflict'
+  response_reason: text('response_reason'),
+  response_note: text('response_note'),
+  responded_at: text('responded_at'),
 }, (table) => [
   index('version_shifts_version_idx').on(table.roster_version_id),
   index('version_shifts_user_idx').on(table.user_id),
@@ -136,6 +140,7 @@ export const staffRosterResponses = pgTable('staff_roster_responses', {
   id: text('id').primaryKey(),
   snapshot_id: text('snapshot_id').notNull().references(() => staffRosterSnapshots.id, { onDelete: 'cascade' }),
   user_id: text('user_id').notNull().references(() => users.id),
+  shift_id: text('shift_id'), // null for full roster bulk action, or specific shift_id
   response_status: text('response_status').notNull(), // 'pending' | 'acknowledged' | 'conflict'
   reason: text('reason'),
   note: text('note'),
@@ -188,3 +193,57 @@ export const auditEvents = pgTable('audit_events', {
   index('audit_event_type_idx').on(table.event_type),
   index('audit_entity_idx').on(table.entity_type, table.entity_id),
 ]);
+
+export const shiftReports = pgTable('shift_reports', {
+  id: text('id').primaryKey(),
+  user_id: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  roster_version_shift_id: text('roster_version_shift_id'),
+  shift_date: text('shift_date').notNull(), // YYYY-MM-DD
+  week_start_date: text('week_start_date').notNull(), // YYYY-MM-DD (Monday)
+  day_of_week: integer('day_of_week').notNull(), // 0=Mon, 6=Sun
+  clock_in_at: text('clock_in_at').notNull(), // ISO timestamp
+  clock_in_photo: text('clock_in_photo'), // Data URL / photo reference
+  clock_in_type: text('clock_in_type').notNull().default('base_arrival'), // 'base_arrival' | 'first_job'
+  clock_in_location: text('clock_in_location'),
+  clock_out_at: text('clock_out_at'), // ISO timestamp (null when in progress)
+  clock_out_photo: text('clock_out_photo'),
+  clock_out_type: text('clock_out_type'), // 'last_job' | 'closing_shift'
+  clock_out_location: text('clock_out_location'),
+  break_minutes: integer('break_minutes').notNull().default(0), // 0, 15, 30, 45, 60
+  worked_with: text('worked_with'), // JSON array of coworker names/IDs
+  staff_notes: text('staff_notes'),
+  status: text('status').notNull().default('in_progress'), // 'in_progress' | 'completed' | 'manager_approved' | 'manager_overridden'
+  total_worked_minutes: integer('total_worked_minutes').notNull().default(0),
+  manager_override_start_at: text('manager_override_start_at'),
+  manager_override_finish_at: text('manager_override_finish_at'),
+  manager_override_break_minutes: integer('manager_override_break_minutes'),
+  manager_override_reason: text('manager_override_reason'),
+  manager_overridden_by_id: text('manager_overridden_by_id').references(() => users.id),
+  manager_overridden_at: text('manager_overridden_at'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (table) => [
+  index('shift_reports_user_date_idx').on(table.user_id, table.shift_date),
+  index('shift_reports_week_idx').on(table.week_start_date),
+  index('shift_reports_status_idx').on(table.status),
+]);
+
+export const weeklyTimesheets = pgTable('weekly_timesheets', {
+  id: text('id').primaryKey(),
+  user_id: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  week_start_date: text('week_start_date').notNull(), // YYYY-MM-DD
+  staff_signed_name: text('staff_signed_name'),
+  staff_signed_at: text('staff_signed_at'),
+  supervisor_signed_name: text('supervisor_signed_name'),
+  supervisor_signed_at: text('supervisor_signed_at'),
+  supervisor_id: text('supervisor_id').references(() => users.id),
+  status: text('status').notNull().default('draft'), // 'draft' | 'submitted' | 'approved'
+  total_worked_hours: text('total_worked_hours').notNull().default('0.0'),
+  manager_notes: text('manager_notes'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (table) => [
+  uniqueIndex('weekly_timesheet_user_week_idx').on(table.user_id, table.week_start_date),
+  index('weekly_timesheet_week_idx').on(table.week_start_date),
+]);
+

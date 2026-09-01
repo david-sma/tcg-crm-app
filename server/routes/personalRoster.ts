@@ -71,6 +71,10 @@ personalRosterRouter.get('/', async (req: Request, res: Response) => {
         start_day_of_week: rosterVersionShifts.start_day_of_week,
         label: rosterVersionShifts.label,
         notes: rosterVersionShifts.notes,
+        response_status: rosterVersionShifts.response_status,
+        response_reason: rosterVersionShifts.response_reason,
+        response_note: rosterVersionShifts.response_note,
+        responded_at: rosterVersionShifts.responded_at,
       })
       .from(rosterVersionShifts)
       .where(
@@ -101,10 +105,10 @@ personalRosterRouter.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/personal-roster/acknowledge - Acknowledge entire weekly personal roster
+// POST /api/personal-roster/acknowledge - Acknowledge entire weekly personal roster or individual shift
 personalRosterRouter.post('/acknowledge', async (req: Request, res: Response) => {
   try {
-    const { snapshot_id } = req.body;
+    const { snapshot_id, shift_id } = req.body;
     if (!snapshot_id) {
       return res.status(400).json({ error: 'snapshot_id is required' });
     }
@@ -128,13 +132,100 @@ personalRosterRouter.post('/acknowledge', async (req: Request, res: Response) =>
 
     const nowIso = new Date().toISOString();
 
+    if (shift_id) {
+      // Per-shift acknowledge
+      const shift = (
+        await db
+          .select()
+          .from(rosterVersionShifts)
+          .where(
+            and(
+              eq(rosterVersionShifts.id, shift_id),
+              eq(rosterVersionShifts.roster_version_id, snapshot.roster_version_id),
+              eq(rosterVersionShifts.user_id, req.user!.id)
+            )
+          )
+          .limit(1)
+      )[0];
+
+      if (!shift) {
+        return res.status(404).json({ error: 'Shift not found' });
+      }
+
+      await db
+        .update(rosterVersionShifts)
+        .set({
+          response_status: 'acknowledged',
+          response_reason: null,
+          response_note: null,
+          responded_at: nowIso,
+        })
+        .where(eq(rosterVersionShifts.id, shift_id));
+    } else {
+      // Bulk acknowledge all pending shifts for this version
+      const allShifts = await db
+        .select()
+        .from(rosterVersionShifts)
+        .where(
+          and(
+            eq(rosterVersionShifts.roster_version_id, snapshot.roster_version_id),
+            eq(rosterVersionShifts.user_id, req.user!.id)
+          )
+        );
+
+      for (const s of allShifts) {
+        if (s.response_status === 'pending' || s.response_status === 'conflict') {
+          await db
+            .update(rosterVersionShifts)
+            .set({
+              response_status: 'acknowledged',
+              response_reason: null,
+              response_note: null,
+              responded_at: nowIso,
+            })
+            .where(eq(rosterVersionShifts.id, s.id));
+        }
+      }
+    }
+
+    // Recompute overall snapshot status based on all shifts for this user in this version
+    const updatedShifts = await db
+      .select()
+      .from(rosterVersionShifts)
+      .where(
+        and(
+          eq(rosterVersionShifts.roster_version_id, snapshot.roster_version_id),
+          eq(rosterVersionShifts.user_id, req.user!.id)
+        )
+      );
+
+    let overallStatus = 'acknowledged';
+    let conflictReason: string | null = null;
+    let conflictNote: string | null = null;
+
+    if (updatedShifts.length > 0) {
+      const hasConflict = updatedShifts.some((s) => s.response_status === 'conflict');
+      const hasPending = updatedShifts.some((s) => s.response_status === 'pending');
+
+      if (hasConflict) {
+        overallStatus = 'conflict';
+        const conflictShift = updatedShifts.find((s) => s.response_status === 'conflict');
+        conflictReason = conflictShift?.response_reason || 'Shift conflict';
+        conflictNote = conflictShift?.response_note || null;
+      } else if (hasPending) {
+        overallStatus = 'pending';
+      } else {
+        overallStatus = 'acknowledged';
+      }
+    }
+
     // Update snapshot
     await db
       .update(staffRosterSnapshots)
       .set({
-        response_status: 'acknowledged',
-        response_reason: null,
-        response_note: null,
+        response_status: overallStatus,
+        response_reason: conflictReason,
+        response_note: conflictNote,
         responded_at: nowIso,
       })
       .where(eq(staffRosterSnapshots.id, snapshot_id));
@@ -144,6 +235,7 @@ personalRosterRouter.post('/acknowledge', async (req: Request, res: Response) =>
       id: crypto.randomUUID(),
       snapshot_id: snapshot.id,
       user_id: req.user!.id,
+      shift_id: shift_id || null,
       response_status: 'acknowledged',
       reason: null,
       note: null,
@@ -154,23 +246,29 @@ personalRosterRouter.post('/acknowledge', async (req: Request, res: Response) =>
       actor_user_id: req.user!.id,
       actor_name: req.user!.name,
       actor_role: req.user!.role,
-      event_type: 'ROSTER_ACKNOWLEDGED',
+      event_type: shift_id ? 'SHIFT_ACKNOWLEDGED' : 'ROSTER_ACKNOWLEDGED',
       entity_type: 'staff_roster_snapshot',
       entity_id: snapshot.id,
+      metadata: { shift_id: shift_id || null, overall_status: overallStatus },
       ip_address: req.ip,
     });
 
-    return res.json({ success: true, response_status: 'acknowledged', responded_at: nowIso });
+    return res.json({
+      success: true,
+      response_status: overallStatus,
+      shift_id: shift_id || null,
+      responded_at: nowIso,
+    });
   } catch (err) {
     console.error('Acknowledge roster error:', err);
     return res.status(500).json({ error: 'Failed to acknowledge roster' });
   }
 });
 
-// POST /api/personal-roster/conflict - Report conflict on weekly roster
+// POST /api/personal-roster/conflict - Report conflict on weekly roster or individual shift
 personalRosterRouter.post('/conflict', async (req: Request, res: Response) => {
   try {
-    const { snapshot_id, reason, note } = req.body;
+    const { snapshot_id, shift_id, reason, note } = req.body;
 
     if (!snapshot_id || !reason || typeof reason !== 'string' || reason.trim().length === 0) {
       return res.status(400).json({ error: 'snapshot_id and a valid conflict reason are required.' });
@@ -194,8 +292,65 @@ personalRosterRouter.post('/conflict', async (req: Request, res: Response) => {
     }
 
     const nowIso = new Date().toISOString();
+    let shiftInfoText = '';
 
-    // Update snapshot
+    if (shift_id) {
+      // Per-shift conflict
+      const shift = (
+        await db
+          .select()
+          .from(rosterVersionShifts)
+          .where(
+            and(
+              eq(rosterVersionShifts.id, shift_id),
+              eq(rosterVersionShifts.roster_version_id, snapshot.roster_version_id),
+              eq(rosterVersionShifts.user_id, req.user!.id)
+            )
+          )
+          .limit(1)
+      )[0];
+
+      if (!shift) {
+        return res.status(404).json({ error: 'Shift not found' });
+      }
+
+      await db
+        .update(rosterVersionShifts)
+        .set({
+          response_status: 'conflict',
+          response_reason: reason.trim(),
+          response_note: note?.trim() || null,
+          responded_at: nowIso,
+        })
+        .where(eq(rosterVersionShifts.id, shift_id));
+
+      shiftInfoText = ` on shift ${shift.start_datetime.substring(0, 16).replace('T', ' ')}`;
+    } else {
+      // Entire roster conflict
+      const allShifts = await db
+        .select()
+        .from(rosterVersionShifts)
+        .where(
+          and(
+            eq(rosterVersionShifts.roster_version_id, snapshot.roster_version_id),
+            eq(rosterVersionShifts.user_id, req.user!.id)
+          )
+        );
+
+      for (const s of allShifts) {
+        await db
+          .update(rosterVersionShifts)
+          .set({
+            response_status: 'conflict',
+            response_reason: reason.trim(),
+            response_note: note?.trim() || null,
+            responded_at: nowIso,
+          })
+          .where(eq(rosterVersionShifts.id, s.id));
+      }
+    }
+
+    // Update snapshot to conflict
     await db
       .update(staffRosterSnapshots)
       .set({
@@ -211,6 +366,7 @@ personalRosterRouter.post('/conflict', async (req: Request, res: Response) => {
       id: crypto.randomUUID(),
       snapshot_id: snapshot.id,
       user_id: req.user!.id,
+      shift_id: shift_id || null,
       response_status: 'conflict',
       reason: reason.trim(),
       note: note?.trim() || null,
@@ -221,10 +377,14 @@ personalRosterRouter.post('/conflict', async (req: Request, res: Response) => {
       actor_user_id: req.user!.id,
       actor_name: req.user!.name,
       actor_role: req.user!.role,
-      event_type: 'ROSTER_CONFLICT_REPORTED',
+      event_type: shift_id ? 'SHIFT_CONFLICT_REPORTED' : 'ROSTER_CONFLICT_REPORTED',
       entity_type: 'staff_roster_snapshot',
       entity_id: snapshot.id,
-      metadata: { reason: reason.trim(), note: note?.trim() || null },
+      metadata: {
+        shift_id: shift_id || null,
+        reason: reason.trim(),
+        note: note?.trim() || null,
+      },
       ip_address: req.ip,
     });
 
@@ -234,14 +394,19 @@ personalRosterRouter.post('/conflict', async (req: Request, res: Response) => {
       await createInAppNotification({
         userId: mgr.id,
         type: 'CONFLICT_REPORTED',
-        title: `Roster Conflict: ${req.user!.name}`,
-        body: `${req.user!.name} reported a conflict. Reason: ${reason.trim()}`,
+        title: `Shift Conflict: ${req.user!.name}`,
+        body: `${req.user!.name} reported a conflict${shiftInfoText}. Reason: ${reason.trim()}`,
         relatedEntityType: 'staff_roster_snapshot',
         relatedEntityId: snapshot.id,
       });
     }
 
-    return res.json({ success: true, response_status: 'conflict', responded_at: nowIso });
+    return res.json({
+      success: true,
+      response_status: 'conflict',
+      shift_id: shift_id || null,
+      responded_at: nowIso,
+    });
   } catch (err: any) {
     console.error('Report conflict error:', err);
     return res.status(500).json({ error: err?.message || 'Failed to report conflict' });

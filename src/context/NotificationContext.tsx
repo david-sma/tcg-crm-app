@@ -22,9 +22,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission === 'granted';
+    }
+    return false;
+  });
 
-  const isPushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
+  const isPushSupported = typeof window !== 'undefined' && 'Notification' in window;
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        setPushSubscribed(true);
+      }
+    }
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (!user) {
@@ -80,6 +93,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         setPushSubscribed(true);
+        localStorage.setItem('tcg_push_enabled', 'granted');
+
+        // Check if service worker is active to subscribe
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) {
+              const subJson = sub.toJSON();
+              await apiFetch('/api/notifications/subscribe', {
+                method: 'POST',
+                body: JSON.stringify({
+                  endpoint: sub.endpoint,
+                  p256dh: subJson.keys?.p256dh || '',
+                  auth: subJson.keys?.auth || '',
+                }),
+              });
+            }
+          } catch (swErr) {
+            console.warn('Service worker push sync:', swErr);
+          }
+        }
+      } else {
+        setPushSubscribed(false);
+        if (permission === 'denied') {
+          localStorage.setItem('tcg_push_enabled', 'denied');
+        }
       }
     } catch (e) {
       console.warn('Push registration warning:', e);

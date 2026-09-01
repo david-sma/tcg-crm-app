@@ -4,12 +4,79 @@ export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
 export const SHORT_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /**
- * Calculates current Monday date string (YYYY-MM-DD)
+ * Gets current Auckland date and time components
+ */
+export function getNowInAuckland(): { dayOfWeek: number; hour: number; minute: number; yyyy: number; mm: number; dd: number } {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-NZ', {
+      timeZone: 'Pacific/Auckland',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      weekday: 'short',
+    });
+
+    const parts = formatter.formatToParts(now);
+    const getPart = (type: string) => parts.find((p) => p.type === type)?.value || '';
+
+    const weekdayStr = getPart('weekday');
+    const weekdayMap: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+    const dayOfWeek = weekdayMap[weekdayStr] ?? now.getDay();
+    const hour = parseInt(getPart('hour'), 10) || 0;
+    const minute = parseInt(getPart('minute'), 10) || 0;
+    const yyyy = parseInt(getPart('year'), 10) || now.getFullYear();
+    const mm = parseInt(getPart('month'), 10) || now.getMonth() + 1;
+    const dd = parseInt(getPart('day'), 10) || now.getDate();
+
+    return { dayOfWeek, hour, minute, yyyy, mm, dd };
+  } catch {
+    const now = new Date();
+    return {
+      dayOfWeek: now.getDay(),
+      hour: now.getHours(),
+      minute: now.getMinutes(),
+      yyyy: now.getFullYear(),
+      mm: now.getMonth() + 1,
+      dd: now.getDate(),
+    };
+  }
+}
+
+/**
+ * Calculates current Monday date string (YYYY-MM-DD) in Pacific/Auckland
  */
 export function getCurrentMonday(): string {
-  const now = new Date();
-  const mon = startOfWeek(now, { weekStartsOn: 1 });
+  const { yyyy, mm, dd } = getNowInAuckland();
+  const aucklandToday = parseISO(`${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}T12:00:00`);
+  const mon = startOfWeek(aucklandToday, { weekStartsOn: 1 });
   return format(mon, 'yyyy-MM-dd');
+}
+
+/**
+ * Returns default active week Monday:
+ * If it is Sunday at or after 3:00 PM (15:00) in Pacific/Auckland, automatically defaults to Next Week's Monday.
+ * Otherwise defaults to current week's Monday.
+ */
+export function getDefaultActiveMonday(): string {
+  const { dayOfWeek, hour } = getNowInAuckland();
+  const curMonday = getCurrentMonday();
+  // 0 is Sunday. At or after 15:00 (3pm), roll over to next Monday
+  if (dayOfWeek === 0 && hour >= 15) {
+    return getOffsetMonday(curMonday, 1);
+  }
+  return curMonday;
 }
 
 /**

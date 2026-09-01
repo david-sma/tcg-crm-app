@@ -17,7 +17,10 @@ export const SESSION_COOKIE_NAME = 'roster_session_token';
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
-    const token = req.cookies?.[SESSION_COOKIE_NAME] || req.headers.authorization?.replace('Bearer ', '');
+    const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
+    const headerToken = (req.headers['x-auth-token'] as string | undefined) || req.headers.authorization?.replace('Bearer ', '');
+    const cookieToken = req.cookies?.[SESSION_COOKIE_NAME];
+    const token = cookieToken || headerToken || queryToken;
 
     if (!token) {
       return next();

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../lib/api.ts';
 import { WeekNavigator } from '../common/WeekNavigator.tsx';
-import { getCurrentMonday, DAY_NAMES, getDayDateStr } from '../../lib/dateUtils.ts';
+import { getDefaultActiveMonday, DAY_NAMES, getDayDateStr } from '../../lib/dateUtils.ts';
 import type { AvailabilityWindow, DayOfWeekIndex } from '../../types/index.ts';
 import { Clock, Copy, Check, Save, Plus, Trash2, AlertCircle, Sparkles, Moon, Repeat, CalendarRange } from 'lucide-react';
 
 export const StaffAvailability: React.FC = () => {
-  const [selectedWeek, setSelectedWeek] = useState(getCurrentMonday());
+  const [selectedWeek, setSelectedWeek] = useState(getDefaultActiveMonday());
   const [windows, setWindows] = useState<AvailabilityWindow[]>([]);
   const [initialWindowsJson, setInitialWindowsJson] = useState('');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);

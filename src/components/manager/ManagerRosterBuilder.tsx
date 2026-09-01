@@ -5,6 +5,7 @@ import { ShiftEditModal } from './ShiftEditModal.tsx';
 import { PublishConfirmationModal } from './PublishConfirmationModal.tsx';
 import {
   getCurrentMonday,
+  getDefaultActiveMonday,
   DAY_NAMES,
   SHORT_DAY_NAMES,
   getDayDateStr,
@@ -30,7 +31,7 @@ import {
 } from 'lucide-react';
 
 export const ManagerRosterBuilder: React.FC = () => {
-  const [selectedWeek, setSelectedWeek] = useState(getCurrentMonday());
+  const [selectedWeek, setSelectedWeek] = useState(getDefaultActiveMonday());
   const [rosterData, setRosterData] = useState<any>(null);
   const [activeStaff, setActiveStaff] = useState<User[]>([]);
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(0);

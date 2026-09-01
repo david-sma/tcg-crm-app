@@ -21,6 +21,21 @@ export function getCurrentWeekMonday(): string {
 }
 
 /**
+ * Gets the default active week Monday.
+ * If it is Sunday at or after 3:00 PM (15:00) in Pacific/Auckland, returns NEXT week's Monday.
+ * Otherwise returns current week Monday.
+ */
+export function getDefaultActiveWeek(): string {
+  const nowNZ = getNowInNZ();
+  const dayOfWeek = nowNZ.getDay(); // 0 is Sunday
+  const hour = nowNZ.getHours();
+  if (dayOfWeek === 0 && hour >= 15) {
+    return getOffsetWeekMonday(1);
+  }
+  return getCurrentWeekMonday();
+}
+
+/**
  * Gets the Monday of a given week offset (e.g. +1 for next week, -1 for previous week)
  */
 export function getOffsetWeekMonday(weekOffset: number = 0): string {
@@ -47,13 +62,33 @@ export function getConsecutiveMondays(startMondayStr: string, count: number): st
  * Validates whether a week string is a valid Monday in YYYY-MM-DD format
  */
 export function isValidMondayDate(dateStr: string): boolean {
+  if (!dateStr || typeof dateStr !== 'string') return false;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
   try {
-    const zonedDate = parseISO(`${dateStr}T12:00:00`);
-    const dayOfWeek = zonedDate.getDay(); // 0 is Sunday, 1 is Monday
-    return dayOfWeek === 1;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const utcDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    return utcDate.getUTCDay() === 1;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Snaps any date string (YYYY-MM-DD) to its corresponding week's Monday
+ */
+export function snapToMonday(dateStr?: string): string {
+  if (!dateStr || typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return getCurrentWeekMonday();
+  }
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    const day = date.getUTCDay(); // 0 is Sun, 1 is Mon, 6 is Sat
+    const diff = (day === 0 ? -6 : 1) - day;
+    date.setUTCDate(date.getUTCDate() + diff);
+    return date.toISOString().slice(0, 10);
+  } catch {
+    return getCurrentWeekMonday();
   }
 }
 

@@ -211,14 +211,22 @@ export async function publishRosterWeek(params: {
   const isRevision = newVersionNumber > 1;
   const previousVersion = isRevision ? existingVersions[0] : null;
 
-  // Fetch previous snapshots if revision
+  // Fetch previous snapshots and shifts if revision
   let previousSnapshotsMap = new Map<string, any>();
+  let previousShifts: any[] = [];
   if (previousVersion) {
-    const prevSnapshots = await db
-      .select()
-      .from(staffRosterSnapshots)
-      .where(eq(staffRosterSnapshots.roster_version_id, previousVersion.id));
+    const [prevSnapshots, prevShifts] = await Promise.all([
+      db
+        .select()
+        .from(staffRosterSnapshots)
+        .where(eq(staffRosterSnapshots.roster_version_id, previousVersion.id)),
+      db
+        .select()
+        .from(rosterVersionShifts)
+        .where(eq(rosterVersionShifts.roster_version_id, previousVersion.id)),
+    ]);
     previousSnapshotsMap = new Map(prevSnapshots.map((s) => [s.user_id, s]));
+    previousShifts = prevShifts;
   }
 
   const nowIso = new Date().toISOString();
@@ -233,10 +241,31 @@ export async function publishRosterWeek(params: {
     published_at: nowIso,
   });
 
-  // 8. Insert version shifts snapshot
+  // 8. Insert version shifts snapshot (carrying over previous confirmation if shift is unchanged)
+  const insertedShiftsByUser = new Map<string, any[]>();
   for (const shift of draftShifts) {
     const staff = activeStaffMap.get(shift.user_id);
-    await db.insert(rosterVersionShifts).values({
+
+    // Check if shift is identical to a previously published shift
+    const matchingPrevShift = isRevision
+      ? previousShifts.find(
+          (ps) =>
+            ps.user_id === shift.user_id &&
+            ps.start_datetime === shift.start_datetime &&
+            ps.finish_datetime === shift.finish_datetime &&
+            (ps.label || '') === (shift.label || '') &&
+            (ps.notes || '') === (shift.notes || '')
+        )
+      : null;
+
+    const shiftStatus: 'pending' | 'acknowledged' | 'conflict' = matchingPrevShift
+      ? matchingPrevShift.response_status || 'pending'
+      : 'pending';
+    const shiftReason = matchingPrevShift ? matchingPrevShift.response_reason : null;
+    const shiftNote = matchingPrevShift ? matchingPrevShift.response_note : null;
+    const shiftRespondedAt = matchingPrevShift ? matchingPrevShift.responded_at : null;
+
+    const shiftRecord = {
       id: crypto.randomUUID(),
       roster_version_id: versionId,
       user_id: shift.user_id,
@@ -247,14 +276,24 @@ export async function publishRosterWeek(params: {
       label: shift.label || null,
       notes: shift.notes || null,
       override_reason: shift.override_reason || null,
-    });
+      response_status: shiftStatus,
+      response_reason: shiftReason,
+      response_note: shiftNote,
+      responded_at: shiftRespondedAt,
+    };
+
+    await db.insert(rosterVersionShifts).values(shiftRecord);
+
+    const userShifts = insertedShiftsByUser.get(shift.user_id) || [];
+    userShifts.push(shiftRecord);
+    insertedShiftsByUser.set(shift.user_id, userShifts);
   }
 
-  // 9. Generate Staff Snapshots & Compare Hashes for Revision Notifications
+  // 9. Generate Staff Snapshots based on per-shift statuses
   const staffToNotify: Array<{ user_id: string; title: string; body: string }> = [];
 
   for (const staff of activeStaff) {
-    const staffShifts = draftShifts.filter((s) => s.user_id === staff.id);
+    const staffShifts = insertedShiftsByUser.get(staff.id) || [];
     const contentHash = computeStaffVisibleRosterHash(staffShifts);
     const hasShifts = staffShifts.length > 0;
     const shiftCount = staffShifts.length;
@@ -265,24 +304,31 @@ export async function publishRosterWeek(params: {
     let respondedAt: string | null = null;
     let shouldNotify = false;
 
-    if (isRevision && previousSnapshotsMap.has(staff.id)) {
-      const prev = previousSnapshotsMap.get(staff.id);
-      if (prev.content_hash === contentHash) {
-        // Unchanged roster: retain previous response
-        responseStatus = prev.response_status;
-        responseReason = prev.response_reason;
-        responseNote = prev.response_note;
-        respondedAt = prev.responded_at;
-        shouldNotify = false;
-      } else {
-        // Changed roster: reset to pending and notify
-        responseStatus = 'pending';
-        shouldNotify = true;
-      }
+    if (!hasShifts) {
+      // No shifts assigned: automatically acknowledged
+      responseStatus = 'acknowledged';
+      respondedAt = nowIso;
+      shouldNotify = !isRevision; // Only notify on initial publish
     } else {
-      // First publication: all active staff receive pending and notification
-      responseStatus = 'pending';
-      shouldNotify = true;
+      const pendingCount = staffShifts.filter((s) => s.response_status === 'pending').length;
+      const conflictShifts = staffShifts.filter((s) => s.response_status === 'conflict');
+      const allConfirmed = staffShifts.every((s) => s.response_status === 'acknowledged');
+
+      if (conflictShifts.length > 0) {
+        responseStatus = 'conflict';
+        responseReason = conflictShifts[0].response_reason;
+        responseNote = conflictShifts[0].response_note;
+        respondedAt = conflictShifts[0].responded_at || nowIso;
+        // If there are pending shifts or if revision changed something, notify
+        shouldNotify = pendingCount > 0;
+      } else if (allConfirmed) {
+        responseStatus = 'acknowledged';
+        respondedAt = staffShifts[0].responded_at || nowIso;
+        shouldNotify = false; // All shifts were already confirmed from previous version
+      } else {
+        responseStatus = 'pending';
+        shouldNotify = true; // Staff needs to confirm pending shift(s)
+      }
     }
 
     const snapshotId = crypto.randomUUID();
@@ -300,12 +346,15 @@ export async function publishRosterWeek(params: {
     });
 
     if (shouldNotify) {
+      const pendingCount = staffShifts.filter((s) => s.response_status === 'pending').length;
       const title = isRevision
-        ? `Roster Revision Published (Week of ${week.week_start_date})`
+        ? `Roster Updated (Week of ${week.week_start_date})`
         : `New Roster Published (Week of ${week.week_start_date})`;
       const body = hasShifts
-        ? `Your roster has ${shiftCount} shift${shiftCount > 1 ? 's' : ''} for the week starting ${week.week_start_date}. Please review and acknowledge.`
-        : `Your roster has been published with No shifts assigned for the week starting ${week.week_start_date}. Please acknowledge.`;
+        ? pendingCount > 0 && isRevision
+          ? `Your roster was updated with ${pendingCount} shift${pendingCount > 1 ? 's' : ''} requiring your confirmation.`
+          : `Your roster has ${shiftCount} shift${shiftCount > 1 ? 's' : ''} for the week starting ${week.week_start_date}. Please review and confirm.`
+        : `Your roster has been published with No shifts assigned for the week starting ${week.week_start_date}.`;
 
       staffToNotify.push({ user_id: staff.id, title, body });
 

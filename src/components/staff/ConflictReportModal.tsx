@@ -6,6 +6,8 @@ interface ConflictReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   snapshotId: string;
+  shiftId?: string | null;
+  shiftDetails?: { dateStr?: string; timeStr?: string; label?: string } | null;
   onSuccess: () => void;
 }
 
@@ -13,6 +15,8 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
   isOpen,
   onClose,
   snapshotId,
+  shiftId,
+  shiftDetails,
   onSuccess,
 }) => {
   const [reason, setReason] = useState('');
@@ -36,6 +40,7 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
         method: 'POST',
         body: JSON.stringify({
           snapshot_id: snapshotId,
+          shift_id: shiftId || undefined,
           reason: reason.trim(),
           note: note.trim() || undefined,
         }),
@@ -58,12 +63,22 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
               <div className="p-2 rounded-xl bg-amber-50 border border-amber-200">
                 <AlertTriangle className="w-5 h-5" />
               </div>
-              <h2 className="text-base font-semibold text-slate-900">Report Roster Conflict</h2>
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">
+                  {shiftId ? 'Report Shift Conflict' : 'Report Roster Conflict'}
+                </h2>
+                {shiftDetails && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {shiftDetails.dateStr} • {shiftDetails.timeStr}
+                    {shiftDetails.label ? ` (${shiftDetails.label})` : ''}
+                  </p>
+                )}
+              </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -112,14 +127,14 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
             </div>
 
             <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed border border-slate-200">
-              Your manager will be notified immediately of this conflict report to review adjustments.
+              Your manager will be notified immediately of this {shiftId ? 'shift' : 'roster'} conflict report to review adjustments.
             </div>
 
             <div className="flex items-center gap-2 pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-sm hover:bg-slate-50 transition-colors"
+                className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-sm hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -127,7 +142,7 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
                 id="submit-conflict-btn"
                 type="submit"
                 disabled={submitting}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 text-white font-medium text-sm hover:bg-amber-700 transition-colors shadow-xs disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 text-white font-medium text-sm hover:bg-amber-700 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 {submitting ? 'Submitting...' : 'Submit Conflict'}
               </button>

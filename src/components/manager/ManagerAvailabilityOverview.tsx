@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../lib/api.ts';
 import { WeekNavigator } from '../common/WeekNavigator.tsx';
 import { EnterAvailabilityModal } from './EnterAvailabilityModal.tsx';
-import { getCurrentMonday, DAY_NAMES, SHORT_DAY_NAMES, getDayDateStr } from '../../lib/dateUtils.ts';
+import { getCurrentMonday, getDefaultActiveMonday, DAY_NAMES, SHORT_DAY_NAMES, getDayDateStr } from '../../lib/dateUtils.ts';
 import type { AvailabilityWindow } from '../../types/index.ts';
 import {
   Clock,
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export const ManagerAvailabilityOverview: React.FC = () => {
-  const [selectedWeek, setSelectedWeek] = useState(getCurrentMonday());
+  const [selectedWeek, setSelectedWeek] = useState(getDefaultActiveMonday());
   const [staffReports, setStaffReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStaffForOnBehalf, setSelectedStaffForOnBehalf] = useState<any | null>(null);

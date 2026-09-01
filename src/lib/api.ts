@@ -1,5 +1,9 @@
+export function getAuthToken(): string | null {
+  return typeof window !== 'undefined' ? localStorage.getItem('roster_session_token') : null;
+}
+
 export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('roster_session_token') : null;
+  const token = getAuthToken();
 
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
