@@ -86,10 +86,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
               <Camera className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Start Shift / Clock In</h2>
-              <p className="text-sm text-emerald-100">
-                Log your arrival time and capture opening photo proof
-              </p>
+              <h2 className="text-xl font-bold">Start Shift</h2>
             </div>
           </div>
         </div>
@@ -106,9 +103,9 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
             <div>
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Current Auckland Time
+                Time (NZT)
               </span>
-              <div className="text-2xl font-black text-slate-900 tracking-tight">{timeFormatted} NZT</div>
+              <div className="text-2xl font-black text-slate-900 tracking-tight">{timeFormatted}</div>
             </div>
             {scheduledShift && (
               <div className="text-right">
@@ -127,13 +124,13 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
           {/* Starting Location / Type Selector */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-              Where are you starting today?
+              Starting Location
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setClockInType('base_arrival')}
-                className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border text-center font-medium transition-all ${
+                className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl border text-center font-medium transition-all ${
                   clockInType === 'base_arrival'
                     ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 ring-2 ring-emerald-500/20'
                     : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
@@ -141,13 +138,12 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
               >
                 <Building className={`w-5 h-5 ${clockInType === 'base_arrival' ? 'text-emerald-600' : 'text-slate-400'}`} />
                 <span className="text-sm font-semibold">Base / Main Office</span>
-                <span className="text-xs text-slate-500">Arrived at the depot</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setClockInType('first_job')}
-                className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border text-center font-medium transition-all ${
+                className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl border text-center font-medium transition-all ${
                   clockInType === 'first_job'
                     ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 ring-2 ring-emerald-500/20'
                     : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
@@ -155,7 +151,6 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
               >
                 <Briefcase className={`w-5 h-5 ${clockInType === 'first_job' ? 'text-emerald-600' : 'text-slate-400'}`} />
                 <span className="text-sm font-semibold">First Job Site</span>
-                <span className="text-xs text-slate-500">Direct to client site</span>
               </button>
             </div>
           </div>
@@ -163,7 +158,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
           {clockInType === 'first_job' && (
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Site / Location Name (Optional)
+                Site Name (Optional)
               </label>
               <div className="relative">
                 <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -171,7 +166,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
                   type="text"
                   value={locationName}
                   onChange={(e) => setLocationName(e.target.value)}
-                  placeholder="e.g. Sylvia Park Commercial / 12 Queen St"
+                  placeholder="e.g. Sylvia Park Commercial"
                   className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
@@ -181,7 +176,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
           {/* Photo Proof (In-app camera or file upload) */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-              Arrival Photo Proof <span className="text-slate-400 font-normal">(Base / First Job)</span>
+              Arrival Photo
             </label>
 
             <input
@@ -223,17 +218,14 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
             ) : (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl p-6 flex flex-col items-center justify-center gap-2.5 bg-slate-50 hover:bg-emerald-50/30 transition-colors cursor-pointer text-center"
+                className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl p-5 flex flex-col items-center justify-center gap-2 bg-slate-50 hover:bg-emerald-50/30 transition-colors cursor-pointer text-center"
               >
-                <div className="p-3 bg-white rounded-full shadow-xs border border-slate-200 text-emerald-600">
-                  <Camera className="w-6 h-6" />
+                <div className="p-2.5 bg-white rounded-full shadow-xs border border-slate-200 text-emerald-600">
+                  <Camera className="w-5 h-5" />
                 </div>
                 <div>
                   <span className="text-sm font-bold text-slate-800 block">
-                    Take Photo or Upload Proof
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    Snap base office arrival or first job entrance
+                    Upload Photo
                   </span>
                 </div>
               </div>
@@ -259,7 +251,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  <span>Confirm Clock In</span>
+                  <span>Clock In</span>
                 </>
               )}
             </button>

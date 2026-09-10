@@ -25,6 +25,7 @@ export async function createInAppNotification(params: {
     | 'AVAILABILITY_CHANGED'
     | 'CONFLICT_REPORTED'
     | 'SHIFT_STARTED'
+    | 'SHIFT_EVENT'
     | 'TIMESHEET_SUBMITTED'
     | 'TIMESHEET_APPROVED';
   title: string;

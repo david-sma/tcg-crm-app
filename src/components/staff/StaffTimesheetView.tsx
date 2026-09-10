@@ -169,12 +169,9 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
         {/* Paper Sheet Header */}
         <div className="p-6 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-md">
-                THE CLEANING GUYS NZ
-              </span>
-              <span className="text-xs text-slate-500 font-medium">Timesheet & Shift Log</span>
-            </div>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+              Timesheet & Shift Log
+            </span>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
               {employeeName || 'Staff Member'}
             </h2>
@@ -207,8 +204,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                 {timesheet?.status === 'approved'
                   ? '✓ Approved'
                   : timesheet?.status === 'submitted'
-                  ? 'Submitted (Pending Review)'
-                  : 'Draft / In Progress'}
+                  ? 'Submitted'
+                  : 'Draft'}
               </span>
             </div>
           </div>
@@ -221,8 +218,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
               <tr className="bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
                 <th className="py-3.5 px-4">Date</th>
                 <th className="py-3.5 px-3">Day</th>
-                <th className="py-3.5 px-4">Start Time & Proof</th>
-                <th className="py-3.5 px-4">Finish Time & Proof</th>
+                <th className="py-3.5 px-4">Start Time</th>
+                <th className="py-3.5 px-4">Finish Time</th>
                 <th className="py-3.5 px-3">Break</th>
                 <th className="py-3.5 px-4">Worked With</th>
                 <th className="py-3.5 px-4 text-right">Total Hours</th>
@@ -363,14 +360,60 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                         ) : (
                           <span className="text-slate-300">—</span>
                         )}
+
+                        {/* Intermediate Site Event Reports Gallery */}
+                        {rep?.events && rep.events.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap pt-1">
+                            {rep.events.map((ev: any, idx: number) => {
+                              const isArr = ev.event_type === 'arrival';
+                              const isLv = ev.event_type === 'leaving';
+                              return (
+                                <button
+                                  key={ev.id || idx}
+                                  type="button"
+                                  onClick={() =>
+                                    setActivePhoto({
+                                      url: ev.photo_url,
+                                      title: `${isArr ? 'Arrival' : isLv ? 'Leaving' : 'Closing'} Photo - ${row.short_day} ${shortDate}`,
+                                      timestamp: ev.timestamp,
+                                      location: ev.location_name,
+                                      typeLabel: `${ev.event_type.toUpperCase()} - ${ev.location_name || 'Site'}`,
+                                    })
+                                  }
+                                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold border transition-colors flex items-center gap-1 cursor-pointer ${
+                                    isArr
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                      : isLv
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                      : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                  }`}
+                                  title={`View ${ev.event_type} photo: ${ev.location_name || 'Job Site'}`}
+                                >
+                                  <Camera className="w-2.5 h-2.5" />
+                                  <span>
+                                    {isArr ? 'Arr' : isLv ? 'Dep' : 'End'}:{' '}
+                                    {ev.location_name ? ev.location_name.substring(0, 9) : 'Site'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
 
-                      {/* Break */}
+                      {/* Break & Travel */}
                       <td className="py-3.5 px-3">
                         {rep && rep.status !== 'in_progress' ? (
-                          <span className="text-xs font-semibold text-slate-700">
-                            {effectiveBreak > 0 ? `${effectiveBreak}m` : '0m'}
-                          </span>
+                          <div>
+                            <span className="text-xs font-semibold text-slate-700">
+                              {effectiveBreak > 0 ? `${effectiveBreak}m` : '0m'}
+                            </span>
+                            {rep?.travel_minutes > 0 && (
+                              <div className="text-[10px] text-blue-600 font-medium whitespace-nowrap">
+                                +{rep.travel_minutes}m travel
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-slate-300">—</span>
                         )}
@@ -440,7 +483,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <FileCheck className="w-4 h-4 text-emerald-600" />
-                Employee Signature / Confirmation
+                Employee Signature
               </span>
               {timesheet?.staff_signed_at ? (
                 <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-md flex items-center gap-1">
@@ -466,14 +509,13 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                   })}
                 </div>
                 <p className="text-[11px] text-emerald-700 font-medium pt-1">
-                  ✓ Confirmed shift start/finish times, breaks, and photo proof are accurate.
+                  ✓ Confirmed hours and shift times.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  I confirm that the recorded start, finish, and break times above represent my true
-                  working hours for this week.
+                  I confirm that the recorded times and breaks above are accurate.
                 </p>
                 <button
                   type="button"
@@ -486,7 +528,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4" />
-                      <span>Confirm & Sign Weekly Timesheet</span>
+                      <span>Sign Timesheet</span>
                     </>
                   )}
                 </button>

@@ -65,7 +65,7 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-semibold text-slate-900">
-                  {shiftId ? 'Report Shift Conflict' : 'Report Roster Conflict'}
+                  {shiftId ? 'Shift Conflict' : 'Report Conflict'}
                 </h2>
                 {shiftDetails && (
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -93,7 +93,7 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
 
             <div>
               <label htmlFor="conflict-reason-input" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Reason for Conflict <span className="text-rose-500">*</span>
+                Reason <span className="text-rose-500">*</span>
               </label>
               <select
                 id="conflict-reason-input"
@@ -114,20 +114,16 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
 
             <div>
               <label htmlFor="conflict-note-input" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Additional Details (Optional)
+                Notes (optional)
               </label>
               <textarea
                 id="conflict-note-input"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
-                placeholder="Explain the specific conflict or alternative times you can work..."
+                placeholder="Details or alternative availability..."
                 className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-slate-900"
               />
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 leading-relaxed border border-slate-200">
-              Your manager will be notified immediately of this {shiftId ? 'shift' : 'roster'} conflict report to review adjustments.
             </div>
 
             <div className="flex items-center gap-2 pt-2">
@@ -144,7 +140,7 @@ export const ConflictReportModal: React.FC<ConflictReportModalProps> = ({
                 disabled={submitting}
                 className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 text-white font-medium text-sm hover:bg-amber-700 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
               >
-                {submitting ? 'Submitting...' : 'Submit Conflict'}
+                {submitting ? 'Submitting...' : 'Submit'}
               </button>
             </div>
           </form>

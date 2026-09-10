@@ -3,6 +3,7 @@ import { db } from '../db/index.ts';
 import {
   users,
   shiftReports,
+  shiftEventReports,
   weeklyTimesheets,
   rosterWeeks,
   rosterVersions,
@@ -43,8 +44,21 @@ function getTodayDateNZ(): string {
   return formatZoned(nowNZ, 'yyyy-MM-dd', { timeZone: TIMEZONE });
 }
 
+// Helper to format an event report and expose secure photo endpoint
+function formatEventForResponse(ev: any) {
+  if (!ev) return null;
+  return {
+    ...ev,
+    photo_url: ev.photo_url
+      ? ev.photo_url.startsWith('data:image/')
+        ? ev.photo_url
+        : `/api/timesheets/event-photo/${ev.id}`
+      : null,
+  };
+}
+
 // Helper to format shift report and expose secure photo endpoints
-function formatReportForResponse(report: any) {
+function formatReportForResponse(report: any, events: any[] = []) {
   if (!report) return null;
   return {
     ...report,
@@ -58,7 +72,9 @@ function formatReportForResponse(report: any) {
         ? report.clock_out_photo
         : `/api/timesheets/photo/${report.id}/clock-out`
       : null,
+    travel_minutes: report.travel_minutes || 0,
     worked_with: typeof report.worked_with === 'string' ? JSON.parse(report.worked_with || '[]') : report.worked_with || [],
+    events: events.map(formatEventForResponse),
   };
 }
 
@@ -87,6 +103,16 @@ timesheetsRouter.get('/today', async (req: Request, res: Response) => {
 
     const activeReport = inProgressReport || (reports.length > 0 ? reports[0] : null);
 
+    // Load any site event reports for the active shift
+    let activeEvents: any[] = [];
+    if (activeReport) {
+      activeEvents = await db
+        .select()
+        .from(shiftEventReports)
+        .where(eq(shiftEventReports.shift_report_id, activeReport.id))
+        .orderBy(shiftEventReports.timestamp);
+    }
+
     // Find today's scheduled roster shift and suggested teammates
     const { scheduledShift, suggestedCoworkers } = await findScheduledShiftAndTeammates(
       userId,
@@ -100,7 +126,7 @@ timesheetsRouter.get('/today', async (req: Request, res: Response) => {
       .from(users)
       .where(and(eq(users.is_active, true), eq(users.role, 'staff')));
 
-    const parsedActiveReport = activeReport ? formatReportForResponse(activeReport) : null;
+    const parsedActiveReport = activeReport ? formatReportForResponse(activeReport, activeEvents) : null;
 
     return res.json({
       today_date: todayDate,
@@ -198,11 +224,30 @@ timesheetsRouter.post('/clock-in', async (req: Request, res: Response) => {
       });
     }
 
+    if (storedClockInPhoto) {
+      await db.insert(shiftEventReports).values({
+        id: crypto.randomUUID(),
+        shift_report_id: reportId,
+        user_id: userId,
+        event_type: 'arrival',
+        location_name: location || (type === 'base_arrival' ? 'Main Office / Base' : 'First Job Site'),
+        photo_url: storedClockInPhoto,
+        notes: 'Initial shift arrival / clock in',
+        timestamp: nowIso,
+        created_at: nowIso,
+      });
+    }
+
     const createdReport = (await db.select().from(shiftReports).where(eq(shiftReports.id, reportId)))[0];
+    const initialEvents = await db
+      .select()
+      .from(shiftEventReports)
+      .where(eq(shiftEventReports.shift_report_id, reportId))
+      .orderBy(shiftEventReports.timestamp);
 
     return res.json({
       success: true,
-      report: formatReportForResponse(createdReport),
+      report: formatReportForResponse(createdReport, initialEvents),
     });
   } catch (err: any) {
     console.error('Clock in error:', err);
@@ -219,6 +264,7 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
       type = 'closing_shift',
       location,
       break_minutes = 0,
+      travel_minutes = 0,
       worked_with = [],
       notes,
     } = req.body;
@@ -261,7 +307,7 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
       storedClockOutPhoto = await uploadShiftPhoto({
         userId,
         shiftDate: report.shift_date,
-        photoType: 'clock_out',
+        photoType: 'closing',
         base64Data: photo,
       });
     }
@@ -273,7 +319,8 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
         clock_out_photo: storedClockOutPhoto,
         clock_out_type: type,
         clock_out_location: location || (type === 'closing_shift' ? 'Base / Closing Shift' : 'Last Job Site'),
-        break_minutes: Number(break_minutes) || 0,
+        break_minutes: Math.max(0, Number(break_minutes) || 0),
+        travel_minutes: Math.max(0, Number(travel_minutes) || 0),
         worked_with: JSON.stringify(workedWithArray),
         staff_notes: notes?.trim() || null,
         status: 'completed',
@@ -281,6 +328,21 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
         updated_at: nowIso,
       })
       .where(eq(shiftReports.id, report.id));
+
+    // Record closing event in shift_event_reports
+    if (storedClockOutPhoto) {
+      await db.insert(shiftEventReports).values({
+        id: crypto.randomUUID(),
+        shift_report_id: report.id,
+        user_id: userId,
+        event_type: 'closing',
+        location_name: location || (type === 'closing_shift' ? 'Base / Closing Shift' : 'Last Job Site'),
+        photo_url: storedClockOutPhoto,
+        notes: notes?.trim() || 'Shift closing / finish report',
+        timestamp: nowIso,
+        created_at: nowIso,
+      });
+    }
 
     // Recalculate weekly timesheet totals
     await recalculateWeeklyTimesheet(userId, report.week_start_date);
@@ -296,20 +358,203 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
         shift_date: report.shift_date,
         total_worked_minutes: netMinutes,
         break_minutes: Number(break_minutes) || 0,
+        travel_minutes: Number(travel_minutes) || 0,
         worked_with: workedWithArray,
       },
       ip_address: req.ip,
     });
 
     const updatedReport = (await db.select().from(shiftReports).where(eq(shiftReports.id, report.id)))[0];
+    const allEvents = await db
+      .select()
+      .from(shiftEventReports)
+      .where(eq(shiftEventReports.shift_report_id, report.id))
+      .orderBy(shiftEventReports.timestamp);
 
     return res.json({
       success: true,
-      report: formatReportForResponse(updatedReport),
+      report: formatReportForResponse(updatedReport, allEvents),
     });
   } catch (err: any) {
     console.error('Clock out error:', err);
     return res.status(500).json({ error: err?.message || 'Failed to clock out' });
+  }
+});
+
+// POST /api/timesheets/event-report - Staff report intermediate site arrival or leaving
+timesheetsRouter.post('/event-report', async (req: Request, res: Response) => {
+  try {
+    const {
+      report_id,
+      event_type, // 'arrival' | 'leaving'
+      location_name,
+      photo,
+      notes,
+    } = req.body;
+
+    const userId = req.user!.id;
+    const nowIso = new Date().toISOString();
+
+    if (!['arrival', 'leaving'].includes(event_type)) {
+      return res.status(400).json({ error: 'event_type must be either arrival or leaving' });
+    }
+
+    if (!photo) {
+      return res.status(400).json({ error: 'Photo proof is required to submit a site report.' });
+    }
+
+    // Find active shift
+    let report = null;
+    if (report_id) {
+      report = (
+        await db
+          .select()
+          .from(shiftReports)
+          .where(and(eq(shiftReports.id, report_id), eq(shiftReports.user_id, userId)))
+          .limit(1)
+      )[0];
+    } else {
+      report = (
+        await db
+          .select()
+          .from(shiftReports)
+          .where(and(eq(shiftReports.user_id, userId), eq(shiftReports.status, 'in_progress')))
+          .orderBy(desc(shiftReports.created_at))
+          .limit(1)
+      )[0];
+    }
+
+    if (!report) {
+      return res.status(404).json({ error: 'No active shift found. Please start your shift first.' });
+    }
+
+    // Upload photo to GCS
+    const storedPhoto = await uploadShiftPhoto({
+      userId,
+      shiftDate: report.shift_date,
+      photoType: event_type,
+      base64Data: photo,
+    });
+
+    const eventId = crypto.randomUUID();
+    await db.insert(shiftEventReports).values({
+      id: eventId,
+      shift_report_id: report.id,
+      user_id: userId,
+      event_type,
+      location_name: location_name?.trim() || null,
+      photo_url: storedPhoto,
+      notes: notes?.trim() || null,
+      timestamp: nowIso,
+      created_at: nowIso,
+    });
+
+    await logAuditEvent({
+      actor_user_id: userId,
+      actor_name: req.user!.name,
+      actor_role: req.user!.role,
+      event_type: 'SHIFT_SITE_REPORT',
+      entity_type: 'shift_event_report',
+      entity_id: eventId,
+      metadata: {
+        shift_date: report.shift_date,
+        event_type,
+        location_name: location_name?.trim() || null,
+        has_photo: Boolean(photo),
+      },
+      ip_address: req.ip,
+    });
+
+    // Notify active managers in real-time
+    const label = event_type === 'arrival' ? 'Arrival at Site' : 'Departed Site';
+    const locStr = location_name?.trim() ? ` (${location_name.trim()})` : '';
+    const managers = await db.select().from(users).where(and(eq(users.role, 'manager'), eq(users.is_active, true)));
+    for (const mgr of managers) {
+      await createInAppNotification({
+        userId: mgr.id,
+        type: 'SHIFT_EVENT',
+        title: `${label}: ${req.user!.name}`,
+        body: `${req.user!.name} reported ${event_type}${locStr} with photo proof.`,
+        relatedEntityType: 'shift_report',
+        relatedEntityId: report.id,
+      });
+    }
+
+    // Fetch all events for this report
+    const events = await db
+      .select()
+      .from(shiftEventReports)
+      .where(eq(shiftEventReports.shift_report_id, report.id))
+      .orderBy(shiftEventReports.timestamp);
+
+    return res.json({
+      success: true,
+      message: `${event_type === 'arrival' ? 'Arrival' : 'Leaving'} report recorded successfully`,
+      event: formatEventForResponse({
+        id: eventId,
+        shift_report_id: report.id,
+        user_id: userId,
+        event_type,
+        location_name: location_name?.trim() || null,
+        photo_url: storedPhoto,
+        notes: notes?.trim() || null,
+        timestamp: nowIso,
+        created_at: nowIso,
+      }),
+      report: formatReportForResponse(report, events),
+    });
+  } catch (err: any) {
+    console.error('Event report error:', err);
+    return res.status(500).json({ error: err?.message || 'Failed to submit site report' });
+  }
+});
+
+// GET /api/timesheets/event-photo/:eventId - Authenticated streaming of event photos
+timesheetsRouter.get('/event-photo/:eventId', async (req: Request, res: Response) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+
+    const event = (
+      await db.select().from(shiftEventReports).where(eq(shiftEventReports.id, eventId)).limit(1)
+    )[0];
+
+    if (!event) {
+      return res.status(404).json({ error: 'Shift event not found' });
+    }
+
+    if (userRole !== 'manager' && event.user_id !== userId) {
+      return res.status(403).json({ error: 'Unauthorized to view this photo' });
+    }
+
+    const photoRef = event.photo_url;
+    if (!photoRef) {
+      return res.status(404).json({ error: 'No photo on record' });
+    }
+
+    if (photoRef.startsWith('gcs://')) {
+      const fileData = await getPhotoBufferFromGCS(photoRef);
+      if (!fileData) {
+        return res.status(404).json({ error: 'Photo file not found in storage bucket' });
+      }
+      res.setHeader('Content-Type', fileData.contentType);
+      res.setHeader('Cache-Control', 'private, max-age=86400');
+      return res.send(fileData.buffer);
+    } else if (photoRef.startsWith('data:image/')) {
+      const matches = photoRef.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const buffer = Buffer.from(matches[2], 'base64');
+        res.setHeader('Content-Type', matches[1]);
+        res.setHeader('Cache-Control', 'private, max-age=86400');
+        return res.send(buffer);
+      }
+    }
+
+    return res.redirect(photoRef);
+  } catch (err) {
+    console.error('Error fetching event photo:', err);
+    return res.status(500).json({ error: 'Failed to retrieve event photo' });
   }
 });
 
@@ -329,9 +574,25 @@ timesheetsRouter.get('/my-week', async (req: Request, res: Response) => {
       .where(and(eq(shiftReports.user_id, userId), eq(shiftReports.week_start_date, week)))
       .orderBy(shiftReports.day_of_week);
 
+    const reportIds = reports.map((r) => r.id);
+    const allEvents = reportIds.length > 0
+      ? await db
+          .select()
+          .from(shiftEventReports)
+          .where(inArray(shiftEventReports.shift_report_id, reportIds))
+          .orderBy(shiftEventReports.timestamp)
+      : [];
+
+    const eventsByReportId = new Map<string, any[]>();
+    for (const ev of allEvents) {
+      const list = eventsByReportId.get(ev.shift_report_id) || [];
+      list.push(ev);
+      eventsByReportId.set(ev.shift_report_id, list);
+    }
+
     const reportByDate = new Map<string, any>();
     for (const r of reports) {
-      reportByDate.set(r.shift_date, formatReportForResponse(r));
+      reportByDate.set(r.shift_date, formatReportForResponse(r, eventsByReportId.get(r.id) || []));
     }
 
     // Fetch scheduled roster shifts for this user in this week
@@ -544,6 +805,22 @@ timesheetsRouter.get('/live-duty', requireRole('manager'), async (req: Request, 
       .where(eq(shiftReports.status, 'in_progress'))
       .orderBy(shiftReports.clock_in_at);
 
+    const reportIds = activeReports.map((r) => r.id);
+    const allEvents = reportIds.length > 0
+      ? await db
+          .select()
+          .from(shiftEventReports)
+          .where(inArray(shiftEventReports.shift_report_id, reportIds))
+          .orderBy(desc(shiftEventReports.timestamp))
+      : [];
+
+    const latestEventByReportId = new Map<string, any>();
+    for (const ev of allEvents) {
+      if (!latestEventByReportId.has(ev.shift_report_id)) {
+        latestEventByReportId.set(ev.shift_report_id, formatEventForResponse(ev));
+      }
+    }
+
     const formattedStaff = activeReports.map((r) => ({
       ...r,
       clock_in_photo: r.clock_in_photo
@@ -551,6 +828,7 @@ timesheetsRouter.get('/live-duty', requireRole('manager'), async (req: Request, 
           ? r.clock_in_photo
           : `/api/timesheets/photo/${r.id}/clock-in`
         : null,
+      latest_event: latestEventByReportId.get(r.id) || null,
     }));
 
     return res.json({
@@ -730,9 +1008,25 @@ timesheetsRouter.get('/staff-sheet', requireRole('manager'), async (req: Request
       .where(and(eq(shiftReports.user_id, userId), eq(shiftReports.week_start_date, week)))
       .orderBy(shiftReports.day_of_week);
 
+    const reportIds = reports.map((r) => r.id);
+    const allEvents = reportIds.length > 0
+      ? await db
+          .select()
+          .from(shiftEventReports)
+          .where(inArray(shiftEventReports.shift_report_id, reportIds))
+          .orderBy(shiftEventReports.timestamp)
+      : [];
+
+    const eventsByReportId = new Map<string, any[]>();
+    for (const ev of allEvents) {
+      const list = eventsByReportId.get(ev.shift_report_id) || [];
+      list.push(ev);
+      eventsByReportId.set(ev.shift_report_id, list);
+    }
+
     const reportByDate = new Map<string, any>();
     for (const r of reports) {
-      reportByDate.set(r.shift_date, formatReportForResponse(r));
+      reportByDate.set(r.shift_date, formatReportForResponse(r, eventsByReportId.get(r.id) || []));
     }
 
     // Fetch scheduled roster shifts

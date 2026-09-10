@@ -387,31 +387,64 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                     )}
                     <span>{staff.clock_in_location || 'Base Office'}</span>
                   </div>
+
+                  {staff.latest_event && (
+                    <div className="text-[11px] text-emerald-300 font-medium flex items-center gap-1.5 pt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span>
+                        {staff.latest_event.event_type === 'arrival' ? 'Arrived at' : 'Left'}{' '}
+                        <strong>{staff.latest_event.location_name || 'Job Site'}</strong> (
+                        {formatNZTime(staff.latest_event.timestamp)})
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {staff.clock_in_photo && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActivePhoto({
-                        url: staff.clock_in_photo,
-                        title: `Clock In Photo - ${staff.user_name}`,
-                        timestamp: staff.clock_in_at,
-                        location: staff.clock_in_location,
-                        typeLabel:
-                          staff.clock_in_type === 'base_arrival'
-                            ? 'Base Office Arrival'
-                            : 'First Job Site',
-                      })
-                    }
-                    className="relative group shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-400 text-xs font-semibold text-emerald-400 transition-all cursor-pointer"
-                    title="View Arrival Photo"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>Photo</span>
-                    <Eye className="w-3 h-3 text-slate-400 group-hover:text-white" />
-                  </button>
-                )}
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  {staff.clock_in_photo && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActivePhoto({
+                          url: staff.clock_in_photo,
+                          title: `Clock In Photo - ${staff.user_name}`,
+                          timestamp: staff.clock_in_at,
+                          location: staff.clock_in_location,
+                          typeLabel:
+                            staff.clock_in_type === 'base_arrival'
+                              ? 'Base Office Arrival'
+                              : 'First Job Site',
+                        })
+                      }
+                      className="relative group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-400 text-xs font-semibold text-emerald-400 transition-all cursor-pointer"
+                      title="View Start Photo"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Start</span>
+                      <Eye className="w-3 h-3 text-slate-400 group-hover:text-white" />
+                    </button>
+                  )}
+
+                  {staff.latest_event?.photo_url && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActivePhoto({
+                          url: staff.latest_event.photo_url,
+                          title: `${staff.latest_event.event_type === 'arrival' ? 'Arrival' : 'Leaving'} Photo - ${staff.user_name}`,
+                          timestamp: staff.latest_event.timestamp,
+                          location: staff.latest_event.location_name,
+                          typeLabel: `${staff.latest_event.event_type.toUpperCase()} - ${staff.latest_event.location_name || 'Site'}`,
+                        })
+                      }
+                      className="relative group flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-700 text-[11px] font-semibold text-emerald-300 transition-all cursor-pointer"
+                      title="View Latest Site Photo"
+                    >
+                      <Camera className="w-3 h-3" />
+                      <span>Latest Site</span>
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -695,42 +728,127 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                             {/* Finish Time & Photo Proof */}
                             <td className="py-3 px-3">
                               {rep?.clock_out_at || rep?.manager_override_finish_at ? (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-bold text-slate-900">
-                                    {formatNZTime(effectiveFinish)}
-                                  </span>
-                                  {rep?.clock_out_photo && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setActivePhoto({
-                                          url: rep.clock_out_photo,
-                                          title: `Finish Photo Proof - ${row.short_day} ${shortDate}`,
-                                          timestamp: rep.clock_out_at,
-                                          location: rep.clock_out_location,
-                                          typeLabel:
-                                            rep.clock_out_type === 'closing_shift'
-                                              ? 'Base Lockup'
-                                              : 'Last Job Site',
-                                        })
-                                      }
-                                      className="p-1 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200"
-                                      title="View Finish Photo"
-                                    >
-                                      <Camera className="w-3.5 h-3.5" />
-                                    </button>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-slate-900">
+                                      {formatNZTime(effectiveFinish)}
+                                    </span>
+                                    {rep?.clock_out_photo && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setActivePhoto({
+                                            url: rep.clock_out_photo,
+                                            title: `Finish Photo Proof - ${row.short_day} ${shortDate}`,
+                                            timestamp: rep.clock_out_at,
+                                            location: rep.clock_out_location,
+                                            typeLabel:
+                                              rep.clock_out_type === 'closing_shift'
+                                                ? 'Base Lockup'
+                                                : 'Last Job Site',
+                                          })
+                                        }
+                                        className="p-1 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200"
+                                        title="View Finish Photo"
+                                      >
+                                        <Camera className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Intermediate Site Event Reports Gallery */}
+                                  {rep?.events && rep.events.length > 0 && (
+                                    <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                      {rep.events.map((ev: any, idx: number) => {
+                                        const isArr = ev.event_type === 'arrival';
+                                        const isLv = ev.event_type === 'leaving';
+                                        return (
+                                          <button
+                                            key={ev.id || idx}
+                                            type="button"
+                                            onClick={() =>
+                                              setActivePhoto({
+                                                url: ev.photo_url,
+                                                title: `${isArr ? 'Arrival' : isLv ? 'Leaving' : 'Closing'} Photo - ${row.short_day} ${shortDate}`,
+                                                timestamp: ev.timestamp,
+                                                location: ev.location_name,
+                                                typeLabel: `${ev.event_type.toUpperCase()} - ${ev.location_name || 'Site'}`,
+                                              })
+                                            }
+                                            className={`text-[10px] px-1.5 py-0.5 rounded font-bold border transition-colors flex items-center gap-1 cursor-pointer ${
+                                              isArr
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                : isLv
+                                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                            }`}
+                                            title={`View ${ev.event_type} photo: ${ev.location_name || 'Job Site'}`}
+                                          >
+                                            <Camera className="w-2.5 h-2.5" />
+                                            <span>
+                                              {isArr ? 'Arr' : isLv ? 'Dep' : 'End'}:{' '}
+                                              {ev.location_name ? ev.location_name.substring(0, 9) : 'Site'}
+                                            </span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
                                   )}
                                 </div>
                               ) : rep?.status === 'in_progress' ? (
-                                <span className="text-xs font-bold text-emerald-600">On Duty</span>
+                                <div className="space-y-1">
+                                  <span className="text-xs font-bold text-emerald-600">On Duty</span>
+                                  {rep?.events && rep.events.length > 0 && (
+                                    <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                      {rep.events.map((ev: any, idx: number) => {
+                                        const isArr = ev.event_type === 'arrival';
+                                        const isLv = ev.event_type === 'leaving';
+                                        return (
+                                          <button
+                                            key={ev.id || idx}
+                                            type="button"
+                                            onClick={() =>
+                                              setActivePhoto({
+                                                url: ev.photo_url,
+                                                title: `${isArr ? 'Arrival' : isLv ? 'Leaving' : 'Closing'} Photo - ${row.short_day} ${shortDate}`,
+                                                timestamp: ev.timestamp,
+                                                location: ev.location_name,
+                                                typeLabel: `${ev.event_type.toUpperCase()} - ${ev.location_name || 'Site'}`,
+                                              })
+                                            }
+                                            className={`text-[10px] px-1.5 py-0.5 rounded font-bold border transition-colors flex items-center gap-1 cursor-pointer ${
+                                              isArr
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                : isLv
+                                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                            }`}
+                                            title={`View ${ev.event_type} photo: ${ev.location_name || 'Job Site'}`}
+                                          >
+                                            <Camera className="w-2.5 h-2.5" />
+                                            <span>
+                                              {isArr ? 'Arr' : isLv ? 'Dep' : 'End'}:{' '}
+                                              {ev.location_name ? ev.location_name.substring(0, 9) : 'Site'}
+                                            </span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-slate-300">—</span>
                               )}
                             </td>
 
-                            {/* Break */}
+                            {/* Break & Travel */}
                             <td className="py-3 px-2 text-xs font-semibold text-slate-700">
-                              {rep && rep.status !== 'in_progress' ? `${effectiveBreak}m` : '—'}
+                              <div>{rep && rep.status !== 'in_progress' ? `${effectiveBreak}m` : '—'}</div>
+                              {rep?.travel_minutes > 0 && (
+                                <div className="text-[10px] text-blue-600 font-medium whitespace-nowrap">
+                                  +{rep.travel_minutes}m travel
+                                </div>
+                              )}
                             </td>
 
                             {/* Worked With */}

@@ -168,6 +168,19 @@ export interface AuditEvent {
 export type ShiftReportStatus = 'in_progress' | 'completed' | 'manager_approved' | 'manager_overridden';
 export type ClockInType = 'base_arrival' | 'first_job';
 export type ClockOutType = 'last_job' | 'closing_shift';
+export type ShiftEventType = 'arrival' | 'leaving' | 'closing';
+
+export interface ShiftEventReport {
+  id: string;
+  shift_report_id: string;
+  user_id: string;
+  event_type: ShiftEventType;
+  location_name?: string | null;
+  photo_url?: string | null;
+  notes?: string | null;
+  timestamp: string; // ISO
+  created_at: string;
+}
 
 export interface ShiftReport {
   id: string;
@@ -186,7 +199,8 @@ export interface ShiftReport {
   clock_out_photo?: string | null;
   clock_out_type?: ClockOutType | null;
   clock_out_location?: string | null;
-  break_minutes: number; // 0, 15, 30, 45, 60
+  break_minutes: number; // manual minutes
+  travel_minutes?: number; // manual travel minutes
   worked_with?: string[] | null; // coworker names
   staff_notes?: string | null;
   status: ShiftReportStatus;
@@ -197,6 +211,7 @@ export interface ShiftReport {
   manager_override_reason?: string | null;
   manager_overridden_by_id?: string | null;
   manager_overridden_at?: string | null;
+  events?: ShiftEventReport[];
   created_at: string;
   updated_at: string;
   // Computed / joined helpers

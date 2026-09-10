@@ -203,7 +203,7 @@ export const StaffAvailability: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">My Weekly Availability</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Indicate when you are able to work for the selected week.
+            Set your available hours for the week.
           </p>
         </div>
 
@@ -378,7 +378,7 @@ export const StaffAvailability: React.FC = () => {
                     className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 hover:text-slate-900 py-1 px-2 rounded-lg hover:bg-slate-100 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    Add Another Window (e.g. Split Shift)
+                    Add Window
                   </button>
                 </div>
               )}
@@ -394,8 +394,8 @@ export const StaffAvailability: React.FC = () => {
             <Repeat className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-slate-900">Schedule Duration & Routine</h3>
-            <p className="text-[11px] text-slate-500">Choose whether these hours apply to this week only or as your ongoing regular routine</p>
+            <h3 className="text-xs font-bold text-slate-900">Schedule Duration</h3>
+            <p className="text-[11px] text-slate-500">Apply to this week or make ongoing</p>
           </div>
         </div>
 
@@ -414,7 +414,7 @@ export const StaffAvailability: React.FC = () => {
               <div className={`text-xs font-bold ${repeatOption === 'single' ? 'text-[#5371FF]' : 'text-slate-900'}`}>
                 This Week Only
               </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Applies strictly to week of {selectedWeek}</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Week of {selectedWeek}</div>
             </div>
             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${repeatOption === 'single' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
               {repeatOption === 'single' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -433,10 +433,10 @@ export const StaffAvailability: React.FC = () => {
           >
             <div>
               <div className={`text-xs font-bold flex items-center gap-1.5 ${repeatOption === 'indefinite' ? 'text-[#5371FF]' : 'text-slate-900'}`}>
-                <span>Ongoing Regular Schedule</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-[#5371FF]/15 text-[#5371FF]">Indefinite</span>
+                <span>Ongoing Schedule</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-[#5371FF]/15 text-[#5371FF]">Ongoing</span>
               </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Repeats across all future weeks automatically</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">Repeats for future weeks</div>
             </div>
             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${repeatOption === 'indefinite' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
               {repeatOption === 'indefinite' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -466,7 +466,7 @@ export const StaffAvailability: React.FC = () => {
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-900 text-white font-medium text-sm hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-40 cursor-pointer"
         >
           <Save className="w-4 h-4" />
-          <span>{saving ? 'Saving Changes...' : repeatOption !== 'single' ? `Save & Repeat (${repeatOption === 'indefinite' ? 'Ongoing' : repeatOption})` : 'Save Availability'}</span>
+          <span>{saving ? 'Saving...' : repeatOption !== 'single' ? 'Save Ongoing' : 'Save Availability'}</span>
         </button>
       </div>
     </div>

@@ -209,7 +209,8 @@ export const shiftReports = pgTable('shift_reports', {
   clock_out_photo: text('clock_out_photo'),
   clock_out_type: text('clock_out_type'), // 'last_job' | 'closing_shift'
   clock_out_location: text('clock_out_location'),
-  break_minutes: integer('break_minutes').notNull().default(0), // 0, 15, 30, 45, 60
+  break_minutes: integer('break_minutes').notNull().default(0), // manual minutes
+  travel_minutes: integer('travel_minutes').notNull().default(0), // manual travel minutes
   worked_with: text('worked_with'), // JSON array of coworker names/IDs
   staff_notes: text('staff_notes'),
   status: text('status').notNull().default('in_progress'), // 'in_progress' | 'completed' | 'manager_approved' | 'manager_overridden'
@@ -226,6 +227,22 @@ export const shiftReports = pgTable('shift_reports', {
   index('shift_reports_user_date_idx').on(table.user_id, table.shift_date),
   index('shift_reports_week_idx').on(table.week_start_date),
   index('shift_reports_status_idx').on(table.status),
+]);
+
+export const shiftEventReports = pgTable('shift_event_reports', {
+  id: text('id').primaryKey(),
+  shift_report_id: text('shift_report_id').notNull().references(() => shiftReports.id, { onDelete: 'cascade' }),
+  user_id: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  event_type: text('event_type').notNull(), // 'arrival' | 'leaving' | 'closing'
+  location_name: text('location_name'),
+  photo_url: text('photo_url'),
+  notes: text('notes'),
+  timestamp: text('timestamp').notNull(), // ISO timestamp
+  created_at: text('created_at').notNull(),
+}, (table) => [
+  index('shift_events_report_idx').on(table.shift_report_id),
+  index('shift_events_user_idx').on(table.user_id),
+  index('shift_events_timestamp_idx').on(table.timestamp),
 ]);
 
 export const weeklyTimesheets = pgTable('weekly_timesheets', {

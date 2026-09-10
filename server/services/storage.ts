@@ -67,7 +67,7 @@ export function getStorageClient(): Storage {
 export async function uploadShiftPhoto(params: {
   userId: string;
   shiftDate: string; // YYYY-MM-DD
-  photoType: 'clock_in' | 'clock_out';
+  photoType: 'clock_in' | 'clock_out' | 'arrival' | 'leaving' | 'closing' | string;
   base64Data: string;
 }): Promise<string> {
   const { userId, shiftDate, photoType, base64Data } = params;
