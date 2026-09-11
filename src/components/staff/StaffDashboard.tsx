@@ -161,14 +161,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* Welcome Banner */}
-      <div className="p-6 sm:p-7 bg-gradient-to-br from-[#0c1322] via-[#111e38] to-[#0c1322] text-white rounded-3xl shadow-lg shadow-[#5371FF]/5 relative overflow-hidden border border-[#5371FF]/20">
-        <div className="relative z-10">
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Hi, {user?.name}</h1>
-          <p className="text-sm text-slate-300 mt-1 max-w-lg">
-            Attendance and timesheet portal.
-          </p>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+          Hi, {user?.name}
+        </h1>
+        <p className="text-sm text-slate-500 mt-0.5 max-w-lg">
+          Attendance and timesheet portal.
+        </p>
       </div>
 
       {/* Push notification banner */}
@@ -224,7 +224,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 block">
                   Active Shift Running
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight mt-0.5">
+                <div className="text-3xl sm:text-4xl font-bold text-slate-900 font-mono tracking-tight mt-0.5">
                   {formatTimer(timerSeconds)}
                 </div>
                 <div className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
@@ -391,10 +391,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Shift Logged for Today
+                Shift Completed for Today
               </div>
-              <div className="text-lg font-black text-slate-900">
-                {(activeReport.total_worked_minutes / 60).toFixed(2)} hours logged
+              <div className="text-lg font-bold text-slate-900">
+                {(activeReport.total_worked_minutes / 60).toFixed(2)} hours worked
               </div>
               <div className="text-xs text-slate-500">
                 {new Date(activeReport.clock_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}

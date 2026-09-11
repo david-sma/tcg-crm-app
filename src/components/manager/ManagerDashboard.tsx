@@ -66,40 +66,14 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ onNavigate }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      {/* Header Banner */}
-      <div className="p-6 sm:p-7 bg-gradient-to-br from-[#0c1322] via-[#111e38] to-[#0c1322] text-white rounded-3xl shadow-lg shadow-[#5371FF]/5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#5371FF]/20">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black uppercase tracking-wider text-[#5095FC]">TCG</span>
-            <span className="text-xs text-slate-400 font-medium">• Auckland Operations</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1 text-white">
-            Welcome, {user?.name}
-          </h1>
-          <p className="text-sm text-slate-300 mt-1 max-w-xl">
-            Roster management, live duty tracking, photo verification, and timesheet approvals.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => onNavigate('timesheets')}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all border border-white/20 flex items-center gap-1.5 cursor-pointer"
-          >
-            <ClipboardList className="w-4 h-4 text-emerald-400" />
-            <span>Timesheets & Duty ({liveDutyStaff.length} On Duty)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNavigate('roster-builder')}
-            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Roster Builder</span>
-          </button>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+          Welcome, {user?.name}
+        </h1>
+        <p className="text-sm text-slate-500 mt-0.5 max-w-xl">
+          Roster management, live duty tracking, photo verification, and timesheet approvals.
+        </p>
       </div>
 
       {/* Primary KPI Grid */}
@@ -115,7 +89,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ onNavigate }
               <ClipboardList className="w-4 h-4 text-emerald-600" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-2 flex items-center gap-2">
+          <div className="text-2xl font-bold text-slate-900 mt-2 flex items-center gap-2">
             <span>{liveDutyStaff.length}</span>
             <span className="text-xs font-medium text-slate-400">staff active</span>
           </div>
@@ -130,7 +104,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ onNavigate }
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Staff</span>
             <Users className="w-4 h-4 text-slate-400" />
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-2">{staffCount}</div>
+          <div className="text-2xl font-bold text-slate-900 mt-2">{staffCount}</div>
           <div className="text-[11px] text-slate-500 mt-1">Ready for assignment</div>
         </div>
 
@@ -142,7 +116,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ onNavigate }
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Missing Availability</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
-          <div className={`text-2xl font-black mt-2 ${missingNextAvailCount > 0 ? 'text-amber-600' : 'text-slate-900'}`}>
+          <div className={`text-2xl font-bold mt-2 ${missingNextAvailCount > 0 ? 'text-amber-600' : 'text-slate-900'}`}>
             {missingNextAvailCount}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">For week of {formatWeekRange(followingMonday)}</div>
@@ -156,7 +130,7 @@ export const ManagerDashboard: React.FC<ManagerDashboardProps> = ({ onNavigate }
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Roster</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-lg font-black text-slate-900 mt-2 truncate">
+          <div className="text-lg font-bold text-slate-900 mt-2 truncate">
             {activeWeekData?.roster_week?.published_version_number > 0
               ? `Published v${activeWeekData.roster_week.published_version_number}`
               : 'Draft Only'}

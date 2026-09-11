@@ -18,6 +18,7 @@ import { formatWeekRange, getOffsetMonday, getDefaultActiveMonday } from '../../
 import { apiFetch } from '../../lib/api';
 import { DayTimesheetRow, WeeklyTimesheet } from '../../types';
 import { PhotoViewerModal } from '../common/PhotoViewerModal';
+import { WeekNavigator } from '../common/WeekNavigator.tsx';
 
 interface StaffTimesheetViewProps {
   onBackToDashboard?: () => void;
@@ -109,46 +110,20 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      {/* Top Controls & Week Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
             <FileCheck className="w-6 h-6 text-emerald-600" />
             My Weekly Timesheet
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-500 mt-0.5">
             Review your shift hours, break times, and digital sign-off
           </p>
         </div>
-
-        {/* Week Switcher */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handlePrevWeek}
-            className="p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
-            title="Previous Week"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleCurrentWeek}
-            className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 hover:bg-slate-100 transition-colors flex items-center gap-1.5"
-          >
-            <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{formatWeekRange(selectedWeek)}</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleNextWeek}
-            className="p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
-            title="Next Week"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
       </div>
+
+      <WeekNavigator currentWeek={selectedWeek} onWeekChange={setSelectedWeek} />
 
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-sm flex items-center gap-2.5">
@@ -172,7 +147,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
               Timesheet & Shift Log
             </span>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
               {employeeName || 'Staff Member'}
             </h2>
             {employeePhone && (
@@ -185,7 +160,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Total Worked
               </span>
-              <span className="text-xl font-black text-slate-900">{totalHours} hrs</span>
+              <span className="text-xl font-bold text-slate-900">{totalHours} hrs</span>
             </div>
 
             <div className="bg-white px-4 py-2.5 rounded-xl border border-slate-200">
@@ -441,7 +416,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex flex-col items-end">
                           <span
-                            className={`font-black text-sm ${
+                            className={`font-bold text-sm ${
                               durationHours !== '—' && durationHours !== 'In Progress'
                                 ? 'text-slate-900'
                                 : 'text-slate-400'
@@ -466,9 +441,9 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
             <tfoot>
               <tr className="bg-slate-100/80 font-bold border-t border-slate-300 text-slate-900">
                 <td colSpan={6} className="py-4 px-4 text-right uppercase text-xs tracking-wider">
-                  Total Logged Shift Hours
+                  Total Worked Hours
                 </td>
-                <td className="py-4 px-4 text-right text-base font-black text-emerald-700">
+                <td className="py-4 px-4 text-right text-base font-bold text-emerald-700">
                   {totalHours} hrs
                 </td>
               </tr>
@@ -577,7 +552,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
               <div className="p-4 bg-slate-50 rounded-lg text-xs text-slate-500 flex items-start gap-2">
                 <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                 <span>
-                  Once you sign and submit this timesheet, your manager will review the logged
+                  Once you sign and submit this timesheet, your manager will review the worked
                   hours and photo proofs for approval and payroll processing.
                 </span>
               </div>

@@ -317,9 +317,6 @@ export const StaffManagement: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Cleaning Team & Staff Directory</h1>
-            <span className="text-[10px] font-bold text-[#5371FF] bg-[#5371FF]/10 px-2 py-0.5 rounded-md border border-[#5371FF]/20 uppercase">
-              TCG
-            </span>
           </div>
           <p className="text-sm text-slate-500 mt-0.5">
             Manage cleaning specialists and operations managers, provision access credentials, and maintain team profiles.

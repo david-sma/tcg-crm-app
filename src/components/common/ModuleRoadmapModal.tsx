@@ -64,7 +64,7 @@ export const ModuleRoadmapView: React.FC<ModuleRoadmapViewProps> = ({
           <Sparkles className="w-3.5 h-3.5 text-amber-600" />
           <span>Planned CRM Module</span>
         </div>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight">{module.name}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">{module.name}</h1>
         <p className="text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
           {module.description}
         </p>

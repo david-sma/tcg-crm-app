@@ -469,7 +469,7 @@ export const ClockOutModal: React.FC<ClockOutModalProps> = ({
                   <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider block">
                     Est. Net Hours
                   </span>
-                  <span className="text-sm font-black text-blue-700">{netHours} hrs</span>
+                  <span className="text-sm font-bold text-blue-700">{netHours} hrs</span>
                 </div>
               </div>
 

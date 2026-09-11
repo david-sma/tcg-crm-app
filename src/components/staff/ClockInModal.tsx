@@ -105,7 +105,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Time (NZT)
               </span>
-              <div className="text-2xl font-black text-slate-900 tracking-tight">{timeFormatted}</div>
+              <div className="text-2xl font-bold text-slate-900 tracking-tight">{timeFormatted}</div>
             </div>
             {scheduledShift && (
               <div className="text-right">

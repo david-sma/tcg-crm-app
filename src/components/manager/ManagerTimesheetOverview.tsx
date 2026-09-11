@@ -24,6 +24,7 @@ import {
 import { formatWeekRange, getOffsetMonday, getDefaultActiveMonday } from '../../lib/dateUtils';
 import { apiFetch } from '../../lib/api';
 import { PhotoViewerModal } from '../common/PhotoViewerModal';
+import { WeekNavigator } from '../common/WeekNavigator.tsx';
 
 interface ManagerTimesheetOverviewProps {
   onNavigateToStaff?: (staffId: string) => void;
@@ -235,51 +236,19 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Top Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 font-bold text-xs rounded-md">
-              Operations Control
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Timesheets & Shift Audits</span>
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Timesheets & Live Duty Tracker
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-500 mt-0.5">
             Monitor staff clock-ins, photo proofs, break deductions, and approve weekly timesheets
           </p>
         </div>
-
-        {/* Week Switcher */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handlePrevWeek}
-            className="p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
-            title="Previous Week"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleCurrentWeek}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 hover:bg-slate-100 transition-colors flex items-center gap-1.5"
-          >
-            <Calendar className="w-4 h-4 text-blue-600" />
-            <span>{formatWeekRange(selectedWeek)}</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleNextWeek}
-            className="p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
-            title="Next Week"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
       </div>
+
+      <WeekNavigator currentWeek={selectedWeek} onWeekChange={setSelectedWeek} />
 
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-sm flex items-center justify-between">
@@ -309,9 +278,9 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-xs">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            Total Logged Hours
+            Total Worked Hours
           </span>
-          <div className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+          <div className="text-2xl font-bold text-slate-900 mt-1 tracking-tight">
             {summary.total_logged_hours} hrs
           </div>
           <span className="text-xs text-slate-500 mt-0.5 block">Across all active shifts</span>
@@ -321,7 +290,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
           <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider block">
             Ready for Approval
           </span>
-          <div className="text-2xl font-black text-blue-700 mt-1 tracking-tight">
+          <div className="text-2xl font-bold text-blue-700 mt-1 tracking-tight">
             {summary.submitted} / {summary.total_staff}
           </div>
           <span className="text-xs text-slate-500 mt-0.5 block">Staff signed & submitted</span>
@@ -331,7 +300,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
           <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">
             Supervisor Approved
           </span>
-          <div className="text-2xl font-black text-emerald-700 mt-1 tracking-tight">
+          <div className="text-2xl font-bold text-emerald-700 mt-1 tracking-tight">
             {summary.approved}
           </div>
           <span className="text-xs text-slate-500 mt-0.5 block">Signed off for payroll</span>
@@ -341,7 +310,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
           <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">
             Currently On Duty
           </span>
-          <div className="text-2xl font-black text-amber-700 mt-1 tracking-tight flex items-center gap-2">
+          <div className="text-2xl font-bold text-amber-700 mt-1 tracking-tight flex items-center gap-2">
             <span>{liveDutyStaff.length}</span>
             {liveDutyStaff.length > 0 && (
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
@@ -490,7 +459,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
               <tr className="bg-slate-100/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
                 <th className="py-3.5 px-4">Staff Member</th>
                 <th className="py-3.5 px-3">Shifts</th>
-                <th className="py-3.5 px-4">Logged Hours</th>
+                <th className="py-3.5 px-4">Worked Hours</th>
                 <th className="py-3.5 px-4">Rostered Hours</th>
                 <th className="py-3.5 px-3">Variance</th>
                 <th className="py-3.5 px-4">Staff Signed</th>
@@ -531,12 +500,12 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                       {/* Shifts Count */}
                       <td className="py-3.5 px-3">
                         <span className="px-2 py-0.5 bg-slate-100 rounded-md font-semibold text-xs text-slate-700">
-                          {staff.shifts_count} shift{staff.shifts_count !== 1 ? 's' : ''}
+                          {staff.shifts_count}
                         </span>
                       </td>
 
-                      {/* Logged Hours */}
-                      <td className="py-3.5 px-4 font-black text-slate-900">
+                      {/* Worked Hours */}
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
                         {staff.total_worked_hours} hrs
                       </td>
 
@@ -625,7 +594,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                     Week of {formatWeekRange(selectedWeek)}
                   </span>
                 </div>
-                <h2 className="text-2xl font-black text-white">{inspectingUser.name}</h2>
+                <h2 className="text-2xl font-bold text-white">{inspectingUser.name}</h2>
               </div>
               <button
                 type="button"
@@ -863,7 +832,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                             </td>
 
                             {/* Worked Hours */}
-                            <td className="py-3 px-3 text-right font-black text-slate-900">
+                            <td className="py-3 px-3 text-right font-bold text-slate-900">
                               {rep && rep.total_worked_minutes > 0
                                 ? `${(rep.total_worked_minutes / 60).toFixed(2)}h`
                                 : '—'}
@@ -891,7 +860,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                         <td colSpan={6} className="py-3 px-3 text-right uppercase text-xs">
                           Total Approved Hours
                         </td>
-                        <td className="py-3 px-3 text-right font-black text-emerald-700 text-base">
+                        <td className="py-3 px-3 text-right font-bold text-emerald-700 text-base">
                           {inspectData.total_worked_hours} hrs
                         </td>
                         <td></td>

@@ -148,10 +148,7 @@ export const ManagerRosterBuilder: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Roster Builder</h1>
-            <span className="text-[10px] font-bold text-[#5371FF] bg-[#5371FF]/10 px-2 py-0.5 rounded-md border border-[#5371FF]/20 uppercase">
-              TCG
-            </span>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Roster Builder</h1>
             {rosterData?.roster_week?.published_version_number > 0 ? (
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#7FD858]/20 text-emerald-900 font-bold border border-[#7FD858]/40">
                 Published v{rosterData.roster_week.published_version_number}

@@ -37,7 +37,7 @@ export const LoginForm: React.FC = () => {
           </div>
         </div>
         <div className="mt-4 flex items-center justify-center gap-2">
-          <h2 className="text-2xl font-black tracking-tight text-slate-900">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
             The Cleaning Guys
           </h2>
         </div>
