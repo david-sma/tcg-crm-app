@@ -4,7 +4,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import { createServer as createViteServer } from 'vite';
 
-// Increase default max listeners to accommodate Vite dev server middlewares, HTTP connections, and GCS stream pipelines
+// Increase default max listeners to accommodate Vite dev server middlewares, HTTP connections, and object-storage stream pipelines
 EventEmitter.defaultMaxListeners = 50;
 import { bootstrapInitialData } from './server/services/seed.ts';
 import { authMiddleware, loginRateLimiter } from './server/middleware/auth.ts';
@@ -16,9 +16,13 @@ import { personalRosterRouter } from './server/routes/personalRoster.ts';
 import { notificationsRouter } from './server/routes/notifications.ts';
 import { auditRouter } from './server/routes/audit.ts';
 import { timesheetsRouter } from './server/routes/timesheets.ts';
+import { getStorageClient } from './server/services/storage.ts';
 
 async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
+
+  getStorageClient();
+
   const app = express();
 
   // Basic health check FIRST before any async initialization or middleware

@@ -1,69 +1,65 @@
-import { Storage } from '@google-cloud/storage';
-import path from 'path';
+import {
+  GetObjectCommand,
+  NoSuchKey,
+  PutObjectCommand,
+  S3Client,
+  type GetObjectCommandOutput,
+} from '@aws-sdk/client-s3';
+import {
+  SHIFT_PHOTO_MAX_EDGE_PX,
+  SHIFT_PHOTO_WEBP_QUALITY,
+  ShiftPhotoValidationError,
+  compressShiftPhotoForStorage,
+} from './image.ts';
 
-// Google Cloud Storage Configuration
-const DEFAULT_BUCKET_NAME = 'tcg-crm-storage-526879544724';
-const BUCKET_NAME = process.env.GCS_BUCKET_NAME || DEFAULT_BUCKET_NAME;
-
-// Fallback embedded credentials provided by the admin for Auckland operations
-const DEFAULT_GCS_CREDENTIALS = {
-  type: 'service_account',
-  project_id: 'xny3-484001',
-  private_key_id: '***REMOVED***',
-  private_key:
-    '***REMOVED_PRIVATE_KEY***',
-  client_email: 'tcg-crm-ai-studio@xny3-484001.iam.gserviceaccount.com',
-  client_id: '***REMOVED***',
-};
-
-let storageClient: Storage | null = null;
-
-/**
- * Lazy initialization of Google Cloud Storage Client
- */
-export function getStorageClient(): Storage {
-  if (!storageClient) {
-    if (process.env.GCS_SERVICE_ACCOUNT_JSON) {
-      try {
-        const credentials = JSON.parse(process.env.GCS_SERVICE_ACCOUNT_JSON);
-        storageClient = new Storage({
-          projectId: credentials.project_id,
-          credentials: {
-            client_email: credentials.client_email,
-            private_key: credentials.private_key,
-          },
-        });
-        return storageClient;
-      } catch (e) {
-        console.warn('Failed to parse GCS_SERVICE_ACCOUNT_JSON env var, falling back');
-      }
-    }
-
-    if (DEFAULT_GCS_CREDENTIALS?.client_email && DEFAULT_GCS_CREDENTIALS?.private_key) {
-      try {
-        storageClient = new Storage({
-          projectId: DEFAULT_GCS_CREDENTIALS.project_id,
-          credentials: {
-            client_email: DEFAULT_GCS_CREDENTIALS.client_email,
-            private_key: DEFAULT_GCS_CREDENTIALS.private_key,
-          },
-        });
-        return storageClient;
-      } catch (err) {
-        console.warn('Failed initializing GCS with default credentials, falling back to ADC:', err);
-      }
-    }
-
-    // Fallback to Google Cloud Application Default Credentials (ADC) for standard Cloud Run
-    storageClient = new Storage();
-  }
-  return storageClient;
+function readStorageSetting(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value || undefined;
 }
 
-/**
- * Uploads a base64 encoded photo to Google Cloud Storage
- * Returns a secure storage path (or fallback data URI if upload fails)
- */
+const STORAGE_ENDPOINT = readStorageSetting('SUPABASE_S3_ENDPOINT');
+const STORAGE_REGION = readStorageSetting('SUPABASE_S3_REGION');
+const STORAGE_ACCESS_KEY_ID = readStorageSetting('SUPABASE_S3_ACCESS_KEY_ID');
+const STORAGE_SECRET_ACCESS_KEY = readStorageSetting('SUPABASE_S3_SECRET_ACCESS_KEY');
+const BUCKET_NAME = readStorageSetting('SUPABASE_S3_BUCKET');
+const FORCE_PATH_STYLE = (process.env.SUPABASE_S3_FORCE_PATH_STYLE ?? 'true').trim().toLowerCase();
+
+let objectStorageClient: S3Client | null = null;
+
+export function getStorageClient(): S3Client {
+  if (!objectStorageClient) {
+    const missing = [
+      ['SUPABASE_S3_ENDPOINT', STORAGE_ENDPOINT],
+      ['SUPABASE_S3_REGION', STORAGE_REGION],
+      ['SUPABASE_S3_ACCESS_KEY_ID', STORAGE_ACCESS_KEY_ID],
+      ['SUPABASE_S3_SECRET_ACCESS_KEY', STORAGE_SECRET_ACCESS_KEY],
+      ['SUPABASE_S3_BUCKET', BUCKET_NAME],
+    ]
+      .filter(([, value]) => !value)
+      .map(([name]) => name);
+
+    if (missing.length > 0) {
+      throw new Error(`Missing required Supabase S3 configuration: ${missing.join(', ')}.`);
+    }
+
+    if (FORCE_PATH_STYLE !== 'true' && FORCE_PATH_STYLE !== 'false') {
+      throw new Error('SUPABASE_S3_FORCE_PATH_STYLE must be either "true" or "false".');
+    }
+
+    objectStorageClient = new S3Client({
+      region: STORAGE_REGION,
+      endpoint: STORAGE_ENDPOINT,
+      forcePathStyle: FORCE_PATH_STYLE === 'true',
+      credentials: {
+        accessKeyId: STORAGE_ACCESS_KEY_ID as string,
+        secretAccessKey: STORAGE_SECRET_ACCESS_KEY as string,
+      },
+    });
+  }
+
+  return objectStorageClient;
+}
+
 export async function uploadShiftPhoto(params: {
   userId: string;
   shiftDate: string; // YYYY-MM-DD
@@ -73,118 +69,104 @@ export async function uploadShiftPhoto(params: {
   const { userId, shiftDate, photoType, base64Data } = params;
 
   if (!base64Data || !base64Data.startsWith('data:image/')) {
-    // If it's already a URL or empty, return as is
     return base64Data;
   }
 
   try {
-    const storage = getStorageClient();
-    const bucket = storage.bucket(BUCKET_NAME);
+    const compressed = await compressShiftPhotoForStorage(base64Data);
+    const destinationPath = `shift-photos/${shiftDate}/${userId}-${photoType}-${Date.now()}.${compressed.extension}`;
 
-    // Extract format and raw binary buffer from Base64
-    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      return base64Data;
+    await getStorageClient().send(
+      new PutObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: destinationPath,
+        Body: compressed.buffer,
+        ContentType: compressed.contentType,
+        CacheControl: 'private, max-age=31536000',
+        Metadata: {
+          'uploaded-by': userId,
+          'shift-date': shiftDate,
+          'photo-type': photoType,
+          'compression-profile': `webp-q${SHIFT_PHOTO_WEBP_QUALITY}-max${SHIFT_PHOTO_MAX_EDGE_PX}`,
+          'original-bytes': String(compressed.originalBytes),
+          'original-format': compressed.originalFormat,
+        },
+      }),
+    );
+
+    console.log(
+      `Successfully uploaded ${photoType} photo to Supabase S3: s3://${BUCKET_NAME}/${destinationPath} (${compressed.originalBytes} -> ${compressed.buffer.length} bytes)`,
+    );
+
+    return `s3://${BUCKET_NAME}/${destinationPath}`;
+  } catch (error) {
+    if (error instanceof ShiftPhotoValidationError) {
+      throw error;
     }
 
-    const contentType = matches[1] || 'image/jpeg';
-    const extension = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
-    const imageBuffer = Buffer.from(matches[2], 'base64');
-
-    // Secure object path inside private GCS bucket
-    // E.g.: shift-photos/2026-08-31/user-123-clock_in-1725148000.jpg
-    const destinationPath = `shift-photos/${shiftDate}/${userId}-${photoType}-${Date.now()}.${extension}`;
-    const file = bucket.file(destinationPath);
-
-    // Upload with appropriate metadata
-    await file.save(imageBuffer, {
-      contentType,
-      resumable: false,
-      metadata: {
-        cacheControl: 'private, max-age=31536000',
-        metadata: {
-          uploadedBy: userId,
-          shiftDate,
-          photoType,
-        },
-      },
-    });
-
-    console.log(`Successfully uploaded ${photoType} photo to GCS: gs://${BUCKET_NAME}/${destinationPath}`);
-
-    // Return the GCS path reference
-    return `gcs://${BUCKET_NAME}/${destinationPath}`;
-  } catch (error) {
-    console.error('Error uploading photo to Google Cloud Storage:', error);
-    // Return original base64 as safe fallback so user workflow is never interrupted
+    console.error('Error uploading photo to Supabase S3:', error);
     return base64Data;
   }
 }
 
-/**
- * Downloads a photo stream/buffer from Google Cloud Storage
- */
-export async function getPhotoBufferFromGCS(gcsUri: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+async function readObjectBody(body: GetObjectCommandOutput['Body']): Promise<Buffer> {
+  if (!body) {
+    throw new Error('Supabase S3 response did not include a photo body.');
+  }
+
+  const maybeStream = body as { transformToByteArray?: () => Promise<Uint8Array> };
+  if (typeof maybeStream.transformToByteArray === 'function') {
+    return Buffer.from(await maybeStream.transformToByteArray());
+  }
+
+  if (body instanceof Uint8Array) {
+    return Buffer.from(body);
+  }
+
+  if (body instanceof Blob) {
+    return Buffer.from(await body.arrayBuffer());
+  }
+
+  throw new Error('Unsupported Supabase S3 photo body type.');
+}
+
+export async function getPhotoBufferFromStorage(
+  storageRef: string,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
   try {
-    const storage = getStorageClient();
-    let bucketName = BUCKET_NAME;
-    let filePath = '';
-
-    if (gcsUri.startsWith('gcs://')) {
-      const parts = gcsUri.replace('gcs://', '').split('/');
-      bucketName = parts[0];
-      filePath = parts.slice(1).join('/');
-    } else {
-      filePath = gcsUri;
-    }
-
-    const bucket = storage.bucket(bucketName);
-    const file = bucket.file(filePath);
-
-    const [exists] = await file.exists();
-    if (!exists) {
+    if (!storageRef.startsWith('s3://')) {
       return null;
     }
 
-    const [metadata] = await file.getMetadata();
-    const [contents] = await file.download();
+    const withoutScheme = storageRef.slice('s3://'.length);
+    const separatorIndex = withoutScheme.indexOf('/');
+    if (separatorIndex < 0) {
+      return null;
+    }
+
+    const bucketName = withoutScheme.slice(0, separatorIndex);
+    const filePath = withoutScheme.slice(separatorIndex + 1);
+    if (!bucketName || !filePath) {
+      return null;
+    }
+
+    const response = await getStorageClient().send(
+      new GetObjectCommand({
+        Bucket: bucketName,
+        Key: filePath,
+      }),
+    );
 
     return {
-      buffer: contents,
-      contentType: metadata.contentType || 'image/jpeg',
+      buffer: await readObjectBody(response.Body),
+      contentType: response.ContentType || 'image/webp',
     };
   } catch (error) {
-    console.error('Error downloading photo from GCS:', error);
-    return null;
-  }
-}
+    if (error instanceof NoSuchKey) {
+      return null;
+    }
 
-/**
- * Generates a short-lived secure signed URL for direct viewing (valid for 30 minutes)
- */
-export async function getSignedPhotoUrl(gcsUri: string, expiresInMinutes = 30): Promise<string | null> {
-  if (!gcsUri || !gcsUri.startsWith('gcs://')) {
-    return gcsUri; // Return as is if already a public URL or data URI
-  }
-
-  try {
-    const storage = getStorageClient();
-    const parts = gcsUri.replace('gcs://', '').split('/');
-    const bucketName = parts[0];
-    const filePath = parts.slice(1).join('/');
-
-    const bucket = storage.bucket(bucketName);
-    const file = bucket.file(filePath);
-
-    const [url] = await file.getSignedUrl({
-      version: 'v4',
-      action: 'read',
-      expires: Date.now() + expiresInMinutes * 60 * 1000,
-    });
-
-    return url;
-  } catch (error) {
-    console.error('Error generating signed URL for GCS photo:', error);
+    console.error('Error downloading photo from Supabase S3:', error);
     return null;
   }
 }

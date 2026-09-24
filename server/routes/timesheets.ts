@@ -28,7 +28,8 @@ import {
 import { logAuditEvent } from '../services/audit.ts';
 import { createInAppNotification } from '../services/notification.ts';
 import { requireAuth, requireRole } from '../middleware/auth.ts';
-import { uploadShiftPhoto, getPhotoBufferFromGCS } from '../services/storage.ts';
+import { uploadShiftPhoto, getPhotoBufferFromStorage } from '../services/storage.ts';
+import { ShiftPhotoValidationError } from '../services/image.ts';
 import { seedMockTimesheetData } from '../services/seed.ts';
 import { parseISO, startOfWeek, addDays } from 'date-fns';
 import { toZonedTime, format as formatZoned } from 'date-fns-tz';
@@ -171,7 +172,7 @@ timesheetsRouter.post('/clock-in', async (req: Request, res: Response) => {
 
     const reportId = crypto.randomUUID();
 
-    // Upload clock-in photo to Google Cloud Storage (or fallback to local buffer)
+    // Upload clock-in photo to Supabase S3 (or fallback to local buffer)
     let storedClockInPhoto = null;
     if (photo) {
       storedClockInPhoto = await uploadShiftPhoto({
@@ -250,6 +251,9 @@ timesheetsRouter.post('/clock-in', async (req: Request, res: Response) => {
       report: formatReportForResponse(createdReport, initialEvents),
     });
   } catch (err: any) {
+    if (err instanceof ShiftPhotoValidationError) {
+      return res.status(err.status).json({ error: err.message });
+    }
     console.error('Clock in error:', err);
     return res.status(500).json({ error: err?.message || 'Failed to clock in' });
   }
@@ -301,7 +305,7 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
 
     const workedWithArray = Array.isArray(worked_with) ? worked_with : [];
 
-    // Upload clock-out photo to Google Cloud Storage
+    // Upload clock-out photo to Supabase S3
     let storedClockOutPhoto = report.clock_out_photo;
     if (photo) {
       storedClockOutPhoto = await uploadShiftPhoto({
@@ -376,6 +380,9 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
       report: formatReportForResponse(updatedReport, allEvents),
     });
   } catch (err: any) {
+    if (err instanceof ShiftPhotoValidationError) {
+      return res.status(err.status).json({ error: err.message });
+    }
     console.error('Clock out error:', err);
     return res.status(500).json({ error: err?.message || 'Failed to clock out' });
   }
@@ -428,7 +435,7 @@ timesheetsRouter.post('/event-report', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No active shift found. Please start your shift first.' });
     }
 
-    // Upload photo to GCS
+    // Upload photo to Supabase S3
     const storedPhoto = await uploadShiftPhoto({
       userId,
       shiftDate: report.shift_date,
@@ -504,6 +511,9 @@ timesheetsRouter.post('/event-report', async (req: Request, res: Response) => {
       report: formatReportForResponse(report, events),
     });
   } catch (err: any) {
+    if (err instanceof ShiftPhotoValidationError) {
+      return res.status(err.status).json({ error: err.message });
+    }
     console.error('Event report error:', err);
     return res.status(500).json({ error: err?.message || 'Failed to submit site report' });
   }
@@ -533,8 +543,8 @@ timesheetsRouter.get('/event-photo/:eventId', async (req: Request, res: Response
       return res.status(404).json({ error: 'No photo on record' });
     }
 
-    if (photoRef.startsWith('gcs://')) {
-      const fileData = await getPhotoBufferFromGCS(photoRef);
+    if (photoRef.startsWith('s3://')) {
+      const fileData = await getPhotoBufferFromStorage(photoRef);
       if (!fileData) {
         return res.status(404).json({ error: 'Photo file not found in storage bucket' });
       }
@@ -1317,7 +1327,7 @@ timesheetsRouter.post('/manager-override', requireRole('manager'), async (req: R
   }
 });
 
-// GET /api/timesheets/photo/:reportId/:photoType - Authenticated streaming of shift photos from Google Cloud Storage
+// GET /api/timesheets/photo/:reportId/:photoType - Authenticated streaming of shift photos from Supabase S3
 timesheetsRouter.get('/photo/:reportId/:photoType', async (req: Request, res: Response) => {
   try {
     const { reportId, photoType } = req.params;
@@ -1343,8 +1353,8 @@ timesheetsRouter.get('/photo/:reportId/:photoType', async (req: Request, res: Re
       return res.status(404).json({ error: 'No photo on record for this shift' });
     }
 
-    if (photoRef.startsWith('gcs://')) {
-      const fileData = await getPhotoBufferFromGCS(photoRef);
+    if (photoRef.startsWith('s3://')) {
+      const fileData = await getPhotoBufferFromStorage(photoRef);
       if (!fileData) {
         return res.status(404).json({ error: 'Photo file not found in storage bucket' });
       }
