@@ -273,6 +273,85 @@ export const shiftEventReports = pgTable('shift_event_reports', {
   index('shift_events_timestamp_idx').on(table.timestamp),
 ]);
 
+export const jobs = pgTable('jobs', {
+  id: text('id').primaryKey(),
+  job_order_number: text('job_order_number').notNull().unique(), // JO-YYYY-####
+  title: text('title').notNull(),
+  status: text('status').notNull().default('new'), // 'new' | 'enriching' | 'confirmed' | 'scheduled' | 'ongoing' | 'in_progress' | 'completed' | 'cancelled'
+  job_type: text('job_type').notNull().default(''), // primary category id from JOB_TYPE_OPTIONS
+  services: text('services').notNull().default('[]'), // JSON array of service catalog ids
+  details: text('details').notNull().default(''),
+  lead_source: text('lead_source').notNull().default('manual'), // 'manual' | 'phone' | 'facebook' | 'website' | 'referral' | 'other'
+  customer_name: text('customer_name').notNull().default(''),
+  customer_phone: text('customer_phone'),
+  customer_email: text('customer_email'),
+  site_contact_name: text('site_contact_name'),
+  site_contact_phone: text('site_contact_phone'),
+  address: text('address').notNull().default(''),
+  suburb: text('suburb'),
+  city: text('city'),
+  postcode: text('postcode'),
+  location_notes: text('location_notes'),
+  access_notes: text('access_notes'),
+  scope_notes: text('scope_notes'), // sales-defined scope
+  agreed_price: text('agreed_price'),
+  scheduled_date: text('scheduled_date'), // YYYY-MM-DD (job visit date, business-local)
+  scheduled_start_time: text('scheduled_start_time'), // HH:mm business-local
+  scheduled_finish_time: text('scheduled_finish_time'), // HH:mm business-local
+  start_notes: text('start_notes'), // staff note when confirming job in process
+  completion_notes: text('completion_notes'), // staff note when reporting job completed
+  started_at: text('started_at'),
+  completed_at: text('completed_at'),
+  cancelled_reason: text('cancelled_reason'),
+  cancelled_at: text('cancelled_at'),
+  created_by_user_id: text('created_by_user_id').references(() => users.id),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (table) => [
+  uniqueIndex('jobs_order_number_idx').on(table.job_order_number),
+  index('jobs_status_idx').on(table.status),
+  index('jobs_scheduled_date_idx').on(table.scheduled_date),
+]);
+
+export const jobAssignments = pgTable('job_assignments', {
+  id: text('id').primaryKey(),
+  job_id: text('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
+  shift_id: text('shift_id'), // roster_draft_shifts.id or roster_version_shifts.id (no FK: both possible)
+  user_id: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  is_lead: boolean('is_lead').notNull().default(false),
+  created_at: text('created_at').notNull(),
+}, (table) => [
+  index('job_assignments_job_idx').on(table.job_id),
+  index('job_assignments_user_idx').on(table.user_id),
+  index('job_assignments_shift_idx').on(table.shift_id),
+]);
+
+export const jobMedia = pgTable('job_media', {
+  id: text('id').primaryKey(),
+  job_id: text('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
+  phase: text('phase').notNull(), // 'intake' | 'start' | 'completion' | 'other'
+  media_type: text('media_type').notNull(), // 'photo' | 'video'
+  status: text('status').notNull().default('uploading'), // 'uploading' | 'queued' | 'processing' | 'ready' | 'failed'
+  original_ref: text('original_ref'), // s3://... original upload; removed after successful compression
+  processed_ref: text('processed_ref'), // s3://... compressed webp/mp4
+  content_type: text('content_type'),
+  byte_size: integer('byte_size'),
+  duration_seconds: integer('duration_seconds'),
+  error_message: text('error_message'),
+  attempt_count: integer('attempt_count').notNull().default(0),
+  created_by_user_id: text('created_by_user_id').references(() => users.id),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (table) => [
+  index('job_media_job_idx').on(table.job_id),
+  index('job_media_status_idx').on(table.status),
+]);
+
+export const jobOrderCounters = pgTable('job_order_counters', {
+  year: text('year').primaryKey(), // YYYY
+  last_number: integer('last_number').notNull().default(0),
+});
+
 export const weeklyTimesheets = pgTable('weekly_timesheets', {
   id: text('id').primaryKey(),
   user_id: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

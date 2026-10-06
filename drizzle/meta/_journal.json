@@ -15,6 +15,13 @@
       "when": 1791258983783,
       "tag": "0001_add_company_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791273519063,
+      "tag": "0002_fixed_hulk",
+      "breakpoints": true
     }
   ]
 }

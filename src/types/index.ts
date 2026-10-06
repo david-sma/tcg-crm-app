@@ -141,7 +141,7 @@ export interface StaffRosterResponse {
 export interface NotificationItem {
   id: string;
   user_id: string;
-  type: 'ROSTER_PUBLISHED' | 'ROSTER_REVISED' | 'AVAILABILITY_CHANGED' | 'CONFLICT_REPORTED' | 'TIMESHEET_SUBMITTED' | 'TIMESHEET_APPROVED' | 'SHIFT_STARTED';
+  type: 'ROSTER_PUBLISHED' | 'ROSTER_REVISED' | 'AVAILABILITY_CHANGED' | 'CONFLICT_REPORTED' | 'TIMESHEET_SUBMITTED' | 'TIMESHEET_APPROVED' | 'SHIFT_STARTED' | 'JOB_ASSIGNED' | 'JOB_STATUS_CHANGED' | 'JOB_STARTED' | 'JOB_COMPLETED' | 'JOB_MEDIA_FAILED';
   title: string;
   body: string;
   related_entity_type?: string | null;
@@ -248,5 +248,92 @@ export interface DayTimesheetRow {
   short_day: string;
   report?: ShiftReport | null;
   scheduled_shift?: PublishedShiftSnapshot | null;
+}
+
+export type JobStatus =
+  | 'new'
+  | 'enriching'
+  | 'confirmed'
+  | 'scheduled'
+  | 'ongoing'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
+
+export type LeadSource = 'manual' | 'phone' | 'facebook' | 'website' | 'referral' | 'other';
+
+export type JobMediaType = 'photo' | 'video';
+
+export type JobMediaPhase = 'intake' | 'start' | 'completion' | 'other';
+
+export type JobMediaStatus = 'uploading' | 'queued' | 'processing' | 'ready' | 'failed';
+
+export interface JobAssignment {
+  id: string;
+  job_id: string;
+  shift_id?: string | null;
+  user_id: string;
+  user_name?: string;
+  is_lead: boolean;
+  created_at: string;
+}
+
+export interface JobMedia {
+  id: string;
+  job_id: string;
+  phase: JobMediaPhase;
+  media_type: JobMediaType;
+  status: JobMediaStatus;
+  original_ref?: string | null;
+  processed_ref?: string | null;
+  url?: string | null; // authenticated API url for viewing
+  content_type?: string | null;
+  byte_size?: number | null;
+  duration_seconds?: number | null;
+  error_message?: string | null;
+  attempt_count: number;
+  created_by_user_id?: string | null;
+  created_by_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Job {
+  id: string;
+  job_order_number: string;
+  title: string;
+  status: JobStatus;
+  job_type: string;
+  services: string[]; // selected ids from the job services catalog
+  details: string;
+  lead_source: LeadSource;
+  customer_name: string;
+  customer_phone?: string | null;
+  customer_email?: string | null;
+  site_contact_name?: string | null;
+  site_contact_phone?: string | null;
+  address: string;
+  suburb?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  location_notes?: string | null;
+  access_notes?: string | null;
+  scope_notes?: string | null;
+  agreed_price?: string | null; // omitted in staff-facing payloads
+  scheduled_date?: string | null;
+  scheduled_start_time?: string | null;
+  scheduled_finish_time?: string | null;
+  start_notes?: string | null;
+  completion_notes?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  cancelled_reason?: string | null;
+  cancelled_at?: string | null;
+  created_by_user_id?: string | null;
+  created_by_name?: string | null;
+  created_at: string;
+  updated_at: string;
+  assignments?: JobAssignment[];
+  media?: JobMedia[];
 }
 

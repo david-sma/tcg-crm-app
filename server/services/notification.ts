@@ -32,7 +32,12 @@ export async function createInAppNotification(params: {
     | 'SHIFT_STARTED'
     | 'SHIFT_EVENT'
     | 'TIMESHEET_SUBMITTED'
-    | 'TIMESHEET_APPROVED';
+    | 'TIMESHEET_APPROVED'
+    | 'JOB_ASSIGNED'
+    | 'JOB_STATUS_CHANGED'
+    | 'JOB_STARTED'
+    | 'JOB_COMPLETED'
+    | 'JOB_MEDIA_FAILED';
   title: string;
   body: string;
   relatedEntityType?: string;

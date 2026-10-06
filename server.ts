@@ -17,7 +17,9 @@ import { personalRosterRouter } from './server/routes/personalRoster.ts';
 import { notificationsRouter } from './server/routes/notifications.ts';
 import { auditRouter } from './server/routes/audit.ts';
 import { timesheetsRouter } from './server/routes/timesheets.ts';
+import { jobsRouter } from './server/routes/jobs.ts';
 import { getStorageClient } from './server/services/storage.ts';
+import { startMediaQueue } from './server/services/mediaQueue.ts';
 
 async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
@@ -41,6 +43,8 @@ async function startServer() {
     console.error('Database bootstrap warning:', dbErr);
   }
 
+  startMediaQueue();
+
   app.use(express.json({ limit: '25mb' }));
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));
   app.use(cookieParser());
@@ -56,6 +60,7 @@ async function startServer() {
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/audit', auditRouter);
   app.use('/api/timesheets', timesheetsRouter);
+  app.use('/api/jobs', jobsRouter);
 
   // Vite integration: development middleware vs production static files
   if (process.env.NODE_ENV !== 'production') {

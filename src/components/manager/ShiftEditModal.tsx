@@ -1,7 +1,7 @@
 import React, { useState, useEffect, KeyboardEvent } from 'react';
 import { apiFetch } from '../../lib/api.ts';
 import { DAY_NAMES, getDayDateStr, formatTimeLocal } from '../../lib/dateUtils.ts';
-import type { DraftShift, User } from '../../types/index.ts';
+import type { DraftShift, User, Job } from '../../types/index.ts';
 import { useBrand } from '../../context/BrandContext.tsx';
 import { X, Clock, AlertTriangle, Trash2, ShieldAlert, Plus, Tag } from 'lucide-react';
 
@@ -15,6 +15,7 @@ interface ShiftEditModalProps {
   shiftToEdit?: DraftShift | null;
   defaultDayIndex?: number;
   defaultUserId?: string;
+  relatedJobs?: Job[];
   onSuccess: () => void;
 }
 
@@ -37,6 +38,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   shiftToEdit,
   defaultDayIndex = 0,
   defaultUserId,
+  relatedJobs = [],
   onSuccess,
 }) => {
   const { shiftPresets, defaultLocations } = useBrand();
@@ -451,6 +453,32 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[var(--color-brand)]"
             />
           </div>
+
+          {shiftToEdit && (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+              <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Jobs on this shift
+              </div>
+              {relatedJobs.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {relatedJobs.map((job) => (
+                    <span
+                      key={job.id}
+                      title={`${job.job_order_number} · ${job.title}`}
+                      className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-[11px] rounded-full px-2 py-0.5 max-w-full"
+                    >
+                      <span aria-hidden="true">🧾</span>
+                      <span className="truncate max-w-[180px]">{job.title}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500">
+                  Jobs can be attached to shifts from the Jobs module.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Override Reason input */}
           <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">

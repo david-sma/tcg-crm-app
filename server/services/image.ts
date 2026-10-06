@@ -61,3 +61,46 @@ export async function compressShiftPhotoForStorage(base64Data: string): Promise<
     height: info.height,
   };
 }
+
+export interface CompressedPhotoBuffer {
+  buffer: Buffer;
+  contentType: string;
+  extension: string;
+}
+
+/**
+ * Buffer-based compression for job media photos.
+ * Same storage profile as compressShiftPhotoForStorage: max edge 1600, WebP q72,
+ * EXIF rotation, no enlargement. Accepts JPEG/PNG/WebP input buffers only.
+ */
+export async function compressPhotoBufferForStorage(inputBuffer: Buffer): Promise<CompressedPhotoBuffer> {
+  if (!Buffer.isBuffer(inputBuffer) || inputBuffer.length === 0) {
+    throw new ShiftPhotoValidationError('Photo must be a valid image buffer.');
+  }
+
+  const input = sharp(inputBuffer, { failOn: 'warning' });
+  const metadata = await input.metadata().catch(() => {
+    throw new ShiftPhotoValidationError('Photo must be a JPEG, PNG, or WebP image.');
+  });
+
+  if (!metadata.format || !SUPPORTED_SHIFT_PHOTO_FORMATS.has(metadata.format)) {
+    throw new ShiftPhotoValidationError('Photo must be a JPEG, PNG, or WebP image.');
+  }
+
+  const { data } = await input
+    .rotate()
+    .resize({
+      width: SHIFT_PHOTO_MAX_EDGE_PX,
+      height: SHIFT_PHOTO_MAX_EDGE_PX,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .webp({ quality: SHIFT_PHOTO_WEBP_QUALITY })
+    .toBuffer({ resolveWithObject: true });
+
+  return {
+    buffer: Buffer.from(data),
+    contentType: 'image/webp',
+    extension: 'webp',
+  };
+}

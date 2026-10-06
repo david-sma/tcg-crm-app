@@ -13,6 +13,7 @@ import { StaffDashboard } from './components/staff/StaffDashboard.tsx';
 import { StaffAvailability } from './components/staff/StaffAvailability.tsx';
 import { StaffRosterView } from './components/staff/StaffRosterView.tsx';
 import { StaffTimesheetView } from './components/staff/StaffTimesheetView.tsx';
+import { MyJobsView } from './components/staff/MyJobsView.tsx';
 
 // Manager Views
 import { ManagerDashboard } from './components/manager/ManagerDashboard.tsx';
@@ -22,6 +23,7 @@ import { ManagerAvailabilityOverview } from './components/manager/ManagerAvailab
 import { StaffManagement } from './components/manager/StaffManagement.tsx';
 import { ManagerResponseTracker } from './components/manager/ManagerResponseTracker.tsx';
 import { ManagerAuditLog } from './components/manager/ManagerAuditLog.tsx';
+import { JobsModule } from './components/manager/jobs/JobsModule.tsx';
 
 import {
   LayoutDashboard,
@@ -32,6 +34,7 @@ import {
   ShieldAlert,
   ClipboardList,
   FileCheck,
+  Briefcase,
 } from 'lucide-react';
 
 function MainLayout() {
@@ -79,6 +82,7 @@ function MainLayout() {
 
   const staffNavItems = [
     { id: 'dashboard', label: 'Today & Shift', icon: LayoutDashboard },
+    { id: 'my-jobs', label: 'My Jobs', icon: Briefcase },
     { id: 'my-timesheet', label: 'My Timesheet', icon: FileCheck },
     { id: 'roster', label: 'My Roster', icon: Calendar },
     { id: 'availability', label: 'My Availability', icon: Clock },
@@ -97,9 +101,22 @@ function MainLayout() {
     }
   };
 
+  const handleNavigateToTab = (tab: string) => {
+    if (tab === 'jobs-dispatches') {
+      setActiveModuleId('jobs-dispatches');
+      return;
+    }
+    setActiveModuleId('staff-ops');
+    setActiveTab(tab);
+  };
+
   const currentModule = CRM_MODULES.find((m) => m.id === activeModuleId) || CRM_MODULES[0];
 
   const renderContent = () => {
+    if (activeModuleId === 'jobs-dispatches' && isManager) {
+      return <JobsModule onNavigate={handleNavigateToTab} />;
+    }
+
     // If user is visiting an upcoming CRM module
     if (activeModuleId !== 'staff-ops' && isManager) {
       return (
@@ -130,6 +147,8 @@ function MainLayout() {
       }
     } else {
       switch (currentTab) {
+        case 'my-jobs':
+          return <MyJobsView onNavigate={setActiveTab as any} />;
         case 'my-timesheet':
           return <StaffTimesheetView onBackToDashboard={() => setActiveTab('dashboard')} />;
         case 'availability':
@@ -151,8 +170,7 @@ function MainLayout() {
           setActiveTab('dashboard');
         }}
         onNavigate={(tab) => {
-          setActiveModuleId('staff-ops');
-          setActiveTab(tab);
+          handleNavigateToTab(tab);
         }}
         activeModuleId={activeModuleId}
         onSelectModule={handleSelectModule}

@@ -1,10 +1,13 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   NoSuchKey,
   PutObjectCommand,
   S3Client,
   type GetObjectCommandOutput,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   SHIFT_PHOTO_MAX_EDGE_PX,
   SHIFT_PHOTO_WEBP_QUALITY,
@@ -167,6 +170,147 @@ export async function getPhotoBufferFromStorage(
     }
 
     console.error('Error downloading photo from Supabase S3:', error);
+    return null;
+  }
+}
+
+export function getBucketName(): string {
+  if (!BUCKET_NAME) {
+    throw new Error('Missing required Supabase S3 configuration: SUPABASE_S3_BUCKET.');
+  }
+  return BUCKET_NAME;
+}
+
+export function parseStorageRef(storageRef: string): { bucketName: string; key: string } | null {
+  if (!storageRef || !storageRef.startsWith('s3://')) {
+    return null;
+  }
+
+  const withoutScheme = storageRef.slice('s3://'.length);
+  const separatorIndex = withoutScheme.indexOf('/');
+  if (separatorIndex < 0) {
+    return null;
+  }
+
+  const bucketName = withoutScheme.slice(0, separatorIndex);
+  const key = withoutScheme.slice(separatorIndex + 1);
+  if (!bucketName || !key) {
+    return null;
+  }
+
+  return { bucketName, key };
+}
+
+export function buildStorageRef(key: string): string {
+  return `s3://${getBucketName()}/${key}`;
+}
+
+export async function getPresignedUploadUrl(params: {
+  key: string;
+  contentType: string;
+  ttlSeconds: number;
+}): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: getBucketName(),
+    Key: params.key,
+    ContentType: params.contentType,
+  });
+
+  return getSignedUrl(getStorageClient(), command, { expiresIn: params.ttlSeconds });
+}
+
+export async function uploadBufferToStorage(
+  key: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  await getStorageClient().send(
+    new PutObjectCommand({
+      Bucket: getBucketName(),
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+      CacheControl: 'private, max-age=31536000',
+    }),
+  );
+
+  return `s3://${getBucketName()}/${key}`;
+}
+
+export async function deleteFromStorageRef(storageRef: string): Promise<void> {
+  const parsed = parseStorageRef(storageRef);
+  if (!parsed) {
+    return;
+  }
+
+  try {
+    await getStorageClient().send(
+      new DeleteObjectCommand({
+        Bucket: parsed.bucketName,
+        Key: parsed.key,
+      }),
+    );
+  } catch (error) {
+    if (error instanceof NoSuchKey) {
+      return;
+    }
+    const err = error as { name?: string };
+    if (err?.name === 'NoSuchKey' || err?.name === 'NotFound') {
+      return;
+    }
+    throw error;
+  }
+}
+
+export async function objectExistsByRef(storageRef: string): Promise<boolean> {
+  const parsed = parseStorageRef(storageRef);
+  if (!parsed) {
+    return false;
+  }
+
+  try {
+    await getStorageClient().send(
+      new HeadObjectCommand({
+        Bucket: parsed.bucketName,
+        Key: parsed.key,
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getBufferFromStorage(
+  storageRef: string,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  const parsed = parseStorageRef(storageRef);
+  if (!parsed) {
+    return null;
+  }
+
+  try {
+    const response = await getStorageClient().send(
+      new GetObjectCommand({
+        Bucket: parsed.bucketName,
+        Key: parsed.key,
+      }),
+    );
+
+    return {
+      buffer: await readObjectBody(response.Body),
+      contentType: response.ContentType || 'application/octet-stream',
+    };
+  } catch (error) {
+    if (error instanceof NoSuchKey) {
+      return null;
+    }
+    const err = error as { name?: string };
+    if (err?.name === 'NoSuchKey' || err?.name === 'NotFound') {
+      return null;
+    }
+
+    console.error('Error downloading object from Supabase S3:', error);
     return null;
   }
 }

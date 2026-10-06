@@ -12,6 +12,7 @@ import {
   Clock,
   CheckCircle2,
   FileCheck,
+  Briefcase,
 } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
@@ -45,6 +46,12 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           return { tab: 'roster-builder', label: 'Open Roster Builder' };
         case 'AVAILABILITY_CHANGED':
           return { tab: 'availability', label: 'View Staff Availability' };
+        case 'JOB_ASSIGNED':
+        case 'JOB_STATUS_CHANGED':
+        case 'JOB_STARTED':
+        case 'JOB_COMPLETED':
+        case 'JOB_MEDIA_FAILED':
+          return { tab: 'jobs-dispatches', label: 'Open Jobs & Dispatches' };
         case 'SHIFT_STARTED':
         case 'SHIFT_COMPLETED':
         case 'SHIFT_FINISHED':
@@ -64,6 +71,12 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           return { tab: 'roster', label: 'View My Roster' };
         case 'AVAILABILITY_CHANGED':
           return { tab: 'availability', label: 'View My Availability' };
+        case 'JOB_ASSIGNED':
+        case 'JOB_STATUS_CHANGED':
+        case 'JOB_STARTED':
+        case 'JOB_COMPLETED':
+        case 'JOB_MEDIA_FAILED':
+          return { tab: 'my-jobs', label: 'View My Jobs' };
         case 'TIMESHEET_APPROVED':
         case 'TIMESHEET_SUBMITTED':
         case 'TIMESHEET_SIGNED':
@@ -96,6 +109,12 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
       case 'SHIFT_COMPLETED':
       case 'SHIFT_FINISHED':
         return <ClipboardList className="w-4 h-4 text-purple-600 shrink-0" />;
+      case 'JOB_ASSIGNED':
+      case 'JOB_STATUS_CHANGED':
+      case 'JOB_STARTED':
+      case 'JOB_COMPLETED':
+      case 'JOB_MEDIA_FAILED':
+        return <Briefcase className="w-4 h-4 text-indigo-600 shrink-0" />;
       case 'CONFLICT_REPORTED':
         return <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />;
       default:
