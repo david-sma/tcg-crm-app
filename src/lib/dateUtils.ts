@@ -1,16 +1,18 @@
 import { format, parseISO, addDays, startOfWeek } from 'date-fns';
+import { getAppSettings } from '../config/appSettings.ts';
 
 export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export const SHORT_DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /**
- * Gets current Auckland date and time components
+ * Gets current date and time components in the configured business timezone.
+ * Uses a stable English locale for part extraction so weekday tokens are predictable.
  */
-export function getNowInAuckland(): { dayOfWeek: number; hour: number; minute: number; yyyy: number; mm: number; dd: number } {
+export function getNowInBusinessTz(): { dayOfWeek: number; hour: number; minute: number; yyyy: number; mm: number; dd: number } {
   try {
     const now = new Date();
-    const formatter = new Intl.DateTimeFormat('en-NZ', {
-      timeZone: 'Pacific/Auckland',
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: getAppSettings().timezone,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -55,22 +57,22 @@ export function getNowInAuckland(): { dayOfWeek: number; hour: number; minute: n
 }
 
 /**
- * Calculates current Monday date string (YYYY-MM-DD) in Pacific/Auckland
+ * Calculates current Monday date string (YYYY-MM-DD) in the business timezone
  */
 export function getCurrentMonday(): string {
-  const { yyyy, mm, dd } = getNowInAuckland();
-  const aucklandToday = parseISO(`${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}T12:00:00`);
-  const mon = startOfWeek(aucklandToday, { weekStartsOn: 1 });
+  const { yyyy, mm, dd } = getNowInBusinessTz();
+  const localToday = parseISO(`${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}T12:00:00`);
+  const mon = startOfWeek(localToday, { weekStartsOn: 1 });
   return format(mon, 'yyyy-MM-dd');
 }
 
 /**
  * Returns default active week Monday:
- * If it is Sunday at or after 3:00 PM (15:00) in Pacific/Auckland, automatically defaults to Next Week's Monday.
- * Otherwise defaults to current week's Monday.
+ * If it is Sunday at or after 3:00 PM (15:00) in the business timezone,
+ * automatically defaults to Next Week's Monday. Otherwise defaults to current week's Monday.
  */
 export function getDefaultActiveMonday(): string {
-  const { dayOfWeek, hour } = getNowInAuckland();
+  const { dayOfWeek, hour } = getNowInBusinessTz();
   const curMonday = getCurrentMonday();
   // 0 is Sunday. At or after 15:00 (3pm), roll over to next Monday
   if (dayOfWeek === 0 && hour >= 15) {
@@ -117,9 +119,9 @@ export function getDayDateStr(mondayStr: string, dayIndex: number): string {
 }
 
 /**
- * Formats ISO datetime string to Pacific/Auckland time string (HH:mm)
+ * Formats ISO datetime string to local business time string (HH:mm)
  */
-export function formatTimeToNZ(utcIso: string): string {
+export function formatTimeLocal(utcIso: string): string {
   try {
     const date = parseISO(utcIso);
     return format(date, 'HH:mm');
@@ -131,12 +133,25 @@ export function formatTimeToNZ(utcIso: string): string {
 /**
  * Formats ISO datetime string to date + time
  */
-export function formatDateTimeToNZ(utcIso: string): string {
+export function formatDateTimeLocal(utcIso: string): string {
   try {
     const date = parseISO(utcIso);
     return format(date, 'd MMM, HH:mm');
   } catch {
     return utcIso;
+  }
+}
+
+/**
+ * Formats an ISO datetime via the configured locale + timezone.
+ */
+export function formatTimestampLocal(utcIso: string | number | Date): string {
+  try {
+    return new Date(utcIso).toLocaleString(getAppSettings().locale, {
+      timeZone: getAppSettings().timezone,
+    });
+  } catch {
+    return String(utcIso);
   }
 }
 

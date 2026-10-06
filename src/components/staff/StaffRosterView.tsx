@@ -6,7 +6,7 @@ import {
   getDefaultActiveMonday,
   DAY_NAMES,
   getDayDateStr,
-  formatTimeToNZ,
+  formatTimeLocal,
   calculateShiftDuration,
 } from '../../lib/dateUtils.ts';
 import { ConflictReportModal } from './ConflictReportModal.tsx';
@@ -110,7 +110,7 @@ export const StaffRosterView: React.FC<StaffRosterViewProps> = ({ initialWeek })
 
   const openShiftConflictModal = (shift: any, dayIdx: number) => {
     const dateStr = getDayDateStr(selectedWeek, dayIdx);
-    const timeStr = `${formatTimeToNZ(shift.start_datetime)} – ${formatTimeToNZ(shift.finish_datetime)}`;
+    const timeStr = `${formatTimeLocal(shift.start_datetime)} – ${formatTimeLocal(shift.finish_datetime)}`;
     setConflictShiftTarget({
       id: shift.id,
       dateStr,
@@ -288,7 +288,7 @@ export const StaffRosterView: React.FC<StaffRosterViewProps> = ({ initialWeek })
                                 <div>
                                   <div className="flex flex-wrap items-center gap-2">
                                     <span className="font-mono text-base font-bold text-slate-900">
-                                      {formatTimeToNZ(shift.start_datetime)} – {formatTimeToNZ(shift.finish_datetime)}
+                                      {formatTimeLocal(shift.start_datetime)} – {formatTimeLocal(shift.finish_datetime)}
                                     </span>
                                     <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-700">
                                       {calculateShiftDuration(shift.start_datetime, shift.finish_datetime)}
@@ -324,7 +324,7 @@ export const StaffRosterView: React.FC<StaffRosterViewProps> = ({ initialWeek })
                                           return (
                                             <span
                                               key={idx}
-                                              className="text-xs font-medium px-2 py-0.5 rounded-md bg-[#5371FF]/10 text-[#5371FF] border border-[#5371FF]/25"
+                                              className="text-xs font-medium px-2 py-0.5 rounded-md bg-[var(--color-brand)]/10 text-[var(--color-brand)] border border-[var(--color-brand)]/25"
                                             >
                                               {trimmed}
                                             </span>

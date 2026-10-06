@@ -1,6 +1,6 @@
 {
-  "name": "The Cleaning Guys NZ - Roster Portal",
-  "description": "Mobile-first workforce scheduling, shift management, and availability portal for The Cleaning Guys Auckland team (Pacific/Auckland timezone).",
+  "name": "Workforce Roster & Timesheet Portal",
+  "description": "Mobile-first workforce scheduling, shift management, and availability portal. Branding and seed data are per-customer configurable (see customer/ and docs/NEW_CUSTOMER.md).",
   "requestFramePermissions": ["notifications", "camera", "geolocation"],
   "majorCapabilities": []
 }

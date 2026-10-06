@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../lib/api.ts';
 import { PasswordRevealModal } from '../common/PasswordRevealModal.tsx';
 import type { User, UserRole } from '../../types/index.ts';
+import { useBrand } from '../../context/BrandContext.tsx';
 import {
   UserPlus,
   Search,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export const StaffManagement: React.FC = () => {
+  const { phone } = useBrand();
   const [staffList, setStaffList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -708,19 +710,19 @@ export const StaffManagement: React.FC = () => {
 
                 <div>
                   <label htmlFor="create-staff-phone-input" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Phone Number (NZ) <span className="text-rose-500">*</span>
+                    Phone Number <span className="text-rose-500">*</span>
                   </label>
                   <input
                     id="create-staff-phone-input"
                     type="tel"
                     required
-                    placeholder="e.g. 0210000012 or 027 730 4466"
+                    placeholder={`e.g. ${phone.example}`}
                     value={createPhone}
                     onChange={(e) => setCreatePhone(e.target.value)}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-900"
                   />
                   <span className="text-[11px] text-slate-400 mt-1 block">
-                    Accepts NZ local numbers (027/021/022) or +64 format.
+                    {phone.help}
                   </span>
                 </div>
 
@@ -853,7 +855,7 @@ export const StaffManagement: React.FC = () => {
 
                 <div>
                   <label htmlFor="edit-staff-phone-input" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Phone Number (NZ) <span className="text-rose-500">*</span>
+                    Phone Number <span className="text-rose-500">*</span>
                   </label>
                   <input
                     id="edit-staff-phone-input"

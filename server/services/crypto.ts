@@ -1,5 +1,6 @@
 import crypto from 'crypto';
-import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
+import { parsePhoneNumber, isValidPhoneNumber, getCountryCallingCode, type CountryCode } from 'libphonenumber-js';
+import { getAppSettings } from '../../src/config/appSettings.ts';
 
 // Restricted character pools that eliminate ambiguous characters: '0', 'O', '1', 'l', 'I'
 const UPPERCASE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -78,11 +79,20 @@ export async function verifyPassword(password: string, storedHash: string): Prom
 }
 
 /**
- * Normalizes phone numbers to international E.164 format, defaulting to NZ
+ * Normalizes phone numbers to international E.164 format using the
+ * configured phone country (see customer/brand.ts → phone.country).
  */
-export function normalizePhone(rawPhone: string): { isValid: boolean; e164: string; formatted: string; error?: string } {
+export function normalizePhone(rawPhone: string, countryOverride?: string): { isValid: boolean; e164: string; formatted: string; error?: string } {
   if (!rawPhone || typeof rawPhone !== 'string') {
     return { isValid: false, e164: '', formatted: '', error: 'Phone number is required' };
+  }
+
+  const country = ((countryOverride || getAppSettings().phone.country) as CountryCode) || 'NZ';
+  let callingCode = '64';
+  try {
+    callingCode = getCountryCallingCode(country);
+  } catch {
+    // Fall back to the default calling code above
   }
 
   const trimmed = rawPhone.trim();
@@ -91,29 +101,34 @@ export function normalizePhone(rawPhone: string): { isValid: boolean; e164: stri
   let cleaned = trimmed.replace(/[^\d+]/g, '');
   if (cleaned.startsWith('00')) {
     cleaned = '+' + cleaned.slice(2);
-  } else if (cleaned.startsWith('64') && !cleaned.startsWith('+')) {
+  } else if (cleaned.startsWith(callingCode) && !cleaned.startsWith('+')) {
     cleaned = '+' + cleaned;
-  } else if (!cleaned.startsWith('+') && !cleaned.startsWith('0') && cleaned.startsWith('2')) {
+  } else if (
+    country === 'NZ' &&
+    !cleaned.startsWith('+') &&
+    !cleaned.startsWith('0') &&
+    cleaned.startsWith('2')
+  ) {
     // e.g. "271234567" -> "0271234567"
     cleaned = '0' + cleaned;
   }
 
   try {
-    const phoneNumber = parsePhoneNumber(cleaned, 'NZ');
+    const phoneNumber = parsePhoneNumber(cleaned, country);
     if (phoneNumber && phoneNumber.isValid()) {
       return {
         isValid: true,
-        e164: phoneNumber.number, // E.164 format (+64...)
-        formatted: phoneNumber.formatNational(), // e.g. "027 730 4466"
+        e164: phoneNumber.number, // E.164 format
+        formatted: phoneNumber.formatNational(),
       };
     }
   } catch {
     // Fall through to fallback parser
   }
 
-  // Fallback for NZ national number patterns (e.g. 027..., 021..., 022...)
+  // Fallback for national number patterns (e.g. 027.../021.../022... in NZ)
   const digitsOnly = cleaned.replace(/\D/g, '');
-  if (digitsOnly.startsWith('64') && digitsOnly.length >= 9) {
+  if (digitsOnly.startsWith(callingCode) && digitsOnly.length >= 9) {
     return {
       isValid: true,
       e164: `+${digitsOnly}`,
@@ -121,7 +136,7 @@ export function normalizePhone(rawPhone: string): { isValid: boolean; e164: stri
     };
   }
   if (digitsOnly.startsWith('0') && digitsOnly.length >= 9) {
-    const e164 = `+64${digitsOnly.slice(1)}`;
+    const e164 = `+${callingCode}${digitsOnly.slice(1)}`;
     return {
       isValid: true,
       e164,

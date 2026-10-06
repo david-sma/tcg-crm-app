@@ -8,7 +8,7 @@ import {
   rosterVersionShifts,
 } from '../db/schema.ts';
 import { eq, and, desc, inArray } from 'drizzle-orm';
-import { getCurrentWeekMonday, getNowInNZ, TIMEZONE, getWeekDays } from './timezone.ts';
+import { getCurrentWeekMonday, getNowInBusinessTz, getBusinessTimezone, getWeekDays } from './timezone.ts';
 import { format, parseISO } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { logAuditEvent } from './audit.ts';
@@ -112,18 +112,18 @@ export async function findScheduledShiftAndTeammates(userId: string, dateStr: st
     .from(rosterVersionShifts)
     .where(eq(rosterVersionShifts.roster_version_id, rosterWeek.latest_published_version_id));
 
-  // Find caller's shift that falls on this date in Auckland time
+  // Find caller's shift that falls on this date in business-local time
   const myShift = versionShifts.find((s) => {
     if (s.user_id !== userId) return false;
-    const shiftDateInNZ = format(toZonedTime(parseISO(s.start_datetime), TIMEZONE), 'yyyy-MM-dd');
-    return shiftDateInNZ === dateStr;
+    const shiftDateLocal = format(toZonedTime(parseISO(s.start_datetime), getBusinessTimezone()), 'yyyy-MM-dd');
+    return shiftDateLocal === dateStr;
   });
 
   // Find coworkers scheduled on the same date (excluding self)
   const coworkerMap = new Map<string, string>();
   for (const s of versionShifts) {
     if (s.user_id !== userId) {
-      const sDate = format(toZonedTime(parseISO(s.start_datetime), TIMEZONE), 'yyyy-MM-dd');
+      const sDate = format(toZonedTime(parseISO(s.start_datetime), getBusinessTimezone()), 'yyyy-MM-dd');
       if (sDate === dateStr) {
         coworkerMap.set(s.user_id, s.staff_name_snapshot);
       }

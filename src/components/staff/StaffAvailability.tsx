@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../lib/api.ts';
 import { WeekNavigator } from '../common/WeekNavigator.tsx';
-import { getDefaultActiveMonday, DAY_NAMES, getDayDateStr } from '../../lib/dateUtils.ts';
+import { getDefaultActiveMonday, DAY_NAMES, getDayDateStr, formatTimestampLocal } from '../../lib/dateUtils.ts';
 import type { AvailabilityWindow, DayOfWeekIndex } from '../../types/index.ts';
 import { Clock, Copy, Check, Save, Plus, Trash2, AlertCircle, Sparkles, Moon, Repeat, CalendarRange } from 'lucide-react';
 
@@ -390,7 +390,7 @@ export const StaffAvailability: React.FC = () => {
       {/* Repeat Schedule & Duration Selector */}
       <div className="p-4 sm:p-5 bg-gradient-to-br from-white to-slate-50 rounded-2xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-[#5371FF]/10 text-[#5371FF]">
+          <div className="p-1.5 rounded-lg bg-[var(--color-brand)]/10 text-[var(--color-brand)]">
             <Repeat className="w-4 h-4" />
           </div>
           <div>
@@ -406,17 +406,17 @@ export const StaffAvailability: React.FC = () => {
             onClick={() => setRepeatOption('single')}
             className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
               repeatOption === 'single'
-                ? 'border-[#5371FF] bg-[#5371FF]/5 ring-2 ring-[#5371FF]/30 shadow-xs'
+                ? 'border-[var(--color-brand)] bg-[var(--color-brand)]/5 ring-2 ring-[var(--color-brand)]/30 shadow-xs'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
             }`}
           >
             <div>
-              <div className={`text-xs font-bold ${repeatOption === 'single' ? 'text-[#5371FF]' : 'text-slate-900'}`}>
+              <div className={`text-xs font-bold ${repeatOption === 'single' ? 'text-[var(--color-brand)]' : 'text-slate-900'}`}>
                 This Week Only
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5">Week of {selectedWeek}</div>
             </div>
-            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${repeatOption === 'single' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
+            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${repeatOption === 'single' ? 'border-[var(--color-brand)] bg-[var(--color-brand)]' : 'border-slate-300'}`}>
               {repeatOption === 'single' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
             </div>
           </button>
@@ -427,18 +427,18 @@ export const StaffAvailability: React.FC = () => {
             onClick={() => setRepeatOption('indefinite')}
             className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
               repeatOption === 'indefinite'
-                ? 'border-[#5371FF] bg-[#5371FF]/5 ring-2 ring-[#5371FF]/30 shadow-xs'
+                ? 'border-[var(--color-brand)] bg-[var(--color-brand)]/5 ring-2 ring-[var(--color-brand)]/30 shadow-xs'
                 : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
             }`}
           >
             <div>
-              <div className={`text-xs font-bold flex items-center gap-1.5 ${repeatOption === 'indefinite' ? 'text-[#5371FF]' : 'text-slate-900'}`}>
+              <div className={`text-xs font-bold flex items-center gap-1.5 ${repeatOption === 'indefinite' ? 'text-[var(--color-brand)]' : 'text-slate-900'}`}>
                 <span>Ongoing Schedule</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-[#5371FF]/15 text-[#5371FF]">Ongoing</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-[var(--color-brand)]/15 text-[var(--color-brand)]">Ongoing</span>
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5">Repeats for future weeks</div>
             </div>
-            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${repeatOption === 'indefinite' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
+            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${repeatOption === 'indefinite' ? 'border-[var(--color-brand)] bg-[var(--color-brand)]' : 'border-slate-300'}`}>
               {repeatOption === 'indefinite' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
             </div>
           </button>
@@ -451,7 +451,7 @@ export const StaffAvailability: React.FC = () => {
           {versionNumber ? (
             <span>
               Saved Version <strong>v{versionNumber}</strong> • Last updated{' '}
-              {lastUpdated ? new Date(lastUpdated).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland' }) : ''}
+              {lastUpdated ? formatTimestampLocal(lastUpdated) : ''}
             </span>
           ) : (
             <span>No availability saved yet for this week.</span>

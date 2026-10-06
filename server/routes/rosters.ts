@@ -170,7 +170,7 @@ rosterRouter.post('/shifts', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Cannot assign shift to inactive or non-existent staff.' });
     }
 
-    // Calculate absolute UTC datetimes from NZ local inputs
+    // Calculate absolute UTC datetimes from business-local inputs
     const startUtc = localToUtcDatetime(week.week_start_date, Number(start_day_of_week), start_time);
     const finishUtc = localToUtcDatetime(
       week.week_start_date,

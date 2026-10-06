@@ -13,3 +13,10 @@ coverage/
 data/
 .aistudio/
 exports/
+# Generated brand assets (regenerated from customer/ by `npm run brand-assets`,
+# also runs automatically via predev/prebuild) — do not edit by hand.
+public/manifest.webmanifest
+public/app-icon.svg
+public/app-icon-192.png
+public/app-icon-512.png
+public/sw.js

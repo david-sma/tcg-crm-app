@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../lib/api.ts';
 import { WeekNavigator } from '../common/WeekNavigator.tsx';
-import { getCurrentMonday, getDefaultActiveMonday, formatDateTimeToNZ, formatTimeToNZ, calculateShiftDuration, DAY_NAMES } from '../../lib/dateUtils.ts';
+import { getCurrentMonday, getDefaultActiveMonday, formatDateTimeLocal, formatTimeLocal, calculateShiftDuration, DAY_NAMES } from '../../lib/dateUtils.ts';
 import type { StaffRosterResponse } from '../../types/index.ts';
 import {
   CheckCircle2,
@@ -299,7 +299,7 @@ export const ManagerResponseTracker: React.FC = () => {
                               {res.responded_at && (
                                 <>
                                   <span>•</span>
-                                  <span>Responded {formatDateTimeToNZ(res.responded_at)}</span>
+                                  <span>Responded {formatDateTimeLocal(res.responded_at)}</span>
                                 </>
                               )}
                             </div>
@@ -366,7 +366,7 @@ export const ManagerResponseTracker: React.FC = () => {
                                 >
                                   <div>
                                     <div className="font-semibold text-slate-900">
-                                      {dayName}: {formatTimeToNZ(s.start_datetime)} – {formatTimeToNZ(s.finish_datetime)}
+                                      {dayName}: {formatTimeLocal(s.start_datetime)} – {formatTimeLocal(s.finish_datetime)}
                                     </div>
                                     <div className="text-[11px] text-slate-500">
                                       {calculateShiftDuration(s.start_datetime, s.finish_datetime)}

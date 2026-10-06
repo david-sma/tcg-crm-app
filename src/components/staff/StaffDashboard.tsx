@@ -7,7 +7,7 @@ import {
   getDefaultActiveMonday,
   getOffsetMonday,
   formatWeekRange,
-  formatTimeToNZ,
+  formatTimeLocal,
 } from '../../lib/dateUtils.ts';
 import {
   Calendar,
@@ -436,8 +436,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
               {todayShiftData?.scheduled_shift ? (
                 <div className="text-xs text-emerald-700 font-semibold mt-1">
                   Rostered Today:{' '}
-                  {formatTimeToNZ(todayShiftData.scheduled_shift.start_datetime)} –{' '}
-                  {formatTimeToNZ(todayShiftData.scheduled_shift.finish_datetime)}
+                  {formatTimeLocal(todayShiftData.scheduled_shift.start_datetime)} –{' '}
+                  {formatTimeLocal(todayShiftData.scheduled_shift.finish_datetime)}
                 </div>
               ) : (
                 <div className="text-xs text-slate-500 mt-1">
@@ -510,8 +510,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
                   <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1.5 border border-slate-200">
                     <div className="font-semibold text-slate-700">First Upcoming Shift:</div>
                     <div className="font-mono text-sm font-bold text-slate-900">
-                      {formatTimeToNZ(currentRoster.shifts[0].start_datetime)} –{' '}
-                      {formatTimeToNZ(currentRoster.shifts[0].finish_datetime)}
+                      {formatTimeLocal(currentRoster.shifts[0].start_datetime)} –{' '}
+                      {formatTimeLocal(currentRoster.shifts[0].finish_datetime)}
                     </div>
                   </div>
                 )}

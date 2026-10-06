@@ -238,7 +238,7 @@ export const EnterAvailabilityModal: React.FC<EnterAvailabilityModalProps> = ({
           {/* Repeat Schedule & Duration Option */}
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
-              <Repeat className="w-3.5 h-3.5 text-[#5371FF]" />
+              <Repeat className="w-3.5 h-3.5 text-[var(--color-brand)]" />
               <span>Schedule Duration & Routine</span>
             </div>
             <p className="text-[11px] text-slate-500">Choose whether these hours apply to this week only or as an ongoing regular routine</p>
@@ -248,7 +248,7 @@ export const EnterAvailabilityModal: React.FC<EnterAvailabilityModalProps> = ({
                 onClick={() => setRepeatOption('single')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
                   repeatOption === 'single'
-                    ? 'border-[#5371FF] bg-[#5371FF]/10 text-[#5371FF] font-bold ring-1 ring-[#5371FF]'
+                    ? 'border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand)] font-bold ring-1 ring-[var(--color-brand)]'
                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                 }`}
               >
@@ -256,7 +256,7 @@ export const EnterAvailabilityModal: React.FC<EnterAvailabilityModalProps> = ({
                   <div className="text-xs font-bold">This Week Only</div>
                   <div className="text-[10px] text-slate-500 font-normal">Week of {weekStartDate}</div>
                 </div>
-                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${repeatOption === 'single' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
+                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${repeatOption === 'single' ? 'border-[var(--color-brand)] bg-[var(--color-brand)]' : 'border-slate-300'}`}>
                   {repeatOption === 'single' && <div className="w-1 h-1 rounded-full bg-white" />}
                 </div>
               </button>
@@ -266,18 +266,18 @@ export const EnterAvailabilityModal: React.FC<EnterAvailabilityModalProps> = ({
                 onClick={() => setRepeatOption('indefinite')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
                   repeatOption === 'indefinite'
-                    ? 'border-[#5371FF] bg-[#5371FF]/10 text-[#5371FF] font-bold ring-1 ring-[#5371FF]'
+                    ? 'border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand)] font-bold ring-1 ring-[var(--color-brand)]'
                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                 }`}
               >
                 <div>
                   <div className="text-xs font-bold flex items-center gap-1">
                     <span>Ongoing Schedule</span>
-                    <span className="text-[9px] px-1 py-0.2 rounded-sm bg-[#5371FF]/20 text-[#5371FF]">Indefinite</span>
+                    <span className="text-[9px] px-1 py-0.2 rounded-sm bg-[var(--color-brand)]/20 text-[var(--color-brand)]">Indefinite</span>
                   </div>
                   <div className="text-[10px] text-slate-500 font-normal">Repeats across all future weeks</div>
                 </div>
-                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${repeatOption === 'indefinite' ? 'border-[#5371FF] bg-[#5371FF]' : 'border-slate-300'}`}>
+                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${repeatOption === 'indefinite' ? 'border-[var(--color-brand)] bg-[var(--color-brand)]' : 'border-slate-300'}`}>
                   {repeatOption === 'indefinite' && <div className="w-1 h-1 rounded-full bg-white" />}
                 </div>
               </button>

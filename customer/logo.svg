@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Top Leaf Accent -->
+  <path
+    d="M136 38 C144 24, 158 18, 168 20 C166 32, 156 42, 142 46 C138 43, 136 40, 136 38 Z"
+    fill="#5371FF"
+  />
+  <path
+    d="M142 46 C149 32, 157 26, 165 22"
+    stroke="#7FD858"
+    stroke-width="3"
+    stroke-linecap="round"
+  />
+
+  <!-- Large outer C-shaped circular curve -->
+  <path
+    d="M165 82 C163 56, 140 38, 110 38 C68 38, 38 72, 38 114 C38 152, 68 182, 114 182 C134 182, 150 174, 160 162"
+    stroke="#5371FF"
+    stroke-width="11"
+    stroke-linecap="round"
+  />
+
+  <!-- Secondary inner leaf swoosh -->
+  <path
+    d="M106 46 C142 48, 172 68, 172 88 C146 88, 116 70, 106 46 Z"
+    fill="#5095FC"
+  />
+
+  <!-- Vacuum Cleaner Handle & Pipe -->
+  <path
+    d="M78 68 H118 M98 68 V86 C98 104, 62 102, 62 124 V138 H80"
+    stroke="#5371FF"
+    stroke-width="9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Vacuum Cleaner Body Shell -->
+  <path
+    d="M92 164 C84 150, 84 126, 108 112 C136 100, 164 116, 166 142 C167 154, 158 164, 144 164 Z"
+    fill="#5095FC"
+    fill-opacity="0.15"
+    stroke="#5371FF"
+    stroke-width="8"
+    stroke-linejoin="round"
+  />
+
+  <!-- Vacuum Wheel Outer & Inner -->
+  <circle
+    cx="140"
+    cy="154"
+    r="19"
+    stroke="#5371FF"
+    stroke-width="8"
+    fill="#FFFFFF"
+  />
+  <circle
+    cx="140"
+    cy="154"
+    r="9"
+    fill="#7FD858"
+  />
+  <circle
+    cx="140"
+    cy="154"
+    r="4"
+    fill="#5371FF"
+  />
+</svg>

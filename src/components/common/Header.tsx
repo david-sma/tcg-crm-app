@@ -3,7 +3,8 @@ import { useAuth } from '../../context/AuthContext.tsx';
 import { useNotifications } from '../../context/NotificationContext.tsx';
 import { Bell, LogOut, ChevronDown, Layers, Check } from 'lucide-react';
 import { NotificationDrawer } from './NotificationDrawer.tsx';
-import { TCGLogo } from './TCGLogo.tsx';
+import { CompanyLogo } from './CompanyLogo.tsx';
+import { useBrand } from '../../context/BrandContext.tsx';
 import { CRM_MODULES, CRMModule } from '../../config/modules';
 
 interface HeaderProps {
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
+  const { companyName, city } = useBrand();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [moduleMenuOpen, setModuleMenuOpen] = useState(false);
 
@@ -45,25 +47,25 @@ export const Header: React.FC<HeaderProps> = ({
               title="Go to Dashboard"
             >
               <div className="p-1 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs group-hover:scale-105 transition-transform flex items-center justify-center">
-                <TCGLogo size={34} />
+                <CompanyLogo size={34} />
               </div>
               <div className="hidden sm:block">
                 <div className="flex items-center gap-2">
                   <span className="font-extrabold text-slate-900 text-base leading-tight tracking-tight">
-                    The Cleaning Guys
+                    {companyName}
                   </span>
                   <span
                     className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider ${
                       user.role === 'manager'
                         ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                        : 'bg-[#7FD858]/15 text-emerald-800 border border-[#7FD858]/30'
+                        : 'bg-[var(--color-brand-accent)]/15 text-emerald-800 border border-[var(--color-brand-accent)]/30'
                     }`}
                   >
                     {user.role}
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-400 block leading-tight">
-                  Auckland Operations
+                  {city} Operations
                 </span>
               </div>
             </button>

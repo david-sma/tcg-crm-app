@@ -14,11 +14,10 @@ import {
   getCurrentWeekMonday,
   isValidMondayDate,
   snapToMonday,
-  getNowInNZ,
-  TIMEZONE,
+  getNowInBusinessTz,
+  getBusinessTimezone,
   getWeekDays,
   localToUtcDatetime,
-  formatUtcToNZ,
 } from '../services/timezone.ts';
 import {
   calculateNetWorkedMinutes,
@@ -30,7 +29,9 @@ import { createInAppNotification } from '../services/notification.ts';
 import { requireAuth, requireRole } from '../middleware/auth.ts';
 import { uploadShiftPhoto, getPhotoBufferFromStorage } from '../services/storage.ts';
 import { ShiftPhotoValidationError } from '../services/image.ts';
-import { seedMockTimesheetData } from '../services/seed.ts';
+import { seedMockTimesheetData } from '../services/demoSeed.ts';
+import { getAppSettings } from '../../src/config/appSettings.ts';
+import { loadSeedConfig } from '../../src/config/loadCustomer.ts';
 import { parseISO, startOfWeek, addDays } from 'date-fns';
 import { toZonedTime, format as formatZoned } from 'date-fns-tz';
 import crypto from 'crypto';
@@ -39,10 +40,10 @@ export const timesheetsRouter = Router();
 
 timesheetsRouter.use(requireAuth);
 
-// Helper to get today's date string (YYYY-MM-DD) in NZ time
-function getTodayDateNZ(): string {
-  const nowNZ = getNowInNZ();
-  return formatZoned(nowNZ, 'yyyy-MM-dd', { timeZone: TIMEZONE });
+// Helper to get today's date string (YYYY-MM-DD) in the business timezone
+function getTodayDateLocal(): string {
+  const nowLocal = getNowInBusinessTz();
+  return formatZoned(nowLocal, 'yyyy-MM-dd', { timeZone: getBusinessTimezone() });
 }
 
 // Helper to format an event report and expose secure photo endpoint
@@ -82,7 +83,7 @@ function formatReportForResponse(report: any, events: any[] = []) {
 // GET /api/timesheets/today - Get current user's today shift status
 timesheetsRouter.get('/today', async (req: Request, res: Response) => {
   try {
-    const todayDate = getTodayDateNZ();
+    const todayDate = getTodayDateLocal();
     const currentMonday = getCurrentWeekMonday();
     const userId = req.user!.id;
 
@@ -148,10 +149,10 @@ timesheetsRouter.post('/clock-in', async (req: Request, res: Response) => {
   try {
     const { photo, type = 'base_arrival', location } = req.body;
     const userId = req.user!.id;
-    const nowNZ = getNowInNZ();
-    const todayDate = getTodayDateNZ();
+    const nowLocal = getNowInBusinessTz();
+    const todayDate = getTodayDateLocal();
     const currentMonday = getCurrentWeekMonday();
-    const dayOfWeek = (nowNZ.getDay() + 6) % 7; // 0=Mon, 6=Sun
+    const dayOfWeek = (nowLocal.getDay() + 6) % 7; // 0=Mon, 6=Sun
     const nowIso = new Date().toISOString();
 
     // Check if there is already an active shift in progress
@@ -193,7 +194,7 @@ timesheetsRouter.post('/clock-in', async (req: Request, res: Response) => {
       clock_in_at: nowIso,
       clock_in_photo: storedClockInPhoto,
       clock_in_type: type,
-      clock_in_location: location || (type === 'base_arrival' ? 'Main Office / Base' : 'First Job Site'),
+      clock_in_location: location || (type === 'base_arrival' ? getAppSettings().defaultLocations.base : getAppSettings().defaultLocations.firstJob),
       break_minutes: 0,
       status: 'in_progress',
       total_worked_minutes: 0,
@@ -231,7 +232,7 @@ timesheetsRouter.post('/clock-in', async (req: Request, res: Response) => {
         shift_report_id: reportId,
         user_id: userId,
         event_type: 'arrival',
-        location_name: location || (type === 'base_arrival' ? 'Main Office / Base' : 'First Job Site'),
+        location_name: location || (type === 'base_arrival' ? getAppSettings().defaultLocations.base : getAppSettings().defaultLocations.firstJob),
         photo_url: storedClockInPhoto,
         notes: 'Initial shift arrival / clock in',
         timestamp: nowIso,
@@ -322,7 +323,7 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
         clock_out_at: nowIso,
         clock_out_photo: storedClockOutPhoto,
         clock_out_type: type,
-        clock_out_location: location || (type === 'closing_shift' ? 'Base / Closing Shift' : 'Last Job Site'),
+        clock_out_location: location || (type === 'closing_shift' ? getAppSettings().defaultLocations.closing : getAppSettings().defaultLocations.lastJob),
         break_minutes: Math.max(0, Number(break_minutes) || 0),
         travel_minutes: Math.max(0, Number(travel_minutes) || 0),
         worked_with: JSON.stringify(workedWithArray),
@@ -340,7 +341,7 @@ timesheetsRouter.post('/clock-out', async (req: Request, res: Response) => {
         shift_report_id: report.id,
         user_id: userId,
         event_type: 'closing',
-        location_name: location || (type === 'closing_shift' ? 'Base / Closing Shift' : 'Last Job Site'),
+        location_name: location || (type === 'closing_shift' ? getAppSettings().defaultLocations.closing : getAppSettings().defaultLocations.lastJob),
         photo_url: storedClockOutPhoto,
         notes: notes?.trim() || 'Shift closing / finish report',
         timestamp: nowIso,
@@ -626,8 +627,8 @@ timesheetsRouter.get('/my-week', async (req: Request, res: Response) => {
         for (const s of vShifts) {
           try {
             const dateObj = typeof s.start_datetime === 'string' ? parseISO(s.start_datetime) : new Date(s.start_datetime);
-            const sDate = formatZoned(toZonedTime(dateObj, TIMEZONE), 'yyyy-MM-dd', {
-              timeZone: TIMEZONE,
+            const sDate = formatZoned(toZonedTime(dateObj, getBusinessTimezone()), 'yyyy-MM-dd', {
+              timeZone: getBusinessTimezone(),
             });
             scheduledShiftsByDate.set(sDate, s);
           } catch (dateErr) {
@@ -794,7 +795,7 @@ timesheetsRouter.post('/sign-week', async (req: Request, res: Response) => {
 // GET /api/timesheets/live-duty - Get list of staff currently on duty
 timesheetsRouter.get('/live-duty', requireRole('manager'), async (req: Request, res: Response) => {
   try {
-    const todayDate = getTodayDateNZ();
+    const todayDate = getTodayDateLocal();
     const currentMonday = getCurrentWeekMonday();
 
     const activeReports = await db
@@ -1060,8 +1061,8 @@ timesheetsRouter.get('/staff-sheet', requireRole('manager'), async (req: Request
         for (const s of vShifts) {
           try {
             const dateObj = typeof s.start_datetime === 'string' ? parseISO(s.start_datetime) : new Date(s.start_datetime);
-            const sDate = formatZoned(toZonedTime(dateObj, TIMEZONE), 'yyyy-MM-dd', {
-              timeZone: TIMEZONE,
+            const sDate = formatZoned(toZonedTime(dateObj, getBusinessTimezone()), 'yyyy-MM-dd', {
+              timeZone: getBusinessTimezone(),
             });
             scheduledShiftsByDate.set(sDate, s);
           } catch (dateErr) {
@@ -1243,8 +1244,8 @@ timesheetsRouter.post('/manager-override', requireRole('manager'), async (req: R
   try {
     const {
       report_id,
-      override_start_time, // "HH:mm" in NZ local
-      override_finish_time, // "HH:mm" in NZ local
+      override_start_time, // "HH:mm" in business local time
+      override_finish_time, // "HH:mm" in business local time
       override_break_minutes, // number (0, 15, 30, 45, 60)
       reason,
     } = req.body;
@@ -1379,12 +1380,16 @@ timesheetsRouter.get('/photo/:reportId/:photoType', async (req: Request, res: Re
   }
 });
 
-// POST /api/timesheets/seed-mock - Seed sample shifts and timesheets for testing (Manager only)
+// POST /api/timesheets/seed-mock - Seed demo shifts and timesheets for testing (Manager only).
+// Disabled unless `demoData: true` in customer/seed.ts.
 timesheetsRouter.post('/seed-mock', requireRole('manager'), async (req: Request, res: Response) => {
   try {
+    if (!loadSeedConfig().demoData) {
+      return res.status(403).json({ error: 'Demo data seeding is disabled for this deployment.' });
+    }
     await seedMockTimesheetData();
-    return res.json({ success: true, message: 'Mock timesheet data seeded successfully' });
+    return res.json({ success: true, message: 'Demo timesheet data seeded successfully' });
   } catch (err: any) {
-    return res.status(500).json({ error: err?.message || 'Failed to seed mock data' });
+    return res.status(500).json({ error: err?.message || 'Failed to seed demo data' });
   }
 });

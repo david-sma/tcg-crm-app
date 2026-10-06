@@ -19,9 +19,10 @@ import {
   LogOut,
   Upload,
 } from 'lucide-react';
-import { getNowInAuckland } from '../../lib/dateUtils';
+import { getNowInBusinessTz } from '../../lib/dateUtils';
 import { ClockOutType, ShiftReport } from '../../types';
 import { apiFetch } from '../../lib/api';
+import { useBrand } from '../../context/BrandContext.tsx';
 
 export interface ClockOutModalProps {
   isOpen: boolean;
@@ -57,6 +58,7 @@ export const ClockOutModal: React.FC<ClockOutModalProps> = ({
   allStaffNames = [],
   initialClosing = false,
 }) => {
+  const { defaultLocations } = useBrand();
   // Intermediate report type: 'arrival' | 'leaving'
   const [eventType, setEventType] = useState<'arrival' | 'leaving'>('arrival');
 
@@ -102,7 +104,7 @@ export const ClockOutModal: React.FC<ClockOutModalProps> = ({
 
   if (!isOpen || !activeReport) return null;
 
-  const { hour, minute } = getNowInAuckland();
+  const { hour, minute } = getNowInBusinessTz();
   const timeFormatted = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
   const clockInTime = new Date(activeReport.clock_in_at);
@@ -170,8 +172,8 @@ export const ClockOutModal: React.FC<ClockOutModalProps> = ({
         // Submit full closing shift report
         const defaultLoc =
           clockOutType === 'closing_shift'
-            ? 'Base / Closing Shift'
-            : locationName.trim() || 'Last Job Site';
+            ? defaultLocations.closing
+            : locationName.trim() || defaultLocations.lastJob;
 
         await onClockOut({
           photo: photoPreview,
@@ -510,7 +512,7 @@ export const ClockOutModal: React.FC<ClockOutModalProps> = ({
                         clockOutType === 'last_job' ? 'text-blue-600' : 'text-slate-400'
                       }`}
                     />
-                    <span className="text-xs font-bold">Last Job Site</span>
+                    <span className="text-xs font-bold">{defaultLocations.lastJob}</span>
                   </button>
                 </div>
               </div>

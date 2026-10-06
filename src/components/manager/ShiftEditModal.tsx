@@ -1,7 +1,8 @@
 import React, { useState, useEffect, KeyboardEvent } from 'react';
 import { apiFetch } from '../../lib/api.ts';
-import { DAY_NAMES, getDayDateStr, formatTimeToNZ } from '../../lib/dateUtils.ts';
+import { DAY_NAMES, getDayDateStr, formatTimeLocal } from '../../lib/dateUtils.ts';
 import type { DraftShift, User } from '../../types/index.ts';
+import { useBrand } from '../../context/BrandContext.tsx';
 import { X, Clock, AlertTriangle, Trash2, ShieldAlert, Plus, Tag } from 'lucide-react';
 
 interface ShiftEditModalProps {
@@ -17,7 +18,7 @@ interface ShiftEditModalProps {
   onSuccess: () => void;
 }
 
-const DEFAULT_PRESETS = [
+const FALLBACK_PRESETS = [
   'Residential Clean',
   'Office / Commercial',
   'End of Tenancy',
@@ -38,15 +39,17 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
   defaultUserId,
   onSuccess,
 }) => {
+  const { shiftPresets, defaultLocations } = useBrand();
+  const PRESETS = shiftPresets.length > 0 ? shiftPresets : FALLBACK_PRESETS;
   const [userId, setUserId] = useState<string>(
     shiftToEdit?.user_id || defaultUserId || (activeStaff.length > 0 ? activeStaff[0].id : '')
   );
   const [dayIndex, setDayIndex] = useState<number>(shiftToEdit?.start_day_of_week ?? defaultDayIndex ?? 0);
   const [startTime, setStartTime] = useState<string>(
-    shiftToEdit ? formatTimeToNZ(shiftToEdit.start_datetime) : '08:00'
+    shiftToEdit ? formatTimeLocal(shiftToEdit.start_datetime) : '08:00'
   );
   const [finishTime, setFinishTime] = useState<string>(
-    shiftToEdit ? formatTimeToNZ(shiftToEdit.finish_datetime) : '17:00'
+    shiftToEdit ? formatTimeLocal(shiftToEdit.finish_datetime) : '17:00'
   );
   
   // Selected labels array for multi-selection
@@ -65,8 +68,8 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
     if (shiftToEdit) {
       setUserId(shiftToEdit.user_id);
       setDayIndex(shiftToEdit.start_day_of_week);
-      setStartTime(formatTimeToNZ(shiftToEdit.start_datetime));
-      setFinishTime(formatTimeToNZ(shiftToEdit.finish_datetime));
+      setStartTime(formatTimeLocal(shiftToEdit.start_datetime));
+      setFinishTime(formatTimeLocal(shiftToEdit.finish_datetime));
       
       // Parse multi-labels if comma-separated or string
       if (shiftToEdit.label) {
@@ -377,7 +380,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             
             {/* Quick Presets Toggle Badges */}
             <div className="flex flex-wrap gap-1.5">
-              {DEFAULT_PRESETS.map((preset) => {
+              {PRESETS.map((preset) => {
                 const isSelected = selectedLabels.includes(preset);
                 return (
                   <button
@@ -386,7 +389,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
                     onClick={() => toggleLabel(preset)}
                     className={`px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
                       isSelected
-                        ? 'bg-[#5371FF] text-white border-[#5371FF] font-bold shadow-xs'
+                        ? 'bg-[var(--color-brand)] text-white border-[var(--color-brand)] font-bold shadow-xs'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
@@ -398,18 +401,18 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             </div>
 
             {/* Interactive Tag Field (Pills + Input with comma support) */}
-            <div className="p-2 min-h-[46px] bg-white border border-slate-300 rounded-xl focus-within:ring-2 focus-within:ring-[#5371FF] focus-within:border-[#5371FF] transition-all flex flex-wrap items-center gap-1.5">
+            <div className="p-2 min-h-[46px] bg-white border border-slate-300 rounded-xl focus-within:ring-2 focus-within:ring-[var(--color-brand)] focus-within:border-[var(--color-brand)] transition-all flex flex-wrap items-center gap-1.5">
               {selectedLabels.map((lbl) => (
                 <span
                   key={lbl}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#5371FF]/10 text-[#5371FF] border border-[#5371FF]/25 animate-in fade-in zoom-in-95 duration-100"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--color-brand)]/10 text-[var(--color-brand)] border border-[var(--color-brand)]/25 animate-in fade-in zoom-in-95 duration-100"
                 >
-                  <Tag className="w-3 h-3 text-[#5371FF]" />
+                  <Tag className="w-3 h-3 text-[var(--color-brand)]" />
                   <span>{lbl}</span>
                   <button
                     type="button"
                     onClick={() => removeLabel(lbl)}
-                    className="p-0.5 hover:bg-[#5371FF]/20 rounded-md text-[#5371FF] cursor-pointer"
+                    className="p-0.5 hover:bg-[var(--color-brand)]/20 rounded-md text-[var(--color-brand)] cursor-pointer"
                     title={`Remove ${lbl}`}
                   >
                     <X className="w-3 h-3" />
@@ -442,10 +445,10 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
             <textarea
               id="shift-notes-input"
               rows={2}
-              placeholder="e.g. Bring keycard, carpet steamer, or meet at Morrin Rd depot"
+              placeholder={`e.g. Bring keycard, or meet at ${defaultLocations.base}`}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#5371FF]"
+              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[var(--color-brand)]"
             />
           </div>
 

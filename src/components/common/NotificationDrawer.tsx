@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
-import { formatDateTimeToNZ } from '../../lib/dateUtils.ts';
+import { formatDateTimeLocal } from '../../lib/dateUtils.ts';
 
 interface NotificationDrawerProps {
   isOpen: boolean;
@@ -192,7 +192,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                   )}
 
                   <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between border-t border-slate-100 pt-2">
-                    <span>{formatDateTimeToNZ(item.created_at)}</span>
+                    <span>{formatDateTimeLocal(item.created_at)}</span>
                     {item.is_read && (
                       <span className="flex items-center gap-0.5 text-emerald-600 font-medium">
                         <Check className="w-3 h-3" /> Read

@@ -214,7 +214,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
   const handleNextWeek = () => setSelectedWeek(getOffsetMonday(selectedWeek, 1));
   const handleCurrentWeek = () => setSelectedWeek(getDefaultActiveMonday());
 
-  const formatNZTime = (isoString?: string | null) => {
+  const formatTimeOfDay = (isoString?: string | null) => {
     if (!isoString) return '—';
     try {
       const d = new Date(isoString);
@@ -346,7 +346,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                   </div>
                   <div className="text-xs text-slate-300 flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    Clocked in: <strong className="text-white">{formatNZTime(staff.clock_in_at)}</strong>
+                    Clocked in: <strong className="text-white">{formatTimeOfDay(staff.clock_in_at)}</strong>
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center gap-1">
                     {staff.clock_in_type === 'base_arrival' ? (
@@ -363,7 +363,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                       <span>
                         {staff.latest_event.event_type === 'arrival' ? 'Arrived at' : 'Left'}{' '}
                         <strong>{staff.latest_event.location_name || 'Job Site'}</strong> (
-                        {formatNZTime(staff.latest_event.timestamp)})
+                        {formatTimeOfDay(staff.latest_event.timestamp)})
                       </span>
                     </div>
                   )}
@@ -665,7 +665,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                               {rep?.clock_in_at ? (
                                 <div className="flex items-center gap-1.5">
                                   <span className="font-bold text-slate-900">
-                                    {formatNZTime(effectiveStart)}
+                                    {formatTimeOfDay(effectiveStart)}
                                   </span>
                                   {rep.clock_in_photo && (
                                     <button
@@ -700,7 +700,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-1.5">
                                     <span className="font-bold text-slate-900">
-                                      {formatNZTime(effectiveFinish)}
+                                      {formatTimeOfDay(effectiveFinish)}
                                     </span>
                                     {rep?.clock_out_photo && (
                                       <button
@@ -985,7 +985,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Start Time (NZT)
+                    Start Time
                   </label>
                   <input
                     type="time"
@@ -996,7 +996,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Finish Time (NZT)
+                    Finish Time
                   </label>
                   <input
                     type="time"

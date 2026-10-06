@@ -8,6 +8,7 @@ import { createServer as createViteServer } from 'vite';
 EventEmitter.defaultMaxListeners = 50;
 import { bootstrapInitialData } from './server/services/seed.ts';
 import { authMiddleware, loginRateLimiter } from './server/middleware/auth.ts';
+import { settingsRouter } from './server/routes/settings.ts';
 import { authRouter } from './server/routes/auth.ts';
 import { staffRouter } from './server/routes/staff.ts';
 import { availabilityRouter } from './server/routes/availability.ts';
@@ -30,7 +31,10 @@ async function startServer() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
-  // Initialize Seed Data on startup
+  // Public brand/locale settings (login screen + PWA need these without auth)
+  app.use('/api/settings', settingsRouter);
+
+  // Initialize Seed Data on startup (company_settings + team from customer/ config)
   try {
     await bootstrapInitialData();
   } catch (dbErr) {

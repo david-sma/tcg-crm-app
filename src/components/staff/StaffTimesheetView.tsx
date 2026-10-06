@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { formatWeekRange, getOffsetMonday, getDefaultActiveMonday } from '../../lib/dateUtils';
 import { apiFetch } from '../../lib/api';
+import { useBrand } from '../../context/BrandContext.tsx';
 import { DayTimesheetRow, WeeklyTimesheet } from '../../types';
 import { PhotoViewerModal } from '../common/PhotoViewerModal';
 import { WeekNavigator } from '../common/WeekNavigator.tsx';
@@ -25,6 +26,7 @@ interface StaffTimesheetViewProps {
 }
 
 export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackToDashboard }) => {
+  const { defaultLocations } = useBrand();
   const [selectedWeek, setSelectedWeek] = useState<string>(getDefaultActiveMonday());
   const [loading, setLoading] = useState<boolean>(true);
   const [signing, setSigning] = useState<boolean>(false);
@@ -98,7 +100,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
     setSelectedWeek(getDefaultActiveMonday());
   };
 
-  const formatNZTime = (isoString?: string | null) => {
+  const formatTimeOfDay = (isoString?: string | null) => {
     if (!isoString) return '—';
     try {
       const d = new Date(isoString);
@@ -260,7 +262,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                         {rep?.clock_in_at ? (
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-900">
-                              {formatNZTime(effectiveStart)}
+                              {formatTimeOfDay(effectiveStart)}
                             </span>
                             {rep.clock_in_photo && (
                               <button
@@ -270,7 +272,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                                     url: rep.clock_in_photo!,
                                     title: `Arrival Photo Proof - ${row.short_day} ${shortDate}`,
                                     timestamp: rep.clock_in_at,
-                                    location: rep.clock_in_location || 'Base / First Job',
+                                    location: rep.clock_in_location || (rep.clock_in_type === 'base_arrival' ? defaultLocations.base : defaultLocations.firstJob),
                                     typeLabel:
                                       rep.clock_in_type === 'base_arrival'
                                         ? 'Base Office Arrival'
@@ -291,7 +293,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                           </div>
                         ) : row.scheduled_shift ? (
                           <span className="text-xs text-slate-400 italic">
-                            Sched: {formatNZTime(row.scheduled_shift.start_datetime)}
+                            Sched: {formatTimeOfDay(row.scheduled_shift.start_datetime)}
                           </span>
                         ) : (
                           <span className="text-slate-300">—</span>
@@ -303,7 +305,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                         {rep?.clock_out_at || rep?.manager_override_finish_at ? (
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-900">
-                              {formatNZTime(effectiveFinish)}
+                              {formatTimeOfDay(effectiveFinish)}
                             </span>
                             {rep?.clock_out_photo && (
                               <button
@@ -313,7 +315,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                                     url: rep.clock_out_photo!,
                                     title: `Closing Photo Proof - ${row.short_day} ${shortDate}`,
                                     timestamp: rep.clock_out_at || undefined,
-                                    location: rep.clock_out_location || 'Last Job / Base',
+                                    location: rep.clock_out_location || (rep.clock_out_type === 'closing_shift' ? defaultLocations.closing : defaultLocations.lastJob),
                                     typeLabel:
                                       rep.clock_out_type === 'closing_shift'
                                         ? 'Base Office Lockup'

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../lib/api.ts';
-import { formatDateTimeToNZ } from '../../lib/dateUtils.ts';
+import { formatDateTimeLocal } from '../../lib/dateUtils.ts';
 import type { AuditEvent } from '../../types/index.ts';
 import { ShieldCheck, Clock, User, FileText, Search, RefreshCw } from 'lucide-react';
 
@@ -105,7 +105,7 @@ export const ManagerAuditLog: React.FC = () => {
                 </div>
 
                 <div className="text-[11px] text-slate-400 font-mono shrink-0">
-                  {formatDateTimeToNZ(evt.created_at)}
+                  {formatDateTimeLocal(evt.created_at)}
                 </div>
               </div>
             ))}

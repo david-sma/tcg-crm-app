@@ -5,6 +5,7 @@ import { eq, or, like } from 'drizzle-orm';
 import { normalizePhone, verifyPassword } from '../services/crypto.ts';
 import { logAuditEvent } from '../services/audit.ts';
 import { SESSION_COOKIE_NAME, requireAuth, resetLoginRateLimit } from '../middleware/auth.ts';
+import { getAppSettings } from '../../src/config/appSettings.ts';
 import crypto from 'crypto';
 
 export const authRouter = Router();
@@ -20,7 +21,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const normalized = normalizePhone(phone);
     if (!normalized.isValid) {
-      return res.status(400).json({ error: 'Please enter a valid phone number (e.g. 027 730 4466)' });
+      return res.status(400).json({ error: `Please enter a valid phone number (e.g. ${getAppSettings().phone.example})` });
     }
 
     let userList = await db.select().from(users).where(eq(users.phone_e164, normalized.e164)).limit(1);

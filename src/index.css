@@ -2,6 +2,15 @@
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+
+  /* Brand color tokens — fallback values, overridden at runtime by
+     BrandProvider from customer settings (see /api/settings). */
+  --color-brand: #5371FF;
+  --color-brand-hover: #4360ee;
+  --color-brand-secondary: #5095FC;
+  --color-brand-secondary-hover: #3e86f5;
+  --color-brand-accent: #7FD858;
+  --color-brand-bg: #0c1322;
 }
 
 body {

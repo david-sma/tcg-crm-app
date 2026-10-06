@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Image as ImageIcon, CheckCircle, AlertCircle, X, MapPin, Building, Briefcase } from 'lucide-react';
-import { getNowInAuckland } from '../../lib/dateUtils';
+import { getNowInBusinessTz } from '../../lib/dateUtils';
+import { getAppSettings } from '../../config/appSettings.ts';
 import { ClockInType } from '../../types';
 
 interface ClockInModalProps {
@@ -26,7 +27,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
 
   if (!isOpen) return null;
 
-  const { hour, minute, dayOfWeek } = getNowInAuckland();
+  const { hour, minute, dayOfWeek } = getNowInBusinessTz();
   const timeFormatted = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,8 +54,9 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
     setError(null);
 
     try {
+      const locations = getAppSettings().defaultLocations;
       const defaultLoc =
-        clockInType === 'base_arrival' ? 'Main Office / Base' : locationName.trim() || 'First Job Site';
+        clockInType === 'base_arrival' ? locations.base : locationName.trim() || locations.firstJob;
 
       await onClockIn({
         photo: photoPreview,
@@ -103,7 +105,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
             <div>
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Time (NZT)
+                Time
               </span>
               <div className="text-2xl font-bold text-slate-900 tracking-tight">{timeFormatted}</div>
             </div>
@@ -137,7 +139,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
                 }`}
               >
                 <Building className={`w-5 h-5 ${clockInType === 'base_arrival' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="text-sm font-semibold">Base / Main Office</span>
+                <span className="text-sm font-semibold">{getAppSettings().defaultLocations.base}</span>
               </button>
 
               <button
@@ -150,7 +152,7 @@ export const ClockInModal: React.FC<ClockInModalProps> = ({
                 }`}
               >
                 <Briefcase className={`w-5 h-5 ${clockInType === 'first_job' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className="text-sm font-semibold">First Job Site</span>
+                <span className="text-sm font-semibold">{getAppSettings().defaultLocations.firstJob}</span>
               </button>
             </div>
           </div>

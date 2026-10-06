@@ -5,6 +5,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import { generateStaffPassword, hashPassword, normalizePhone } from '../services/crypto.ts';
 import { logAuditEvent } from '../services/audit.ts';
 import { requireAuth, requireRole } from '../middleware/auth.ts';
+import { getAppSettings } from '../../src/config/appSettings.ts';
 import crypto from 'crypto';
 
 export const staffRouter = Router();
@@ -68,7 +69,7 @@ staffRouter.post('/', async (req: Request, res: Response) => {
 
     const normalized = normalizePhone(phone);
     if (!normalized.isValid) {
-      return res.status(400).json({ error: 'Valid phone number is required (e.g. 027 730 4466).' });
+      return res.status(400).json({ error: `Valid phone number is required (e.g. ${getAppSettings().phone.example}).` });
     }
 
     // Check uniqueness

@@ -40,7 +40,7 @@ export const ModuleRoadmapView: React.FC<ModuleRoadmapViewProps> = ({
       'Uniform and safety gear distribution log',
     ],
     settings: [
-      'Company branch profiles & Auckland timezone defaults',
+      'Company branch profiles & timezone defaults',
       'Manager & supervisor permissions hierarchy',
       'Automated SMS & Web push notification triggers',
       'Export timesheets & payroll audit reports',

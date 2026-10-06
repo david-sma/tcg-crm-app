@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { Phone, Lock, LogIn, AlertCircle, MapPin } from 'lucide-react';
-import { TCGLogo } from '../common/TCGLogo.tsx';
+import { CompanyLogo } from '../common/CompanyLogo.tsx';
+import { useBrand } from '../../context/BrandContext.tsx';
 
 export const LoginForm: React.FC = () => {
   const { login } = useAuth();
+  const { companyName, tagline, city, address, phone: phoneConfig } = useBrand();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -32,17 +34,17 @@ export const LoginForm: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-sky-50/30 to-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <div className="flex justify-center">
-          <div className="p-3 bg-white rounded-3xl shadow-lg shadow-[#5371FF]/10 border border-slate-200/80 flex items-center justify-center">
-            <TCGLogo size={68} />
+          <div className="p-3 bg-white rounded-3xl shadow-lg shadow-[var(--color-brand)]/10 border border-slate-200/80 flex items-center justify-center">
+            <CompanyLogo size={68} />
           </div>
         </div>
         <div className="mt-4 flex items-center justify-center gap-2">
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-            The Cleaning Guys
+            {companyName}
           </h2>
         </div>
         <p className="mt-1 text-xs text-slate-600 font-medium">
-          Professional Quality Service with Care • Auckland Staff Portal
+          {tagline} • {city} Staff Portal
         </p>
       </div>
 
@@ -66,13 +68,13 @@ export const LoginForm: React.FC = () => {
                   id="phone-input"
                   type="text"
                   required
-                  placeholder="e.g. 027 123 4567"
+                  placeholder={`e.g. ${phoneConfig.example}`}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#5371FF] transition-all"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[var(--color-brand)] transition-all"
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Accepts local New Zealand numbers (027/021/022) or +64 format</p>
+              <p className="text-[11px] text-slate-400 mt-1">{phoneConfig.help}</p>
             </div>
 
             <div>
@@ -88,7 +90,7 @@ export const LoginForm: React.FC = () => {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#5371FF] transition-all"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[var(--color-brand)] transition-all"
                 />
               </div>
             </div>
@@ -97,17 +99,19 @@ export const LoginForm: React.FC = () => {
               id="login-submit-btn"
               type="submit"
               disabled={submitting}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#5371FF] to-[#5095FC] hover:from-[#4360ee] hover:to-[#3e86f5] text-white font-bold text-sm transition-all shadow-md shadow-[#5371FF]/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[var(--color-brand)] to-[var(--color-brand-secondary)] hover:from-[var(--color-brand-hover)] hover:to-[var(--color-brand-secondary-hover)] text-white font-bold text-sm transition-all shadow-md shadow-[var(--color-brand)]/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>{submitting ? 'Signing In...' : 'Sign In to Portal'}</span>
             </button>
           </form>
 
-          <div className="pt-4 border-t border-slate-100 text-center text-[11px] text-slate-400 flex items-center justify-center gap-1">
-            <MapPin className="w-3 h-3 text-[#7FD858]" />
-            <span>Unit 4/65 Morrin Road, St Johns, Auckland</span>
-          </div>
+          {address && (
+            <div className="pt-4 border-t border-slate-100 text-center text-[11px] text-slate-400 flex items-center justify-center gap-1">
+              <MapPin className="w-3 h-3 text-[var(--color-brand-accent)]" />
+              <span>{address}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

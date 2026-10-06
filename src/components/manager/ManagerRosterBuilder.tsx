@@ -9,11 +9,12 @@ import {
   DAY_NAMES,
   SHORT_DAY_NAMES,
   getDayDateStr,
-  formatTimeToNZ,
+  formatTimeLocal,
   calculateShiftDuration,
   formatWeekRange,
 } from '../../lib/dateUtils.ts';
 import type { DraftShift, User } from '../../types/index.ts';
+import { useBrand } from '../../context/BrandContext.tsx';
 import {
   Calendar,
   Plus,
@@ -31,6 +32,7 @@ import {
 } from 'lucide-react';
 
 export const ManagerRosterBuilder: React.FC = () => {
+  const { city } = useBrand();
   const [selectedWeek, setSelectedWeek] = useState(getDefaultActiveMonday());
   const [rosterData, setRosterData] = useState<any>(null);
   const [activeStaff, setActiveStaff] = useState<User[]>([]);
@@ -150,7 +152,7 @@ export const ManagerRosterBuilder: React.FC = () => {
           <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Roster Builder</h1>
             {rosterData?.roster_week?.published_version_number > 0 ? (
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#7FD858]/20 text-emerald-900 font-bold border border-[#7FD858]/40">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[var(--color-brand-accent)]/20 text-emerald-900 font-bold border border-[var(--color-brand-accent)]/40">
                 Published v{rosterData.roster_week.published_version_number}
               </span>
             ) : (
@@ -160,7 +162,7 @@ export const ManagerRosterBuilder: React.FC = () => {
             )}
           </div>
           <p className="text-sm text-slate-500 mt-0.5">
-            Construct cleaning shifts with real-time availability validation and Auckland timezone compliance.
+            Construct shifts with real-time availability validation and {city} timezone compliance.
           </p>
         </div>
 
@@ -192,7 +194,7 @@ export const ManagerRosterBuilder: React.FC = () => {
             type="button"
             onClick={() => setPublishModalOpen(true)}
             disabled={loading || draftShifts.length === 0}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#5371FF] to-[#5095FC] hover:from-[#4360ee] hover:to-[#3e86f5] text-white text-xs font-bold transition-all shadow-md shadow-[#5371FF]/20 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--color-brand)] to-[var(--color-brand-secondary)] hover:from-[var(--color-brand-hover)] hover:to-[var(--color-brand-secondary-hover)] text-white text-xs font-bold transition-all shadow-md shadow-[var(--color-brand)]/20 disabled:opacity-50 cursor-pointer"
           >
             <Send className="w-4 h-4" />
             <span>
@@ -297,7 +299,7 @@ export const ManagerRosterBuilder: React.FC = () => {
                               return (
                                 <span
                                   key={idx}
-                                  className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#5371FF]/10 text-[#5371FF] border border-[#5371FF]/20"
+                                  className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[var(--color-brand)]/10 text-[var(--color-brand)] border border-[var(--color-brand)]/20"
                                 >
                                   {trimmed}
                                 </span>
@@ -315,7 +317,7 @@ export const ManagerRosterBuilder: React.FC = () => {
                       </div>
 
                       <div className="text-xs font-mono font-semibold text-slate-600 mt-1">
-                        {formatTimeToNZ(shift.start_datetime)} – {formatTimeToNZ(shift.finish_datetime)}{' '}
+                        {formatTimeLocal(shift.start_datetime)} – {formatTimeLocal(shift.finish_datetime)}{' '}
                         <span className="font-sans font-normal text-slate-400">
                           ({calculateShiftDuration(shift.start_datetime, shift.finish_datetime)})
                         </span>
@@ -385,7 +387,7 @@ export const ManagerRosterBuilder: React.FC = () => {
                       </div>
 
                       <div className="font-mono font-semibold text-[11px] text-slate-700 mt-1">
-                        {formatTimeToNZ(shift.start_datetime)} - {formatTimeToNZ(shift.finish_datetime)}
+                        {formatTimeLocal(shift.start_datetime)} - {formatTimeLocal(shift.finish_datetime)}
                       </div>
 
                       {shift.label && (
@@ -396,7 +398,7 @@ export const ManagerRosterBuilder: React.FC = () => {
                             return (
                               <span
                                 key={idx}
-                                className="text-[9px] font-semibold px-1.5 py-0.2 rounded-sm bg-[#5371FF]/10 text-[#5371FF] border border-[#5371FF]/20"
+                                className="text-[9px] font-semibold px-1.5 py-0.2 rounded-sm bg-[var(--color-brand)]/10 text-[var(--color-brand)] border border-[var(--color-brand)]/20"
                               >
                                 {trimmed}
                               </span>

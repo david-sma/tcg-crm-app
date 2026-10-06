@@ -3,19 +3,24 @@ import { notifications, pushSubscriptions } from '../db/schema.ts';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import webPush from 'web-push';
+import { getAppSettings } from '../../src/config/appSettings.ts';
 
 // Configure Web Push VAPID if available, or generate a development pair safely
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSPOSnfPrDHFiViT_00eb_g896_sample_key';
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || 'sample_vapid_private_key_32chars_len__';
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@workforce-roster.internal';
 
-try {
-  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-    webPush.setVapidDetails(VAPID_SUBJECT, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+export function configureWebPush() {
+  try {
+    if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+      const subject = process.env.VAPID_SUBJECT || `mailto:${getAppSettings().supportEmail}`;
+      webPush.setVapidDetails(subject, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+    }
+  } catch (e) {
+    // Graceful fallback for dev environment
   }
-} catch (e) {
-  // Graceful fallback for dev environment
 }
+
+configureWebPush();
 
 export async function createInAppNotification(params: {
   userId: string;

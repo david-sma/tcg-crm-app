@@ -52,7 +52,7 @@ export interface AvailabilityReport {
   user_id: string;
   user_name: string;
   user_phone: string;
-  week_start_date: string; // YYYY-MM-DD (Monday in NZT)
+  week_start_date: string; // YYYY-MM-DD (Monday in business-local time)
   latest_version?: AvailabilityVersion | null;
   manager_reviewed_at?: string | null;
   is_missing: boolean;

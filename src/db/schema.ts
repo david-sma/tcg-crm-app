@@ -1,5 +1,33 @@
 import { pgTable, text, integer, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
 
+export const companySettings = pgTable('company_settings', {
+  id: text('id').primaryKey(),
+  company_name: text('company_name').notNull(),
+  short_name: text('short_name').notNull(),
+  app_title: text('app_title').notNull(),
+  portal_subtitle: text('portal_subtitle').notNull(),
+  tagline: text('tagline').notNull(),
+  city: text('city').notNull(),
+  address: text('address').notNull().default(''),
+  support_email: text('support_email').notNull().default(''),
+  logo_svg: text('logo_svg').notNull().default(''),
+  timezone: text('timezone').notNull(),
+  locale: text('locale').notNull(),
+  phone_country: text('phone_country').notNull(),
+  phone_example: text('phone_example').notNull(),
+  phone_help: text('phone_help').notNull(),
+  color_primary: text('color_primary').notNull(),
+  color_primary_hover: text('color_primary_hover').notNull(),
+  color_secondary: text('color_secondary').notNull(),
+  color_secondary_hover: text('color_secondary_hover').notNull(),
+  color_accent: text('color_accent').notNull(),
+  color_background: text('color_background').notNull(),
+  shift_presets: text('shift_presets').notNull().default('[]'),
+  default_locations: text('default_locations').notNull().default('{}'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
   phone_e164: text('phone_e164').notNull().unique(),

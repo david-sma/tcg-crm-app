@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { NotificationProvider } from './context/NotificationContext.tsx';
+import { useBrand } from './context/BrandContext.tsx';
 import { LoginForm } from './components/auth/LoginForm.tsx';
 import { Header } from './components/common/Header.tsx';
 import { InstallPwaPrompt } from './components/common/InstallPwaPrompt.tsx';
@@ -35,6 +36,7 @@ import {
 
 function MainLayout() {
   const { user, loading } = useAuth();
+  const { companyName } = useBrand();
   const [activeModuleId, setActiveModuleId] = useState<string>('staff-ops');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
@@ -52,7 +54,7 @@ function MainLayout() {
         <div className="flex flex-col items-center gap-3 text-slate-500">
           <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
           <span className="text-xs font-medium text-slate-600">
-            Loading The Cleaning Guys Portal...
+            Loading {companyName} Portal...
           </span>
         </div>
       </div>

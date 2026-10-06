@@ -93,7 +93,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         setPushSubscribed(true);
-        localStorage.setItem('tcg_push_enabled', 'granted');
+        localStorage.setItem('portal_push_enabled', 'granted');
 
         // Check if service worker is active to subscribe
         if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -118,7 +118,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       } else {
         setPushSubscribed(false);
         if (permission === 'denied') {
-          localStorage.setItem('tcg_push_enabled', 'denied');
+          localStorage.setItem('portal_push_enabled', 'denied');
         }
       }
     } catch (e) {
