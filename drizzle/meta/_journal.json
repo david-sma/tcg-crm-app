@@ -8,6 +8,13 @@
       "when": 1790235528859,
       "tag": "0000_smiling_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791258983783,
+      "tag": "0001_add_company_settings",
+      "breakpoints": true
     }
   ]
 }
