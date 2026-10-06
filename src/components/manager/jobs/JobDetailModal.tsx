@@ -265,8 +265,8 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
   };
 
   const busy = mutating !== null || savingEdit || removingAssignmentId !== null;
-  const status = job.status;
-  const canCancel = status !== 'completed' && status !== 'cancelled';
+  const status = job?.status;
+  const canCancel = !!job && status !== 'completed' && status !== 'cancelled';
 
   const inputClass =
     'w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500';
@@ -278,13 +278,13 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
         <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-3 bg-gradient-to-r from-indigo-600 to-violet-700">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-semibold text-white/80">{job.job_order_number}</span>
-              <JobStatusChip status={job.status} className="!bg-white/20 !text-white !border-white/30" />
+              <span className="text-xs font-mono font-semibold text-white/80">{job?.job_order_number}</span>
+              <JobStatusChip status={job?.status ?? 'new'} className="!bg-white/20 !text-white !border-white/30" />
             </div>
-            <h2 className="text-lg font-semibold text-white truncate mt-1">{job.title}</h2>
+            <h2 className="text-lg font-semibold text-white truncate mt-1">{job?.title}</h2>
             <p className="text-xs text-white/80 mt-0.5">
-              {job.customer_name}
-              {job.scheduled_date ? ` · ${formatJobTimeWindow(job)}` : ''}
+              {job?.customer_name}
+              {job?.scheduled_date ? ` · ${formatJobTimeWindow(job)}` : ''}
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
