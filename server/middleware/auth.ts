@@ -81,7 +81,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-export function requireRole(role: 'manager' | 'staff') {
+export function requireRole(role: 'manager' | 'team_leader' | 'staff') {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });

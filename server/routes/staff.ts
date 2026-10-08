@@ -149,8 +149,8 @@ staffRouter.put('/:id', async (req: Request, res: Response) => {
       updateData.is_active = is_active;
     }
 
-    if (role && (role === 'manager' || role === 'staff')) {
-      if (existing.role === 'manager' && role === 'staff') {
+    if (role && (role === 'manager' || role === 'team_leader' || role === 'staff')) {
+      if (existing.role === 'manager' && role !== 'manager') {
         // Prevent demoting the only active manager
         const activeManagers = await db
           .select()
@@ -158,7 +158,7 @@ staffRouter.put('/:id', async (req: Request, res: Response) => {
           .where(and(eq(users.role, 'manager'), eq(users.is_active, true)));
         if (activeManagers.length <= 1 && activeManagers.some((m) => m.id === id)) {
           return res.status(400).json({
-            error: 'Cannot change this account to Staff because it is the only active Manager. Promote another user to Manager first.',
+            error: 'Cannot change this account to a non-manager role because it is the only active Manager. Promote another user to Manager first.',
           });
         }
       }
@@ -209,8 +209,8 @@ staffRouter.post('/:id/role', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    if (role !== 'manager' && role !== 'staff') {
-      return res.status(400).json({ error: "Invalid role. Must be 'manager' or 'staff'." });
+    if (role !== 'manager' && role !== 'team_leader' && role !== 'staff') {
+      return res.status(400).json({ error: "Invalid role. Must be 'manager', 'team_leader' or 'staff'." });
     }
 
     const existingList = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -224,7 +224,7 @@ staffRouter.post('/:id/role', async (req: Request, res: Response) => {
       return res.json({ user: safeUser, message: `User is already a ${role}.` });
     }
 
-    if (existing.role === 'manager' && role === 'staff') {
+    if (existing.role === 'manager' && role !== 'manager') {
       // Check that at least one other active manager exists
       const activeManagers = await db
         .select()
@@ -232,7 +232,7 @@ staffRouter.post('/:id/role', async (req: Request, res: Response) => {
         .where(and(eq(users.role, 'manager'), eq(users.is_active, true)));
       if (activeManagers.length <= 1 && activeManagers.some((m) => m.id === id)) {
         return res.status(400).json({
-          error: 'Cannot demote this user to Staff because they are the only active Manager. Promote another user first.',
+          error: 'Cannot demote this user to a non-manager role because they are the only active Manager. Promote another user first.',
         });
       }
     }
@@ -257,7 +257,7 @@ staffRouter.post('/:id/role', async (req: Request, res: Response) => {
       user: safeUser,
       previous_role: existing.role,
       new_role: role,
-      message: `Role successfully changed to ${role === 'manager' ? 'Manager' : 'Staff'}.`,
+      message: `Role successfully changed to ${role === 'manager' ? 'Manager' : role === 'team_leader' ? 'Team Leader' : 'Staff'}.`,
     });
   } catch (err: any) {
     console.error('Change role error:', err);

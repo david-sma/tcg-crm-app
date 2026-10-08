@@ -125,11 +125,21 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
             </div>
             <h3 className="text-sm font-bold text-slate-900 mt-1 truncate">{job.title}</h3>
           </div>
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium shrink-0 ${chipClass}`}
-          >
-            {JOB_STATUS_LABELS[job.status] || job.status}
-          </span>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${chipClass}`}
+            >
+              {JOB_STATUS_LABELS[job.status] || job.status}
+            </span>
+            {job.running_late && (
+              <span
+                title={job.late_note || 'Running behind schedule'}
+                className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-amber-100 text-amber-700"
+              >
+                Running late
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 mt-2 text-slate-600 min-w-0">

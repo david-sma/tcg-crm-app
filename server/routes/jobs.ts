@@ -297,6 +297,36 @@ jobsRouter.post('/', requireRole('manager'), async (req: Request, res: Response)
     const price = readPrice(body.agreed_price);
     if (price.error) return res.status(400).json({ error: price.error });
 
+    const servicesText = readOptionalText(body, 'services_text');
+    if (servicesText.error) return res.status(400).json({ error: servicesText.error });
+    const servicesTextValue =
+      servicesText.value === undefined || servicesText.value === null
+        ? null
+        : servicesText.value.trim().length > 0
+          ? servicesText.value.trim()
+          : null;
+
+    let allocatedDriverUserId: string | null = null;
+    const rawDriver = body.allocated_driver_user_id;
+    if (rawDriver !== undefined && rawDriver !== null) {
+      if (typeof rawDriver !== 'string') {
+        return res.status(400).json({ error: 'Allocated driver must be an active staff member' });
+      }
+      const trimmedDriver = rawDriver.trim();
+      if (trimmedDriver.length > 0) {
+        const driverRows = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, trimmedDriver))
+          .limit(1);
+        const driver = driverRows[0];
+        if (!driver || !driver.is_active) {
+          return res.status(400).json({ error: 'Allocated driver must be an active staff member' });
+        }
+        allocatedDriverUserId = trimmedDriver;
+      }
+    }
+
     const id = newId();
     const nowIso = new Date().toISOString();
     const jobOrderNumber = await nextJobOrderNumber();
@@ -323,6 +353,8 @@ jobsRouter.post('/', requireRole('manager'), async (req: Request, res: Response)
       access_notes: optionalText.access_notes ?? null,
       scope_notes: optionalText.scope_notes ?? null,
       agreed_price: price.value ?? null,
+      services_text: servicesTextValue,
+      allocated_driver_user_id: allocatedDriverUserId,
       created_by_user_id: req.user!.id,
       created_at: nowIso,
       updated_at: nowIso,
@@ -401,6 +433,9 @@ jobsRouter.get('/calendar', requireRole('manager'), async (req: Request, res: Re
 // GET /api/jobs/my - Jobs assigned to the caller (any authenticated user)
 jobsRouter.get('/my', async (req: Request, res: Response) => {
   try {
+    if (req.user!.role === 'staff') {
+      return res.status(403).json({ error: 'My Jobs is available to team leaders' });
+    }
     const assignmentRows = await db
       .select()
       .from(jobAssignments)
@@ -824,6 +859,42 @@ jobsRouter.put('/:id', requireRole('manager'), async (req: Request, res: Respons
       patch.agreed_price = value.value ?? null;
     }
 
+    if (hasField(body, 'services_text')) {
+      const value = readOptionalText(body, 'services_text');
+      if (value.error) return res.status(400).json({ error: value.error });
+      patch.services_text =
+        value.value === undefined || value.value === null
+          ? null
+          : value.value.trim().length > 0
+            ? value.value.trim()
+            : null;
+    }
+
+    if (hasField(body, 'allocated_driver_user_id')) {
+      const rawDriver = body.allocated_driver_user_id;
+      if (rawDriver === null) {
+        patch.allocated_driver_user_id = null;
+      } else if (typeof rawDriver === 'string') {
+        const trimmedDriver = rawDriver.trim();
+        if (trimmedDriver.length === 0) {
+          patch.allocated_driver_user_id = null;
+        } else {
+          const driverRows = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, trimmedDriver))
+            .limit(1);
+          const driver = driverRows[0];
+          if (!driver || !driver.is_active) {
+            return res.status(400).json({ error: 'Allocated driver must be an active staff member' });
+          }
+          patch.allocated_driver_user_id = trimmedDriver;
+        }
+      } else {
+        return res.status(400).json({ error: 'Allocated driver must be an active staff member' });
+      }
+    }
+
     const changedFields = Object.keys(patch);
     if (changedFields.length === 0) {
       return res.status(400).json({ error: 'No updatable fields provided' });
@@ -1072,6 +1143,23 @@ jobsRouter.post('/:id/schedule', requireRole('manager'), async (req: Request, re
       });
     }
 
+    if (job.allocated_driver_user_id && !seenUserIds.has(job.allocated_driver_user_id)) {
+      const driverRows = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, job.allocated_driver_user_id))
+        .limit(1);
+      if (driverRows[0]) {
+        await notifyUserSafe({
+          userId: job.allocated_driver_user_id,
+          type: 'JOB_ASSIGNED',
+          title: `New job assigned: ${job.title}`,
+          body: notificationBody,
+          relatedEntityId: job.id,
+        });
+      }
+    }
+
     await auditJob(req, 'job_scheduled', job.id, {
       scheduled_date: scheduledDate,
       scheduled_start_time: startTime,
@@ -1234,14 +1322,25 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
       typeof rawNotes === 'string' && rawNotes.trim().length > 0 ? rawNotes.trim() : null;
 
     const nowIso = new Date().toISOString();
+    const wasFlaggedLate = Boolean(job.running_late);
     await db
       .update(jobs)
-      .set({
-        status: 'completed',
-        completed_at: nowIso,
-        completion_notes: completionNotes,
-        updated_at: nowIso,
-      })
+      .set(
+        wasFlaggedLate
+          ? {
+              status: 'completed',
+              completed_at: nowIso,
+              completion_notes: completionNotes,
+              running_late: false,
+              updated_at: nowIso,
+            }
+          : {
+              status: 'completed',
+              completed_at: nowIso,
+              completion_notes: completionNotes,
+              updated_at: nowIso,
+            },
+      )
       .where(eq(jobs.id, job.id));
 
     await auditJob(req, 'job_completed', job.id, {
@@ -1249,6 +1348,10 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
       to: 'completed',
       notes: completionNotes,
     });
+
+    if (wasFlaggedLate) {
+      await auditJob(req, 'job_late_cleared', job.id);
+    }
 
     await notifyManagers(
       'JOB_COMPLETED',
@@ -1267,5 +1370,91 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
     return res.json({ job: formatted });
   } catch (err: any) {
     return serverError(res, 'Complete job', err);
+  }
+});
+
+// POST /api/jobs/:id/running-late - Flag job as running late (assigned lead or manager)
+jobsRouter.post('/:id/running-late', async (req: Request, res: Response) => {
+  try {
+    const job = await loadJobOr404(req, res);
+    if (!job) return;
+
+    if (!(await assertExecutionAccess(req, res, job))) return;
+
+    const currentStatus = job.status as JobStatus;
+    if (currentStatus !== 'ongoing' && currentStatus !== 'in_progress') {
+      return res.status(409).json({
+        error: `Job cannot be flagged as running late from status '${currentStatus}'`,
+      });
+    }
+
+    const body: Body = req.body || {};
+    const rawNote = body.note;
+    if (rawNote !== undefined && rawNote !== null && typeof rawNote !== 'string') {
+      return res.status(400).json({ error: 'note must be a string' });
+    }
+    const lateNote =
+      typeof rawNote === 'string' && rawNote.trim().length > 0 ? rawNote.trim() : null;
+
+    const nowIso = new Date().toISOString();
+    await db
+      .update(jobs)
+      .set({
+        running_late: true,
+        late_reported_at: nowIso,
+        late_reported_by_user_id: req.user!.id,
+        late_note: lateNote,
+        updated_at: nowIso,
+      })
+      .where(eq(jobs.id, job.id));
+
+    await auditJob(req, 'job_running_late', job.id, { note: lateNote });
+
+    await notifyManagers(
+      'JOB_RUNNING_LATE',
+      `Job running late: ${job.title}`,
+      lateNote
+        ? `${req.user!.name} reported job ${job.job_order_number} at ${job.address} running late. Note: ${lateNote}`
+        : `${req.user!.name} reported job ${job.job_order_number} at ${job.address} running late.`,
+      job.id,
+    );
+
+    const updated = await getJobById(job.id);
+    const formatted = await formatJob(updated!, {
+      includeAssignments: true,
+      includeMedia: true,
+      viewer: req.user,
+    });
+
+    return res.json({ job: formatted });
+  } catch (err: any) {
+    return serverError(res, 'Flag job running late', err);
+  }
+});
+
+// POST /api/jobs/:id/clear-late - Clear running-late flag (manager only)
+jobsRouter.post('/:id/clear-late', requireRole('manager'), async (req: Request, res: Response) => {
+  try {
+    const job = await loadJobOr404(req, res);
+    if (!job) return;
+
+    const nowIso = new Date().toISOString();
+    await db
+      .update(jobs)
+      .set({ running_late: false, updated_at: nowIso })
+      .where(eq(jobs.id, job.id));
+
+    await auditJob(req, 'job_late_cleared', job.id);
+
+    const updated = await getJobById(job.id);
+    const formatted = await formatJob(updated!, {
+      includeAssignments: true,
+      includeMedia: true,
+      viewer: req.user,
+    });
+
+    return res.json({ job: formatted });
+  } catch (err: any) {
+    return serverError(res, 'Clear job late flag', err);
   }
 });

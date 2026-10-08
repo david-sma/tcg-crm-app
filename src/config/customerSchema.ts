@@ -41,7 +41,7 @@ export const brandConfigSchema = z.object({
 
 export const seedMemberSchema = z.object({
   name: z.string().min(1),
-  role: z.enum(['manager', 'staff']),
+  role: z.enum(['manager', 'team_leader', 'staff']),
   phone: z.string().min(5),
   title: z.string(),
   initialPassword: z.string().min(6),

@@ -22,13 +22,19 @@ import {
   Users,
 } from 'lucide-react';
 
+export const roleLabel = (role: UserRole): string => {
+  if (role === 'manager') return 'Manager';
+  if (role === 'team_leader') return 'Team Leader';
+  return 'Staff';
+};
+
 export const StaffManagement: React.FC = () => {
   const { phone } = useBrand();
   const [staffList, setStaffList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'staff' | 'manager'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'staff' | 'team_leader' | 'manager'>('all');
 
   // Create Staff Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -133,7 +139,7 @@ export const StaffManagement: React.FC = () => {
       setIsPasswordReset(false);
       setRevealModalOpen(true);
 
-      showToast(`Account created for ${data.user.name} (${data.user.role === 'manager' ? 'Manager' : 'Staff'})`, 'success');
+      showToast(`Account created for ${data.user.name} (${roleLabel(data.user.role)})`, 'success');
       loadStaff();
     } catch (err: any) {
       setCreateError(err?.message || 'Failed to create account');
@@ -199,7 +205,7 @@ export const StaffManagement: React.FC = () => {
 
       setRoleModalOpen(false);
       setTargetRoleStaff(null);
-      showToast(res.message || `Role updated to ${targetNewRole === 'manager' ? 'Manager' : 'Staff'}`, 'success');
+      showToast(res.message || `Role updated to ${roleLabel(targetNewRole)}`, 'success');
       await loadStaff();
     } catch (err: any) {
       setRoleError(err?.message || 'Failed to change role');
@@ -282,6 +288,7 @@ export const StaffManagement: React.FC = () => {
   });
 
   const managerCount = staffList.filter((s) => s.role === 'manager').length;
+  const teamLeadCount = staffList.filter((s) => s.role === 'team_leader').length;
   const workerCount = staffList.filter((s) => s.role === 'staff').length;
 
   return (
@@ -379,6 +386,17 @@ export const StaffManagement: React.FC = () => {
               <span>Staff ({workerCount})</span>
             </button>
             <button
+              id="filter-role-team-leader-btn"
+              type="button"
+              onClick={() => setRoleFilter('team_leader')}
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1 ${
+                roleFilter === 'team_leader' ? 'bg-white text-sky-950 font-semibold shadow-xs' : 'text-slate-600 hover:text-sky-900'
+              }`}
+            >
+              <Users className="w-3 h-3 text-sky-600" />
+              <span>Team Leads ({teamLeadCount})</span>
+            </button>
+            <button
               id="filter-role-manager-btn"
               type="button"
               onClick={() => setRoleFilter('manager')}
@@ -441,7 +459,7 @@ export const StaffManagement: React.FC = () => {
           <div className="divide-y divide-slate-100">
             {filteredStaff.map((staff) => {
               const isManager = staff.role === 'manager';
-              const nextRole: UserRole = isManager ? 'staff' : 'manager';
+              const isTeamLead = staff.role === 'team_leader';
 
               return (
                 <div
@@ -454,6 +472,8 @@ export const StaffManagement: React.FC = () => {
                       className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border relative ${
                         isManager
                           ? 'bg-purple-50 text-purple-800 border-purple-200'
+                          : isTeamLead
+                          ? 'bg-sky-50 text-sky-800 border-sky-200'
                           : staff.is_active
                           ? 'bg-slate-100 text-slate-800 border-slate-200'
                           : 'bg-rose-50 text-rose-600 border-rose-200'
@@ -477,11 +497,13 @@ export const StaffManagement: React.FC = () => {
                           className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 border ${
                             isManager
                               ? 'bg-purple-100 text-purple-900 border-purple-300'
+                              : isTeamLead
+                              ? 'bg-sky-100 text-sky-900 border-sky-300'
                               : 'bg-slate-100 text-slate-700 border-slate-300'
                           }`}
                         >
-                          {isManager ? <Shield className="w-3 h-3 text-purple-700" /> : <UserIcon className="w-3 h-3 text-slate-500" />}
-                          <span>{isManager ? 'Manager' : 'Staff'}</span>
+                          {isManager ? <Shield className="w-3 h-3 text-purple-700" /> : isTeamLead ? <Users className="w-3 h-3 text-sky-700" /> : <UserIcon className="w-3 h-3 text-slate-500" />}
+                          <span>{roleLabel(staff.role)}</span>
                         </span>
 
                         {/* Active/Inactive Status Badge */}
@@ -513,21 +535,34 @@ export const StaffManagement: React.FC = () => {
 
                   {/* Actions Bar */}
                   <div className="flex flex-wrap items-center gap-1.5 self-start lg:self-auto shrink-0">
-                    {/* Role Switcher Button */}
-                    <button
+                    {/* Role Selector */}
+                    <div
                       id={`switch-role-btn-${staff.id}`}
-                      type="button"
-                      onClick={() => handleOpenRoleModal(staff, nextRole)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                      className={`inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg border text-xs font-semibold transition-all ${
                         isManager
-                          ? 'border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900'
-                          : 'border-slate-200 bg-white hover:bg-slate-100 text-slate-700'
+                          ? 'border-purple-200 bg-purple-50/70 text-purple-900'
+                          : isTeamLead
+                          ? 'border-sky-200 bg-sky-50/70 text-sky-900'
+                          : 'border-slate-200 bg-white text-slate-700'
                       }`}
-                      title={`Change role from ${staff.role} to ${nextRole}`}
+                      title={`Change role for ${staff.name}`}
                     >
-                      <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{isManager ? 'Change to Staff' : 'Make Manager'}</span>
-                    </button>
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <select
+                        id={`role-select-${staff.id}`}
+                        value={staff.role}
+                        onChange={(e) => {
+                          const newRole = e.target.value as UserRole;
+                          if (newRole !== staff.role) handleOpenRoleModal(staff, newRole);
+                        }}
+                        className="bg-transparent text-xs font-semibold py-0.5 pr-1 focus:outline-hidden cursor-pointer"
+                        aria-label={`Change role for ${staff.name}`}
+                      >
+                        <option value="staff">Staff</option>
+                        <option value="team_leader">Team Leader</option>
+                        <option value="manager">Manager</option>
+                      </select>
+                    </div>
 
                     {/* Reset Password Button */}
                     <button
@@ -603,14 +638,30 @@ export const StaffManagement: React.FC = () => {
                   </div>
                 )}
 
+                <div>
+                  <label htmlFor="role-change-new-role-select" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    New role
+                  </label>
+                  <select
+                    id="role-change-new-role-select"
+                    value={targetNewRole}
+                    onChange={(e) => setTargetNewRole(e.target.value as UserRole)}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-purple-700"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="team_leader">Team Leader</option>
+                    <option value="manager">Manager</option>
+                  </select>
+                </div>
+
                 <p className="text-sm text-slate-600 leading-relaxed">
                   Change role for <strong className="font-semibold text-slate-900">{targetRoleStaff.name}</strong> from{' '}
                   <span className="font-semibold uppercase text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-800">
-                    {targetRoleStaff.role}
+                    {roleLabel(targetRoleStaff.role)}
                   </span>{' '}
                   to{' '}
                   <span className="font-semibold uppercase text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-900">
-                    {targetNewRole}
+                    {roleLabel(targetNewRole)}
                   </span>?
                 </p>
 
@@ -630,11 +681,12 @@ export const StaffManagement: React.FC = () => {
                   <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1.5">
                     <p className="font-semibold flex items-center gap-1.5 text-amber-900">
                       <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
-                      Restricting to Staff Worker Permissions
+                      Moving to a non-manager role
                     </p>
                     <ul className="list-disc pl-4 text-amber-800 space-y-0.5">
                       <li>User will no longer have access to the manager roster builder or staff admin panels.</li>
                       <li>User can view their personal published shifts and submit weekly availability.</li>
+                      <li>Demoting the last manager is not allowed — at least one manager must remain.</li>
                     </ul>
                   </div>
                 )}
@@ -658,7 +710,7 @@ export const StaffManagement: React.FC = () => {
                     disabled={roleSubmitting}
                     className="flex-1 py-2.5 px-4 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-medium text-sm transition-colors shadow-xs disabled:opacity-50"
                   >
-                    {roleSubmitting ? 'Updating Role...' : `Set as ${targetNewRole === 'manager' ? 'Manager' : 'Staff'}`}
+                    {roleSubmitting ? 'Updating Role...' : `Set as ${roleLabel(targetNewRole)}`}
                   </button>
                 </div>
               </div>
@@ -731,7 +783,7 @@ export const StaffManagement: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Account Role <span className="text-rose-500">*</span>
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       id="create-role-staff-opt"
@@ -747,6 +799,25 @@ export const StaffManagement: React.FC = () => {
                         <div className="text-xs font-bold">Staff</div>
                         <div className={`text-[10px] mt-0.5 ${createRole === 'staff' ? 'text-slate-300' : 'text-slate-400'}`}>
                           Standard worker
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      id="create-role-team-leader-opt"
+                      onClick={() => setCreateRole('team_leader')}
+                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                        createRole === 'team_leader'
+                          ? 'border-sky-800 bg-sky-800 text-white shadow-xs'
+                          : 'border-slate-200 bg-white hover:bg-sky-50 text-slate-700'
+                      }`}
+                    >
+                      <Users className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-xs font-bold">Team Leader</div>
+                        <div className={`text-[10px] mt-0.5 ${createRole === 'team_leader' ? 'text-sky-200' : 'text-slate-400'}`}>
+                          Crew lead
                         </div>
                       </div>
                     </button>
@@ -872,7 +943,7 @@ export const StaffManagement: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Role
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       id="edit-role-staff-opt"
@@ -888,6 +959,25 @@ export const StaffManagement: React.FC = () => {
                         <div className="text-xs font-bold">Staff</div>
                         <div className={`text-[10px] mt-0.5 ${editRole === 'staff' ? 'text-slate-300' : 'text-slate-400'}`}>
                           Standard worker
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      id="edit-role-team-leader-opt"
+                      onClick={() => setEditRole('team_leader')}
+                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                        editRole === 'team_leader'
+                          ? 'border-sky-800 bg-sky-800 text-white shadow-xs'
+                          : 'border-slate-200 bg-white hover:bg-sky-50 text-slate-700'
+                      }`}
+                    >
+                      <Users className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-xs font-bold">Team Leader</div>
+                        <div className={`text-[10px] mt-0.5 ${editRole === 'team_leader' ? 'text-sky-200' : 'text-slate-400'}`}>
+                          Crew lead
                         </div>
                       </div>
                     </button>

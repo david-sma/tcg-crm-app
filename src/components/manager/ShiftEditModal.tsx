@@ -306,7 +306,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               ) : (
                 activeStaff.map((staff) => (
                   <option key={staff.id} value={staff.id}>
-                    {staff.name} ({staff.phone_e164}) {staff.role === 'manager' ? '• Manager' : ''}
+                    {staff.name} ({staff.phone_e164}) {staff.role === 'manager' ? '• Manager' : staff.role === 'team_leader' ? '• Team Lead' : ''}
                   </option>
                 ))
               )}

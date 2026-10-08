@@ -32,7 +32,7 @@ export const users = pgTable('users', {
   id: text('id').primaryKey(),
   phone_e164: text('phone_e164').notNull().unique(),
   password_hash: text('password_hash').notNull(),
-  role: text('role').notNull().default('staff'), // 'manager' | 'staff'
+  role: text('role').notNull().default('staff'), // 'manager' | 'team_leader' | 'staff'
   name: text('name').notNull(),
   notes: text('notes'),
   is_active: boolean('is_active').notNull().default(true),
@@ -279,7 +279,9 @@ export const jobs = pgTable('jobs', {
   title: text('title').notNull(),
   status: text('status').notNull().default('new'), // 'new' | 'enriching' | 'confirmed' | 'scheduled' | 'ongoing' | 'in_progress' | 'completed' | 'cancelled'
   job_type: text('job_type').notNull().default(''), // primary category id from JOB_TYPE_OPTIONS
-  services: text('services').notNull().default('[]'), // JSON array of service catalog ids
+  services: text('services').notNull().default('[]'), // legacy JSON array of service catalog ids (superseded by services_text)
+  services_text: text('services_text'), // free-text services required (structured later by AI processing)
+  allocated_driver_user_id: text('allocated_driver_user_id').references(() => users.id),
   details: text('details').notNull().default(''),
   lead_source: text('lead_source').notNull().default('manual'), // 'manual' | 'phone' | 'facebook' | 'website' | 'referral' | 'other'
   customer_name: text('customer_name').notNull().default(''),
@@ -300,6 +302,10 @@ export const jobs = pgTable('jobs', {
   scheduled_finish_time: text('scheduled_finish_time'), // HH:mm business-local
   start_notes: text('start_notes'), // staff note when confirming job in process
   completion_notes: text('completion_notes'), // staff note when reporting job completed
+  running_late: boolean('running_late').notNull().default(false),
+  late_reported_at: text('late_reported_at'),
+  late_reported_by_user_id: text('late_reported_by_user_id').references(() => users.id),
+  late_note: text('late_note'),
   started_at: text('started_at'),
   completed_at: text('completed_at'),
   cancelled_reason: text('cancelled_reason'),

@@ -237,7 +237,17 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
                             <span className="text-[10px] font-mono font-semibold text-slate-400">
                               {job.job_order_number}
                             </span>
-                            <JobStatusChip status={job.status} />
+                            <div className="flex items-center gap-1 shrink-0">
+                              {job.running_late && (
+                                <span
+                                  title={job.late_note || 'Running behind schedule'}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200"
+                                >
+                                  Running late
+                                </span>
+                              )}
+                              <JobStatusChip status={job.status} />
+                            </div>
                           </div>
 
                           <div className="font-bold text-slate-900 text-sm mt-1 truncate" title={job.title}>

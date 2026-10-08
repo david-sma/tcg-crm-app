@@ -1,4 +1,4 @@
-export type UserRole = 'manager' | 'staff';
+export type UserRole = 'manager' | 'team_leader' | 'staff';
 
 export interface User {
   id: string;
@@ -141,7 +141,7 @@ export interface StaffRosterResponse {
 export interface NotificationItem {
   id: string;
   user_id: string;
-  type: 'ROSTER_PUBLISHED' | 'ROSTER_REVISED' | 'AVAILABILITY_CHANGED' | 'CONFLICT_REPORTED' | 'TIMESHEET_SUBMITTED' | 'TIMESHEET_APPROVED' | 'SHIFT_STARTED' | 'JOB_ASSIGNED' | 'JOB_STATUS_CHANGED' | 'JOB_STARTED' | 'JOB_COMPLETED' | 'JOB_MEDIA_FAILED';
+  type: 'ROSTER_PUBLISHED' | 'ROSTER_REVISED' | 'AVAILABILITY_CHANGED' | 'CONFLICT_REPORTED' | 'TIMESHEET_SUBMITTED' | 'TIMESHEET_APPROVED' | 'SHIFT_STARTED' | 'JOB_ASSIGNED' | 'JOB_STATUS_CHANGED' | 'JOB_STARTED' | 'JOB_COMPLETED' | 'JOB_MEDIA_FAILED' | 'JOB_RUNNING_LATE';
   title: string;
   body: string;
   related_entity_type?: string | null;
@@ -304,7 +304,10 @@ export interface Job {
   title: string;
   status: JobStatus;
   job_type: string;
-  services: string[]; // selected ids from the job services catalog
+  services: string[]; // legacy structured selection (superseded by services_text)
+  services_text?: string | null; // free-text services required
+  allocated_driver_user_id?: string | null;
+  driver_name?: string | null;
   details: string;
   lead_source: LeadSource;
   customer_name: string;
@@ -325,6 +328,11 @@ export interface Job {
   scheduled_finish_time?: string | null;
   start_notes?: string | null;
   completion_notes?: string | null;
+  running_late: boolean;
+  late_reported_at?: string | null;
+  late_reported_by_user_id?: string | null;
+  late_reported_by_name?: string | null;
+  late_note?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
   cancelled_reason?: string | null;

@@ -37,6 +37,7 @@ export async function createInAppNotification(params: {
     | 'JOB_STATUS_CHANGED'
     | 'JOB_STARTED'
     | 'JOB_COMPLETED'
+    | 'JOB_RUNNING_LATE'
     | 'JOB_MEDIA_FAILED';
   title: string;
   body: string;

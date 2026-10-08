@@ -219,6 +219,34 @@ export async function formatJob(
 ): Promise<Job> {
   const forStaff = Boolean(opts.forStaff || (opts.viewer && opts.viewer.role !== 'manager'));
 
+  let driverName: string | null = null;
+  if (row.allocated_driver_user_id) {
+    try {
+      const driverRows = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, row.allocated_driver_user_id))
+        .limit(1);
+      driverName = driverRows[0]?.name ?? null;
+    } catch {
+      driverName = null;
+    }
+  }
+
+  let lateReportedByName: string | null = null;
+  if (row.late_reported_by_user_id) {
+    try {
+      const reporterRows = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, row.late_reported_by_user_id))
+        .limit(1);
+      lateReportedByName = reporterRows[0]?.name ?? null;
+    } catch {
+      lateReportedByName = null;
+    }
+  }
+
   const job: Job = {
     id: row.id,
     job_order_number: row.job_order_number,
@@ -226,6 +254,9 @@ export async function formatJob(
     status: row.status as JobStatus,
     job_type: row.job_type,
     services: parseServices(row.services),
+    services_text: row.services_text ?? null,
+    allocated_driver_user_id: row.allocated_driver_user_id ?? null,
+    driver_name: driverName,
     details: row.details,
     lead_source: row.lead_source as LeadSource,
     customer_name: row.customer_name,
@@ -246,6 +277,11 @@ export async function formatJob(
     scheduled_finish_time: row.scheduled_finish_time,
     start_notes: row.start_notes,
     completion_notes: row.completion_notes,
+    running_late: Boolean(row.running_late),
+    late_reported_at: row.late_reported_at ?? null,
+    late_reported_by_user_id: row.late_reported_by_user_id ?? null,
+    late_reported_by_name: lateReportedByName,
+    late_note: row.late_note ?? null,
     started_at: row.started_at,
     completed_at: row.completed_at,
     cancelled_reason: row.cancelled_reason,

@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import {
   AlertTriangle,
   Briefcase,
+  Car,
   CheckCircle2,
   Loader2,
   MapPin,
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api.ts';
 import { formatDateTimeLocal } from '../../lib/dateUtils.ts';
-import { getJobServiceLabel, getJobTypeLabel } from '../../config/jobServices.ts';
+import { getJobTypeLabel } from '../../config/jobServices.ts';
 import { COMPLETION_MAX_PHOTOS, COMPLETION_PHOTO_SUGGESTED, JOB_STATUS_LABELS } from '../../config/jobs.ts';
 import type { Job, JobMedia } from '../../types/index.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
@@ -72,6 +73,8 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
   const [startNotes, setStartNotes] = useState('');
   const [completionNotes, setCompletionNotes] = useState('');
   const [mutating, setMutating] = useState(false);
+  const [lateNote, setLateNote] = useState('');
+  const [lateSubmitting, setLateSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const startEvidenceRef = useRef<HTMLElement>(null);
@@ -92,11 +95,15 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
       setStartStep('review');
       setStartNotes('');
       setCompletionNotes('');
+      setLateNote('');
       setActionError(null);
       setSuccessBanner(null);
       try {
         const data = await apiFetch<{ job: Job }>(`/api/jobs/${jobId}`);
-        if (!cancelled) setJob(data.job);
+        if (!cancelled) {
+          setJob(data.job);
+          setLateNote(data.job.late_note || '');
+        }
       } catch (err: any) {
         if (!cancelled) setLoadError(err?.message || 'Failed to load the job.');
       } finally {
@@ -152,6 +159,26 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
     }
   };
 
+  const handleReportLate = async () => {
+    if (!jobId) return;
+    setLateSubmitting(true);
+    setActionError(null);
+    try {
+      const data = await apiFetch<{ job: Job }>(`/api/jobs/${jobId}/running-late`, {
+        method: 'POST',
+        body: JSON.stringify({ note: lateNote.trim() || undefined }),
+      });
+      setJob(data.job);
+      setLateNote(data.job.late_note || '');
+      setSuccessBanner(null);
+      onChanged();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to report running late.');
+    } finally {
+      setLateSubmitting(false);
+    }
+  };
+
   const handleCloseShift = () => {
     onNavigate?.('my-timesheet');
     onClose();
@@ -163,6 +190,7 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
   const status = job?.status;
   const canStart = isLead && (status === 'scheduled' || status === 'ongoing');
   const canComplete = isLead && status === 'in_progress';
+  const canReportLate = isLead && (status === 'ongoing' || status === 'in_progress');
   const showCompletedPanel = isLead && status === 'completed';
   const fullAddress = job ? [job.address, job.suburb, job.city, job.postcode].filter(Boolean).join(', ') : '';
   const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(fullAddress)}`;
@@ -229,6 +257,19 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
 
           {!loading && !loadError && job && (
             <>
+              {job.running_late && (
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-sm flex items-start gap-2.5">
+                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+                  <div className="min-w-0">
+                    <div className="font-semibold">
+                      Running late reported
+                      {job.late_reported_at ? ` • ${formatDateTimeLocal(job.late_reported_at)}` : ''}
+                    </div>
+                    <div className="whitespace-pre-wrap mt-0.5">{job.late_note || 'No details provided'}</div>
+                  </div>
+                </div>
+              )}
+
               <section>
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">When &amp; where</h3>
                 <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
@@ -247,6 +288,15 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
                       )}
                     </div>
                   </div>
+                  {job.driver_name && (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Car className="w-4 h-4 text-slate-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs text-slate-500">Driver</div>
+                        <div className="text-sm font-medium text-slate-700 truncate">{job.driver_name}</div>
+                      </div>
+                    </div>
+                  )}
                   {job.location_notes && (
                     <div className="text-xs text-slate-600">
                       <span className="font-semibold">Location notes:</span>{' '}
@@ -323,21 +373,14 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
                     <div className="text-xs text-slate-500">Job type</div>
                     <div className="text-sm font-semibold text-slate-800">{getJobTypeLabel(job.job_type)}</div>
                   </div>
-                  {job.services.length > 0 && (
-                    <div>
-                      <div className="text-xs text-slate-500">Services</div>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {job.services.map((serviceId) => (
-                          <span
-                            key={serviceId}
-                            className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-white border border-slate-200 text-slate-700"
-                          >
-                            {getJobServiceLabel(serviceId)}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <div className="text-xs text-slate-500">Services</div>
+                    {job.services_text?.trim() ? (
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{job.services_text}</p>
+                    ) : (
+                      <p className="text-sm text-slate-400">—</p>
+                    )}
+                  </div>
                   {job.details && (
                     <div>
                       <div className="text-xs text-slate-500">Details</div>
@@ -452,6 +495,35 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
                         <p className="text-sm text-slate-700 whitespace-pre-wrap">{job.completion_notes}</p>
                       </div>
                     )}
+                  </div>
+                </section>
+              )}
+
+              {canReportLate && (
+                <section>
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Report running late</h3>
+                  <div className="mt-2 space-y-2.5">
+                    <textarea
+                      id="job-late-note"
+                      value={lateNote}
+                      onChange={(e) => setLateNote(e.target.value)}
+                      placeholder="What's causing the delay? e.g. waiting on access, ~30 min behind"
+                      rows={2}
+                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleReportLate}
+                      disabled={lateSubmitting}
+                      className="w-full py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm shadow-md hover:shadow-amber-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {lateSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      {lateSubmitting
+                        ? 'Submitting...'
+                        : job.running_late
+                          ? 'Update running late report'
+                          : 'Report running late'}
+                    </button>
                   </div>
                 </section>
               )}

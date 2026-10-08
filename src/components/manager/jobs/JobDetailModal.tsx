@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
-import type { Job, JobAssignment, JobMedia, JobMediaPhase, JobStatus, LeadSource } from '../../../types/index.ts';
+import type { Job, JobAssignment, JobMedia, JobMediaPhase, JobStatus, LeadSource, User, UserRole } from '../../../types/index.ts';
 import {
   JOB_TYPE_OPTIONS,
-  JOB_SERVICE_CATEGORIES,
   LEAD_SOURCE_OPTIONS,
-  getJobServiceLabel,
   getJobTypeLabel,
   getLeadSourceLabel,
 } from '../../../config/jobServices.ts';
@@ -26,7 +24,7 @@ import {
   MapPin,
   Phone,
   Mail,
-  User,
+  User as UserIcon,
   DollarSign,
   Clock,
   CheckCircle2,
@@ -46,7 +44,8 @@ interface JobDetailModalProps {
 interface JobDraft {
   title: string;
   job_type: string;
-  services: string[];
+  services_text: string;
+  allocated_driver_user_id: string;
   details: string;
   lead_source: LeadSource;
   customer_name: string;
@@ -67,7 +66,8 @@ interface JobDraft {
 const draftFromJob = (job: Job): JobDraft => ({
   title: job.title || '',
   job_type: job.job_type || '',
-  services: job.services || [],
+  services_text: job.services_text || '',
+  allocated_driver_user_id: job.allocated_driver_user_id || '',
   details: job.details || '',
   lead_source: job.lead_source || 'manual',
   customer_name: job.customer_name || '',
@@ -104,6 +104,17 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
   </div>
 );
 
+const driverRoleHint = (role: UserRole): string => {
+  if (role === 'manager') return 'Manager';
+  if (role === 'team_leader') return 'Team Leader';
+  return 'Staff';
+};
+
+const loadActiveStaff = async (): Promise<User[]> => {
+  const res = await apiFetch<{ staff?: User[]; users?: User[] } | User[]>('/api/staff?status=active');
+  return Array.isArray(res) ? res : res.staff || res.users || [];
+};
+
 const EmptyValue: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   <span className="text-slate-400 italic">{children || '—'}</span>
 );
@@ -121,6 +132,9 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
   const [cancelReason, setCancelReason] = useState('');
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [removingAssignmentId, setRemovingAssignmentId] = useState<string | null>(null);
+  const [drivers, setDrivers] = useState<User[]>([]);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [clearingLate, setClearingLate] = useState(false);
 
   const loadJob = useCallback(async () => {
     if (!jobId) return;
@@ -192,6 +206,28 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
     if (!job) return;
     setDraft(draftFromJob(job));
     setEditing(true);
+    setDriversLoading(true);
+    loadActiveStaff()
+      .then(setDrivers)
+      .catch(() => setDrivers([]))
+      .finally(() => setDriversLoading(false));
+  };
+
+  const clearLate = async () => {
+    if (!job) return;
+    try {
+      setClearingLate(true);
+      setActionError('');
+      const res = await apiFetch<{ job: Job }>(`/api/jobs/${job.id}/clear-late`, {
+        method: 'POST',
+      });
+      setJob(res.job);
+      onChanged();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to clear running-late status');
+    } finally {
+      setClearingLate(false);
+    }
   };
 
   const saveEdit = async () => {
@@ -204,7 +240,9 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
         body: JSON.stringify({
           title: draft.title.trim(),
           job_type: draft.job_type,
-          services: draft.services,
+          services: [],
+          services_text: draft.services_text.trim() || null,
+          allocated_driver_user_id: draft.allocated_driver_user_id || null,
           details: draft.details.trim(),
           lead_source: draft.lead_source,
           customer_name: draft.customer_name.trim(),
@@ -233,21 +271,8 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
     }
   };
 
-  const setDraftField = (field: keyof JobDraft, value: string | string[]) => {
+  const setDraftField = (field: keyof JobDraft, value: string) => {
     setDraft((current) => (current ? { ...current, [field]: value } : current));
-  };
-
-  const toggleDraftService = (serviceId: string) => {
-    setDraft((current) =>
-      current
-        ? {
-            ...current,
-            services: current.services.includes(serviceId)
-              ? current.services.filter((id) => id !== serviceId)
-              : [...current.services, serviceId],
-          }
-        : current,
-    );
   };
 
   const phaseMedia = (phase: JobMediaPhase): JobMedia[] =>
@@ -264,7 +289,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
     );
   };
 
-  const busy = mutating !== null || savingEdit || removingAssignmentId !== null;
+  const busy = mutating !== null || savingEdit || removingAssignmentId !== null || clearingLate;
   const status = job?.status;
   const canCancel = !!job && status !== 'completed' && status !== 'cancelled';
 
@@ -410,35 +435,32 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       </div>
                     </div>
                     <div>
-                      <span className={labelClass}>Services</span>
-                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                        {JOB_SERVICE_CATEGORIES.map((category) => (
-                          <div key={category.id} className="p-2 bg-slate-50 rounded-xl border border-slate-100">
-                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                              {category.label}
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {category.services.map((service) => {
-                                const selected = draft.services.includes(service.id);
-                                return (
-                                  <button
-                                    key={service.id}
-                                    type="button"
-                                    onClick={() => toggleDraftService(service.id)}
-                                    className={`px-2 py-0.5 text-[10px] font-medium rounded-full border transition-all cursor-pointer ${
-                                      selected
-                                        ? 'bg-indigo-600 text-white border-indigo-600 font-semibold'
-                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                  >
-                                    {service.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
+                      <label className={labelClass} htmlFor="edit-job-services-text">Services required</label>
+                      <textarea
+                        id="edit-job-services-text"
+                        rows={3}
+                        value={draft.services_text}
+                        onChange={(e) => setDraftField('services_text', e.target.value)}
+                        placeholder="Sugar soap all walls and ceilings, clean stove and oven…"
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass} htmlFor="edit-job-driver">Allocated driver</label>
+                      <select
+                        id="edit-job-driver"
+                        value={draft.allocated_driver_user_id}
+                        onChange={(e) => setDraftField('allocated_driver_user_id', e.target.value)}
+                        className={inputClass}
+                        disabled={driversLoading}
+                      >
+                        <option value="">No driver assigned</option>
+                        {drivers.map((driver) => (
+                          <option key={driver.id} value={driver.id}>
+                            {driver.name} ({driverRoleHint(driver.role)})
+                          </option>
                         ))}
-                      </div>
+                      </select>
                     </div>
                     <div>
                       <label className={labelClass} htmlFor="edit-job-details">Details</label>
@@ -605,21 +627,15 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       <Row label="Job type">
                         {job.job_type ? getJobTypeLabel(job.job_type) : <EmptyValue />}
                       </Row>
-                      <Row label="Services">
-                        {(job.services?.length ?? 0) > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {(job.services || []).map((serviceId) => (
-                              <span
-                                key={serviceId}
-                                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200"
-                              >
-                                {getJobServiceLabel(serviceId)}
-                              </span>
-                            ))}
-                          </div>
+                      <Row label="Services required">
+                        {job.services_text ? (
+                          <span className="whitespace-pre-wrap">{job.services_text}</span>
                         ) : (
                           <EmptyValue />
                         )}
+                      </Row>
+                      <Row label="Driver">
+                        {job.driver_name || <EmptyValue />}
                       </Row>
                       <Row label="Details">
                         {job.details ? (
@@ -633,7 +649,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       </Row>
                     </Section>
 
-                    <Section title="Customer" icon={<User className="w-4 h-4 text-indigo-600" />}>
+                    <Section title="Customer" icon={<UserIcon className="w-4 h-4 text-indigo-600" />}>
                       <Row label="Name">{job.customer_name || <EmptyValue />}</Row>
                       <Row label="Phone">
                         {job.customer_phone ? (
@@ -852,6 +868,31 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
 
         {job && !loading && (
           <div className="p-4 border-t border-slate-100 bg-slate-50">
+            {job.running_late && (
+              <div className="mb-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 justify-between">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                        Running late
+                        {job.late_reported_at ? ` · reported ${formatDateTimeLocal(job.late_reported_at)}` : ''}
+                      </p>
+                      <p className="text-sm text-amber-800 mt-0.5">{job.late_note || 'No details provided'}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearLate}
+                    disabled={clearingLate}
+                    className="inline-flex items-center justify-center gap-1.5 py-2 px-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
+                  >
+                    {clearingLate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                    {clearingLate ? 'Updating…' : 'Mark back on track'}
+                  </button>
+                </div>
+              </div>
+            )}
             {confirmingCancel ? (
               <div className="space-y-2">
                 <label className={labelClass} htmlFor="cancel-job-reason">

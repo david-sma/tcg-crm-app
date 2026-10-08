@@ -62,7 +62,17 @@ export const JobsCalendarView: React.FC<JobsCalendarViewProps> = ({ onOpenJob, r
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-[10px] font-mono font-semibold text-slate-400">{job.job_order_number}</span>
-        <JobStatusChip status={job.status} />
+        <div className="flex items-center gap-1 shrink-0">
+          {job.running_late && (
+            <span
+              title={job.late_note || 'Running behind schedule'}
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200"
+            >
+              Running late
+            </span>
+          )}
+          <JobStatusChip status={job.status} />
+        </div>
       </div>
       {job.scheduled_start_time && job.scheduled_finish_time && (
         <div className="text-[11px] font-mono font-semibold text-indigo-700 mt-1">

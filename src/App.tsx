@@ -69,6 +69,7 @@ function MainLayout() {
   }
 
   const isManager = user.role === 'manager';
+  const isTeamLead = user.role === 'team_leader';
 
   const managerNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -82,13 +83,20 @@ function MainLayout() {
 
   const staffNavItems = [
     { id: 'dashboard', label: 'Today & Shift', icon: LayoutDashboard },
+    { id: 'my-timesheet', label: 'My Timesheet', icon: FileCheck },
+    { id: 'roster', label: 'My Roster', icon: Calendar },
+    { id: 'availability', label: 'My Availability', icon: Clock },
+  ];
+
+  const teamLeaderNavItems = [
+    { id: 'dashboard', label: 'Today & Shift', icon: LayoutDashboard },
     { id: 'my-jobs', label: 'My Jobs', icon: Briefcase },
     { id: 'my-timesheet', label: 'My Timesheet', icon: FileCheck },
     { id: 'roster', label: 'My Roster', icon: Calendar },
     { id: 'availability', label: 'My Availability', icon: Clock },
   ];
 
-  const navItems = isManager ? managerNavItems : staffNavItems;
+  const navItems = isManager ? managerNavItems : isTeamLead ? teamLeaderNavItems : staffNavItems;
   const validTabIds = navItems.map((n) => n.id);
 
   // Guarantee a valid active tab; always default to dashboard if invalid/empty
@@ -148,7 +156,11 @@ function MainLayout() {
     } else {
       switch (currentTab) {
         case 'my-jobs':
-          return <MyJobsView onNavigate={setActiveTab as any} />;
+          return isTeamLead ? (
+            <MyJobsView onNavigate={setActiveTab as any} />
+          ) : (
+            <StaffDashboard onNavigate={setActiveTab as any} />
+          );
         case 'my-timesheet':
           return <StaffTimesheetView onBackToDashboard={() => setActiveTab('dashboard')} />;
         case 'availability':

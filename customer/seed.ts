@@ -30,9 +30,9 @@ export const seedConfig: SeedConfig = {
     },
     {
       name: 'David',
-      role: 'staff',
+      role: 'team_leader',
       phone: '0210000011',
-      title: 'Staff Cleaning Specialist',
+      title: 'Team Leader',
       initialPassword: '***REMOVED***',
     },
     {
