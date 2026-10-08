@@ -2,19 +2,16 @@ import React, { useState } from 'react';
 import { JobsBoardView } from './JobsBoardView.tsx';
 import { JobsCalendarView } from './JobsCalendarView.tsx';
 import { JobDetailModal } from './JobDetailModal.tsx';
-import { Briefcase, LayoutGrid, CalendarDays } from 'lucide-react';
+import { Briefcase } from 'lucide-react';
+
+export type JobsTab = 'board' | 'calendar';
 
 interface JobsModuleProps {
+  activeTab: JobsTab;
   onNavigate?: (tab: string) => void;
 }
 
-const TABS = [
-  { id: 'board', label: 'Board', icon: LayoutGrid },
-  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
-] as const;
-
-export const JobsModule: React.FC<JobsModuleProps> = () => {
-  const [activeTab, setActiveTab] = useState<'board' | 'calendar'>('board');
+export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -31,30 +28,6 @@ export const JobsModule: React.FC<JobsModuleProps> = () => {
           <p className="text-sm text-slate-500 mt-1">
             Job orders, scheduling, crew dispatch and photo evidence in one place.
           </p>
-        </div>
-      </div>
-
-      <div className="bg-white border-b border-slate-200 rounded-2xl shadow-2xs">
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none px-2">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 py-3.5 px-4 text-xs font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
-                  isActive
-                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40'
-                    : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
         </div>
       </div>
 

@@ -35,6 +35,8 @@ import {
   ClipboardList,
   FileCheck,
   Briefcase,
+  LayoutGrid,
+  CalendarDays,
 } from 'lucide-react';
 
 function MainLayout() {
@@ -96,16 +98,25 @@ function MainLayout() {
     { id: 'availability', label: 'My Availability', icon: Clock },
   ];
 
-  const navItems = isManager ? managerNavItems : isTeamLead ? teamLeaderNavItems : staffNavItems;
-  const validTabIds = navItems.map((n) => n.id);
+  const jobsNavItems = [
+    { id: 'jobs-board', label: 'Jobs Board', icon: LayoutGrid },
+    { id: 'jobs-calendar', label: 'Calendar', icon: CalendarDays },
+  ];
 
-  // Guarantee a valid active tab; always default to dashboard if invalid/empty
-  const currentTab = validTabIds.includes(activeTab) ? activeTab : 'dashboard';
+  const navItems = isManager ? managerNavItems : isTeamLead ? teamLeaderNavItems : staffNavItems;
+  const barNavItems = activeModuleId === 'jobs-dispatches' ? jobsNavItems : navItems;
+  const validTabIds = barNavItems.map((n) => n.id);
+
+  // Guarantee a valid active tab for the current module
+  const defaultTab = activeModuleId === 'jobs-dispatches' ? 'jobs-board' : 'dashboard';
+  const currentTab = validTabIds.includes(activeTab) ? activeTab : defaultTab;
 
   const handleSelectModule = (moduleId: string) => {
     setActiveModuleId(moduleId);
     if (moduleId === 'staff-ops') {
       setActiveTab('dashboard');
+    } else if (moduleId === 'jobs-dispatches') {
+      setActiveTab('jobs-board');
     }
   };
 
@@ -122,7 +133,12 @@ function MainLayout() {
 
   const renderContent = () => {
     if (activeModuleId === 'jobs-dispatches' && isManager) {
-      return <JobsModule onNavigate={handleNavigateToTab} />;
+      return (
+        <JobsModule
+          activeTab={currentTab === 'jobs-calendar' ? 'calendar' : 'board'}
+          onNavigate={handleNavigateToTab}
+        />
+      );
     }
 
     // If user is visiting an upcoming CRM module
@@ -188,11 +204,11 @@ function MainLayout() {
         onSelectModule={handleSelectModule}
       />
 
-      {/* Secondary Desktop & Tablet Tab Bar (When in Staff Operations module) */}
-      {activeModuleId === 'staff-ops' && (
+      {/* Secondary Desktop & Tablet Tab Bar (module tabs share one seamless bar) */}
+      {(activeModuleId === 'staff-ops' || activeModuleId === 'jobs-dispatches') && (
         <div className="bg-white border-b border-slate-200 sticky top-16 z-30 hidden sm:block shadow-2xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-1 overflow-x-auto scrollbar-none">
-            {navItems.map((item) => {
+            {barNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentTab === item.id;
               return (
@@ -223,12 +239,12 @@ function MainLayout() {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      {activeModuleId === 'staff-ops' && (
+      {(activeModuleId === 'staff-ops' || activeModuleId === 'jobs-dispatches') && (
         <nav
           id="mobile-bottom-nav"
           className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around shadow-lg"
         >
-          {navItems.map((item) => {
+          {barNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
             return (

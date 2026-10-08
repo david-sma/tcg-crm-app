@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
-import type { Job, JobAssignment } from '../../../types/index.ts';
+import type { Job } from '../../../types/index.ts';
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '../../../config/jobs.ts';
 import { WeekNavigator } from '../../common/WeekNavigator.tsx';
 import { getDefaultActiveMonday, DAY_NAMES, SHORT_DAY_NAMES, getDayDateStr, getNowInBusinessTz } from '../../../lib/dateUtils.ts';
-import { JobStatusChip, JOB_STATUS_CHIP } from './JobsBoardView.tsx';
+import { JobStatusChip, JOB_STATUS_CHIP, JOB_STATUS_DOT } from './JobsBoardView.tsx';
 import { parseISO, format, addDays } from 'date-fns';
-import { Loader2, AlertTriangle, MapPin, Users, CalendarDays } from 'lucide-react';
+import { Loader2, AlertTriangle, CalendarDays } from 'lucide-react';
 
 interface JobsCalendarViewProps {
   onOpenJob: (jobId: string) => void;
@@ -52,62 +52,46 @@ export const JobsCalendarView: React.FC<JobsCalendarViewProps> = ({ onOpenJob, r
 
   const jobsForDay = (dateStr: string) => jobs.filter((job) => job.scheduled_date === dateStr);
 
-  const renderJobCard = (job: Job, compact = false) => (
-    <div
-      key={job.id}
-      onClick={() => onOpenJob(job.id)}
-      className={`rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-xs cursor-pointer transition-all ${
-        compact ? 'p-3' : 'p-2.5'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-[10px] font-mono font-semibold text-slate-400">{job.job_order_number}</span>
-        <div className="flex items-center gap-1 shrink-0">
-          {job.running_late && (
+  const renderJobCard = (job: Job) => {
+    const crewNames = (job.assignments || [])
+      .map((a) => `${a.user_name || 'Staff'}${a.is_lead ? ' (lead)' : ''}`)
+      .join(', ');
+    const tooltip = [job.job_order_number, JOB_STATUS_LABELS[job.status] || job.status, job.address, crewNames]
+      .filter(Boolean)
+      .join(' · ');
+    const timeLabel =
+      job.scheduled_start_time && job.scheduled_finish_time
+        ? `${job.scheduled_start_time}–${job.scheduled_finish_time}`
+        : '';
+    return (
+      <div
+        key={job.id}
+        onClick={() => onOpenJob(job.id)}
+        title={tooltip}
+        className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 hover:border-indigo-300 hover:shadow-xs cursor-pointer transition-all"
+      >
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span
+            title={JOB_STATUS_LABELS[job.status] || job.status}
+            className={`w-2 h-2 rounded-full shrink-0 ${JOB_STATUS_DOT[job.status] || JOB_STATUS_DOT.new}`}
+          />
+          {timeLabel ? (
+            <span className="text-[10px] font-mono font-semibold text-slate-500 shrink-0">{timeLabel}</span>
+          ) : null}
+          <span className="font-bold text-slate-900 text-xs truncate flex-1">{job.title}</span>
+          {job.running_late ? (
             <span
               title={job.late_note || 'Running behind schedule'}
-              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200"
-            >
-              Running late
-            </span>
-          )}
+              className="w-2 h-2 rounded-full bg-amber-400 shrink-0"
+            />
+          ) : null}
+        </div>
+        <div className="mt-1 flex justify-start">
           <JobStatusChip status={job.status} />
         </div>
       </div>
-      {job.scheduled_start_time && job.scheduled_finish_time && (
-        <div className="text-[11px] font-mono font-semibold text-indigo-700 mt-1">
-          {job.scheduled_start_time}–{job.scheduled_finish_time}
-        </div>
-      )}
-      <div className="font-bold text-slate-900 text-sm truncate" title={job.title}>
-        {job.title}
-      </div>
-      {(job.suburb || job.city || job.address) && (
-        <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-          <MapPin className="w-3 h-3 shrink-0" />
-          <span className="truncate">{job.suburb || job.city || job.address}</span>
-        </div>
-      )}
-      {(job.assignments?.length ?? 0) > 0 && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
-          <Users className="w-3 h-3 text-slate-400" />
-          {(job.assignments || []).map((a: JobAssignment) => (
-            <span
-              key={a.id}
-              className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                a.is_lead
-                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
-                  : 'bg-slate-100 text-slate-600 border border-slate-200'
-              }`}
-            >
-              {a.user_name || 'Staff'}
-              {a.is_lead && <span className="text-[9px] font-bold uppercase">Lead</span>}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -175,7 +159,7 @@ export const JobsCalendarView: React.FC<JobsCalendarViewProps> = ({ onOpenJob, r
                 {jobsForDay(dayDateStr(selectedWeek, selectedDayIdx)).length === 0 ? (
                   <div className="py-8 text-center text-slate-400 text-xs">No jobs</div>
                 ) : (
-                  jobsForDay(dayDateStr(selectedWeek, selectedDayIdx)).map((job) => renderJobCard(job, true))
+                  jobsForDay(dayDateStr(selectedWeek, selectedDayIdx)).map((job) => renderJobCard(job))
                 )}
               </div>
             </div>

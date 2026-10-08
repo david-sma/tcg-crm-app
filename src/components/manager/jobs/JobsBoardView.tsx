@@ -1,10 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
-import type { Job, JobAssignment, JobStatus } from '../../../types/index.ts';
+import type { Job, JobStatus } from '../../../types/index.ts';
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '../../../config/jobs.ts';
 import { NewJobFormModal } from './NewJobFormModal.tsx';
-import { Plus, Search, AlertTriangle, CheckCircle2, X, MapPin, Users, Loader2, Briefcase, CalendarDays, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Search, AlertTriangle, CheckCircle2, X, Loader2, Briefcase, ChevronDown, ChevronRight } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
+
+export const JOB_STATUS_DOT: Record<string, string> = {
+  new: 'bg-slate-400',
+  enriching: 'bg-amber-400',
+  confirmed: 'bg-sky-400',
+  scheduled: 'bg-indigo-400',
+  ongoing: 'bg-violet-400',
+  in_progress: 'bg-blue-500',
+  completed: 'bg-emerald-400',
+  cancelled: 'bg-red-400',
+};
 
 export const JOB_STATUS_CHIP: Record<string, string> = {
   new: 'bg-slate-100 text-slate-700 border-slate-200',
@@ -43,7 +54,16 @@ export const formatJobTimeWindow = (job: Job): string => {
   return day;
 };
 
-const PIPELINE_STATUSES: JobStatus[] = ['new', 'enriching', 'confirmed', 'scheduled', 'ongoing', 'in_progress', 'completed'];
+const STATUS_ORDER: Record<string, number> = {
+  new: 0,
+  enriching: 1,
+  confirmed: 2,
+  scheduled: 3,
+  ongoing: 4,
+  in_progress: 5,
+  completed: 6,
+  cancelled: 7,
+};
 
 interface JobsBoardViewProps {
   onOpenJob: (jobId: string) => void;
@@ -55,9 +75,9 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | JobStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<'active' | JobStatus>('active');
   const [newJobOpen, setNewJobOpen] = useState(false);
-  const [cancelledCollapsed, setCancelledCollapsed] = useState(true);
+  const [doneExpanded, setDoneExpanded] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -84,8 +104,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
     loadJobs();
   }, [loadJobs, refreshKey]);
 
-  const filteredJobs = jobs.filter((job) => {
-    if (statusFilter !== 'all' && job.status !== statusFilter) return false;
+  const searchedJobs = jobs.filter((job) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return [job.title, job.customer_name, job.address, job.suburb, job.city, job.job_order_number]
@@ -93,10 +112,85 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
       .some((value) => (value as string).toLowerCase().includes(q));
   });
 
-  const columnStatuses: (JobStatus | 'cancelled')[] =
-    statusFilter === 'all' ? [...PIPELINE_STATUSES, 'cancelled'] : [statusFilter];
+  const countFor = (status: JobStatus) => searchedJobs.filter((job) => job.status === status).length;
+  const activeCount = searchedJobs.filter(
+    (job) => job.status !== 'completed' && job.status !== 'cancelled',
+  ).length;
 
-  const jobsForStatus = (status: JobStatus | 'cancelled') => filteredJobs.filter((job) => job.status === status);
+  const filteredJobs = searchedJobs.filter((job) =>
+    statusFilter === 'active'
+      ? job.status !== 'completed' && job.status !== 'cancelled'
+      : job.status === statusFilter,
+  );
+
+  // Morning-triage order: running late first, then pipeline order, then scheduled date.
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
+    if (!!a.running_late !== !!b.running_late) return a.running_late ? -1 : 1;
+    const orderA = STATUS_ORDER[a.status] ?? 99;
+    const orderB = STATUS_ORDER[b.status] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    if ((a.scheduled_date || '') !== (b.scheduled_date || '')) {
+      if (!a.scheduled_date) return 1;
+      if (!b.scheduled_date) return -1;
+      return a.scheduled_date < b.scheduled_date ? -1 : 1;
+    }
+    return a.created_at < b.created_at ? 1 : -1;
+  });
+
+  const needsAttentionJobs = sortedJobs.filter(
+    (job) =>
+      job.running_late ||
+      job.status === 'new' ||
+      job.status === 'enriching' ||
+      (job.status === 'confirmed' && !job.scheduled_date),
+  );
+  const needsAttentionIds = new Set(needsAttentionJobs.map((job) => job.id));
+  const scheduledJobs = sortedJobs.filter(
+    (job) => !needsAttentionIds.has(job.id) && job.status !== 'completed' && job.status !== 'cancelled',
+  );
+  const doneJobs = sortedJobs.filter(
+    (job) => !needsAttentionIds.has(job.id) && (job.status === 'completed' || job.status === 'cancelled'),
+  );
+
+  const crewSummary = (job: Job): string => {
+    const crew = job.assignments || [];
+    if (crew.length === 0) return '—';
+    const lead = crew.find((a) => a.is_lead);
+    const leadName = lead?.user_name || crew[0]?.user_name || 'Crew';
+    return crew.length > 1 ? `${leadName} +${crew.length - 1}` : leadName;
+  };
+
+  const whereSummary = (job: Job): string =>
+    [job.suburb, job.city].filter(Boolean).join(', ') || job.address || '—';
+
+  const renderCompactRow = (job: Job) => {
+    const meta = [formatJobTimeWindow(job), whereSummary(job) === '—' ? '' : whereSummary(job), crewSummary(job) === '—' ? '' : crewSummary(job)]
+      .filter(Boolean)
+      .join(' · ');
+    return (
+      <div
+        key={job.id}
+        onClick={() => onOpenJob(job.id)}
+        className="flex items-center gap-2.5 px-3 py-2.5 bg-white border-b border-slate-100 last:border-b-0 cursor-pointer active:bg-slate-50"
+      >
+        <span
+          title={JOB_STATUS_LABELS[job.status] || job.status}
+          className={`w-2 h-2 rounded-full shrink-0 ${JOB_STATUS_DOT[job.status] || JOB_STATUS_DOT.new}`}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold text-slate-900 truncate">{job.title}</div>
+          {meta ? <div className="text-[11px] text-slate-500 truncate">{meta}</div> : null}
+        </div>
+        {job.running_late ? (
+          <span
+            title={job.late_note || 'Running behind schedule'}
+            className="w-2 h-2 rounded-full bg-amber-400 shrink-0"
+          />
+        ) : null}
+        <JobStatusChip status={job.status} />
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -151,14 +245,14 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
-          onClick={() => setStatusFilter('all')}
+          onClick={() => setStatusFilter('active')}
           className={`px-3 py-1.5 text-[11px] font-semibold rounded-full border transition-colors cursor-pointer ${
-            statusFilter === 'all'
+            statusFilter === 'active'
               ? 'bg-slate-900 text-white border-slate-900'
               : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          All
+          Active · {activeCount}
         </button>
         {JOB_STATUSES.map((status) => (
           <button
@@ -171,7 +265,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            {JOB_STATUS_LABELS[status]}
+            {JOB_STATUS_LABELS[status]} · {countFor(status)}
           </button>
         ))}
       </div>
@@ -192,109 +286,125 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
           <p className="text-sm font-semibold text-slate-600">No jobs yet</p>
           <p className="text-xs text-slate-400 mt-1 max-w-xs">Create your first job order to start dispatching crews.</p>
         </div>
+      ) : sortedJobs.length === 0 ? (
+        <div className="py-16 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-slate-200">
+          <Search className="w-8 h-8 text-slate-300 mb-2" />
+          <p className="text-sm font-semibold text-slate-600">No jobs match</p>
+          <p className="text-xs text-slate-400 mt-1 max-w-xs">Try a different search or status filter.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {columnStatuses.map((status) => {
-            const columnJobs = jobsForStatus(status);
-            const isCancelled = status === 'cancelled';
-            const isCollapsed = isCancelled && cancelledCollapsed && statusFilter === 'all';
-
-            return (
-              <div key={status} className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-slate-100 bg-slate-50/70">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {isCancelled && statusFilter === 'all' ? (
-                      <button
-                        type="button"
-                        onClick={() => setCancelledCollapsed((c) => !c)}
-                        className="p-0.5 text-slate-400 hover:text-slate-700 rounded-md cursor-pointer"
-                        aria-label={isCollapsed ? 'Expand cancelled jobs' : 'Collapse cancelled jobs'}
-                      >
-                        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      </button>
-                    ) : null}
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 truncate">
-                      {JOB_STATUS_LABELS[status]}
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${JOB_STATUS_CHIP[status]}`}>
-                      {columnJobs.length}
-                    </span>
-                  </div>
-                </div>
-
-                {!isCollapsed && (
-                  <div className="p-2.5 space-y-2.5 min-h-[120px]">
-                    {columnJobs.length === 0 ? (
-                      <div className="py-6 text-center text-[11px] text-slate-400">No jobs</div>
-                    ) : (
-                      columnJobs.map((job) => (
-                        <div
-                          key={job.id}
-                          onClick={() => onOpenJob(job.id)}
-                          className="p-3 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-xs cursor-pointer transition-all"
+        <>
+          <div className="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50/70 border-b border-slate-100">
+                  <th className="px-4 py-2.5 font-bold">Order</th>
+                  <th className="px-4 py-2.5 font-bold">Job</th>
+                  <th className="px-4 py-2.5 font-bold">When</th>
+                  <th className="px-4 py-2.5 font-bold">Where</th>
+                  <th className="px-4 py-2.5 font-bold">Crew</th>
+                  <th className="px-4 py-2.5 font-bold text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sortedJobs.map((job) => (
+                  <tr
+                    key={job.id}
+                    onClick={() => onOpenJob(job.id)}
+                    className="hover:bg-indigo-50/40 cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                      {job.job_order_number}
+                    </td>
+                    <td className="px-4 py-3 min-w-0">
+                      <div className="font-bold text-slate-900 truncate max-w-[260px]" title={job.title}>
+                        {job.title}
+                      </div>
+                      <div className="text-xs text-slate-500 truncate max-w-[260px]">{job.customer_name}</div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
+                      {formatJobTimeWindow(job) || '—'}
+                    </td>
+                    <td
+                      className="px-4 py-3 text-xs text-slate-600 truncate max-w-[160px]"
+                      title={whereSummary(job) === '—' ? undefined : `${job.address || ''} ${whereSummary(job)}`.trim()}
+                    >
+                      {whereSummary(job)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{crewSummary(job)}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {job.running_late ? (
+                        <span
+                          title={job.late_note || 'Running behind schedule'}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200 mr-1"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="text-[10px] font-mono font-semibold text-slate-400">
-                              {job.job_order_number}
-                            </span>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {job.running_late && (
-                                <span
-                                  title={job.late_note || 'Running behind schedule'}
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200"
-                                >
-                                  Running late
-                                </span>
-                              )}
-                              <JobStatusChip status={job.status} />
-                            </div>
-                          </div>
+                          Late
+                        </span>
+                      ) : null}
+                      <JobStatusChip status={job.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-                          <div className="font-bold text-slate-900 text-sm mt-1 truncate" title={job.title}>
-                            {job.title}
-                          </div>
-                          <div className="text-xs text-slate-600 truncate">{job.customer_name}</div>
-                          {(job.suburb || job.city) && (
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3 h-3 shrink-0" />
-                              <span className="truncate">{[job.suburb, job.city].filter(Boolean).join(', ')}</span>
-                            </div>
-                          )}
-
-                          {job.scheduled_date && (
-                            <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 rounded-full px-2 py-0.5">
-                              <CalendarDays className="w-3 h-3" />
-                              {formatJobTimeWindow(job)}
-                            </div>
-                          )}
-
-                          {(job.assignments?.length ?? 0) > 0 && (
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                              <Users className="w-3 h-3 text-slate-400" />
-                              {(job.assignments || []).map((a: JobAssignment) => (
-                                <span
-                                  key={a.id}
-                                  className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                                    a.is_lead
-                                      ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
-                                      : 'bg-slate-100 text-slate-600 border border-slate-200'
-                                  }`}
-                                >
-                                  {a.user_name || 'Staff'}
-                                  {a.is_lead && <span className="text-[9px] font-bold uppercase">Lead</span>}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
+          <div className="md:hidden space-y-4">
+            {needsAttentionJobs.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 px-1 pb-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Needs attention
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                    {needsAttentionJobs.length}
+                  </span>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  {needsAttentionJobs.map(renderCompactRow)}
+                </div>
+              </div>
+            )}
+            {scheduledJobs.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 px-1 pb-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Scheduled</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                    {scheduledJobs.length}
+                  </span>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  {scheduledJobs.map(renderCompactRow)}
+                </div>
+              </div>
+            )}
+            {doneJobs.length > 0 && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setDoneExpanded((v) => !v)}
+                  className="flex items-center gap-1.5 px-1 pb-1.5 cursor-pointer"
+                  aria-label={doneExpanded ? 'Hide completed jobs' : 'Show completed jobs'}
+                >
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Done</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                    {doneJobs.length}
+                  </span>
+                  {doneExpanded ? (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                </button>
+                {doneExpanded && (
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    {doneJobs.map(renderCompactRow)}
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        </>
       )}
 
       {newJobOpen && (
