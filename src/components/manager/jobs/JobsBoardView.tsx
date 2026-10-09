@@ -17,6 +17,17 @@ export const JOB_STATUS_DOT: Record<string, string> = {
   cancelled: 'bg-red-400',
 };
 
+export const JOB_STATUS_SOLID: Record<string, string> = {
+  new: 'bg-slate-500 text-white border-slate-500',
+  enriching: 'bg-amber-500 text-white border-amber-500',
+  confirmed: 'bg-sky-500 text-white border-sky-500',
+  scheduled: 'bg-indigo-500 text-white border-indigo-500',
+  ongoing: 'bg-violet-500 text-white border-violet-500',
+  in_progress: 'bg-blue-600 text-white border-blue-600',
+  completed: 'bg-emerald-500 text-white border-emerald-500',
+  cancelled: 'bg-red-500 text-white border-red-500',
+};
+
 export const JOB_STATUS_CHIP: Record<string, string> = {
   new: 'bg-slate-100 text-slate-700 border-slate-200',
   enriching: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -252,7 +263,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
               : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          Active · {activeCount}
+          Active · <span className="font-extrabold">{activeCount}</span>
         </button>
         {JOB_STATUSES.map((status) => (
           <button
@@ -261,11 +272,11 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
             onClick={() => setStatusFilter(status)}
             className={`px-3 py-1.5 text-[11px] font-semibold rounded-full border transition-colors cursor-pointer ${
               statusFilter === status
-                ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                ? JOB_STATUS_SOLID[status]
+                : `${JOB_STATUS_CHIP[status]} hover:shadow-xs`
             }`}
           >
-            {JOB_STATUS_LABELS[status]} · {countFor(status)}
+            {JOB_STATUS_LABELS[status]} · <span className="font-extrabold">{countFor(status)}</span>
           </button>
         ))}
       </div>
