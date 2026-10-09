@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Calendar,
   ChevronLeft,
@@ -30,6 +30,8 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
   const [selectedWeek, setSelectedWeek] = useState<string>(getDefaultActiveMonday());
   const [loading, setLoading] = useState<boolean>(true);
   const [signing, setSigning] = useState<boolean>(false);
+  const [signArmed, setSignArmed] = useState<boolean>(false);
+  const signArmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [days, setDays] = useState<DayTimesheetRow[]>([]);
   const [timesheet, setTimesheet] = useState<WeeklyTimesheet | null>(null);
   const [totalHours, setTotalHours] = useState<string>('0.00');
@@ -67,6 +69,25 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
   useEffect(() => {
     fetchWeeklyTimesheet(selectedWeek);
   }, [selectedWeek]);
+
+  useEffect(() => () => {
+    if (signArmTimer.current) clearTimeout(signArmTimer.current);
+  }, []);
+
+  const handleSignClick = () => {
+    if (!signArmed) {
+      setSignArmed(true);
+      if (signArmTimer.current) clearTimeout(signArmTimer.current);
+      signArmTimer.current = setTimeout(() => setSignArmed(false), 5000);
+      return;
+    }
+    if (signArmTimer.current) {
+      clearTimeout(signArmTimer.current);
+      signArmTimer.current = null;
+    }
+    setSignArmed(false);
+    void handleSignWeeklyTimesheet();
+  };
 
   const handleSignWeeklyTimesheet = async () => {
     setSigning(true);
@@ -117,7 +138,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
             <FileCheck className="w-6 h-6 text-emerald-600" />
-            My Weekly Timesheet
+            Weekly Timesheet
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Review your shift hours, break times, and digital sign-off
@@ -279,7 +300,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                                         : 'First Job Site',
                                   })
                                 }
-                                className="p-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md border border-emerald-200 transition-colors"
+                                className="p-1 text-white bg-emerald-600 hover:bg-emerald-700 rounded-md border border-emerald-600 transition-colors"
                                 title="View Arrival Photo"
                               >
                                 <Camera className="w-3.5 h-3.5" />
@@ -367,10 +388,7 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                                   title={`View ${ev.event_type} photo: ${ev.location_name || 'Job Site'}`}
                                 >
                                   <Camera className="w-2.5 h-2.5" />
-                                  <span>
-                                    {isArr ? 'Arr' : isLv ? 'Dep' : 'End'}:{' '}
-                                    {ev.location_name ? ev.location_name.substring(0, 9) : 'Site'}
-                                  </span>
+                                  <span>{isArr ? 'Arr' : isLv ? 'Dep' : 'End'}</span>
                                 </button>
                               );
                             })}
@@ -496,16 +514,18 @@ export const StaffTimesheetView: React.FC<StaffTimesheetViewProps> = ({ onBackTo
                 </p>
                 <button
                   type="button"
-                  onClick={handleSignWeeklyTimesheet}
+                  onClick={handleSignClick}
                   disabled={signing || totalHours === '0.00'}
-                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all shadow-xs disabled:opacity-50 flex items-center justify-center gap-2"
+                  className={`w-full py-2.5 px-4 text-white rounded-xl font-bold text-xs transition-all shadow-xs disabled:opacity-50 flex items-center justify-center gap-2 ${
+                    signArmed ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
                 >
                   {signing ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4" />
-                      <span>Sign Timesheet</span>
+                      <span>{signArmed ? 'Tap again to confirm' : 'Sign Timesheet'}</span>
                     </>
                   )}
                 </button>

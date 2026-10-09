@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Calendar,
   ChevronLeft,
@@ -53,6 +53,27 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
   const [inspectLoading, setInspectLoading] = useState<boolean>(false);
   const [approvalNotes, setApprovalNotes] = useState<string>('');
   const [isApproving, setIsApproving] = useState<boolean>(false);
+  const [approveArmed, setApproveArmed] = useState<boolean>(false);
+  const approveArmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (approveArmTimer.current) clearTimeout(approveArmTimer.current);
+  }, []);
+
+  const handleApproveClick = () => {
+    if (!approveArmed) {
+      setApproveArmed(true);
+      if (approveArmTimer.current) clearTimeout(approveArmTimer.current);
+      approveArmTimer.current = setTimeout(() => setApproveArmed(false), 5000);
+      return;
+    }
+    if (approveArmTimer.current) {
+      clearTimeout(approveArmTimer.current);
+      approveArmTimer.current = null;
+    }
+    setApproveArmed(false);
+    void handleApproveTimesheet();
+  };
 
   // Override Modal state (Manager only)
   const [overrideReport, setOverrideReport] = useState<any | null>(null);
@@ -682,7 +703,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                                               : 'First Job Site',
                                         })
                                       }
-                                      className="p-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded border border-emerald-200"
+                                      className="p-1 text-white bg-emerald-600 hover:bg-emerald-700 rounded border border-emerald-600"
                                       title="View Start Photo"
                                     >
                                       <Camera className="w-3.5 h-3.5" />
@@ -754,10 +775,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                                             title={`View ${ev.event_type} photo: ${ev.location_name || 'Job Site'}`}
                                           >
                                             <Camera className="w-2.5 h-2.5" />
-                                            <span>
-                                              {isArr ? 'Arr' : isLv ? 'Dep' : 'End'}:{' '}
-                                              {ev.location_name ? ev.location_name.substring(0, 9) : 'Site'}
-                                            </span>
+                                            <span>{isArr ? 'Arr' : isLv ? 'Dep' : 'End'}</span>
                                           </button>
                                         );
                                       })}
@@ -795,10 +813,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                                             title={`View ${ev.event_type} photo: ${ev.location_name || 'Job Site'}`}
                                           >
                                             <Camera className="w-2.5 h-2.5" />
-                                            <span>
-                                              {isArr ? 'Arr' : isLv ? 'Dep' : 'End'}:{' '}
-                                              {ev.location_name ? ev.location_name.substring(0, 9) : 'Site'}
-                                            </span>
+                                            <span>{isArr ? 'Arr' : isLv ? 'Dep' : 'End'}</span>
                                           </button>
                                         );
                                       })}
@@ -937,9 +952,11 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                   />
                   <button
                     type="button"
-                    onClick={handleApproveTimesheet}
+                    onClick={handleApproveClick}
                     disabled={isApproving}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2"
+                    className={`w-full py-3 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2 ${
+                      approveArmed ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
                   >
                     {isApproving ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -947,7 +964,9 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
                       <>
                         <CheckCircle className="w-4 h-4" />
                         <span>
-                          {inspectData.timesheet?.status === 'approved'
+                          {approveArmed
+                            ? 'Tap again to confirm'
+                            : inspectData.timesheet?.status === 'approved'
                             ? 'Re-Approve Timesheet'
                             : 'Approve & Sign Weekly Timesheet'}
                         </span>

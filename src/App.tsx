@@ -75,27 +75,27 @@ function MainLayout() {
 
   const managerNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'timesheets', label: 'Timesheets & Duty', icon: ClipboardList },
-    { id: 'roster-builder', label: 'Roster Builder', icon: Calendar },
+    { id: 'timesheets', label: 'Timesheet', icon: ClipboardList },
+    { id: 'roster-builder', label: 'Roster', icon: Calendar },
     { id: 'availability', label: 'Availability', icon: Clock },
-    { id: 'staff', label: 'Staff Directory', icon: Users },
+    { id: 'staff', label: 'Staff', icon: Users },
     { id: 'responses', label: 'Responses', icon: CheckSquare },
     { id: 'audit', label: 'Audit Log', icon: ShieldAlert },
   ];
 
   const staffNavItems = [
-    { id: 'dashboard', label: 'Today & Shift', icon: LayoutDashboard },
-    { id: 'my-timesheet', label: 'My Timesheet', icon: FileCheck },
-    { id: 'roster', label: 'My Roster', icon: Calendar },
-    { id: 'availability', label: 'My Availability', icon: Clock },
+    { id: 'dashboard', label: 'Today', icon: LayoutDashboard },
+    { id: 'my-timesheet', label: 'Timesheet', icon: FileCheck },
+    { id: 'roster', label: 'Roster', icon: Calendar },
+    { id: 'availability', label: 'Availability', icon: Clock },
   ];
 
   const teamLeaderNavItems = [
-    { id: 'dashboard', label: 'Today & Shift', icon: LayoutDashboard },
-    { id: 'my-jobs', label: 'My Jobs', icon: Briefcase },
-    { id: 'my-timesheet', label: 'My Timesheet', icon: FileCheck },
-    { id: 'roster', label: 'My Roster', icon: Calendar },
-    { id: 'availability', label: 'My Availability', icon: Clock },
+    { id: 'dashboard', label: 'Today', icon: LayoutDashboard },
+    { id: 'my-jobs', label: 'Jobs', icon: Briefcase },
+    { id: 'my-timesheet', label: 'Timesheet', icon: FileCheck },
+    { id: 'roster', label: 'Roster', icon: Calendar },
+    { id: 'availability', label: 'Availability', icon: Clock },
   ];
 
   const jobsNavItems = [

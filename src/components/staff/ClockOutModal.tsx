@@ -280,12 +280,12 @@ export const ClockOutModal: React.FC<ClockOutModalProps> = ({
             </div>
             <div className="flex-1">
               <div className="font-bold text-sm leading-snug">
-                Closing Shift Report (Finish & Clock Out)
+                Closing shift report?
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isClosingReport
-                  ? 'Includes break deduction, travel time, and final hours.'
-                  : 'Uncheck if reporting arrival or departure at a job site.'}
+                  ? 'Finishing and clocking out.'
+                  : 'Only check this when finishing your shift.'}
               </p>
             </div>
           </div>
@@ -524,7 +524,6 @@ export const ClockOutModal: React.FC<ClockOutModalProps> = ({
                     <Coffee className="w-4 h-4 text-amber-600" />
                     Break Time (Minutes)
                   </label>
-                  <span className="text-[11px] text-slate-500">Deducted from hours</span>
                 </div>
                 <div className="relative">
                   <input
@@ -550,7 +549,6 @@ export const ClockOutModal: React.FC<ClockOutModalProps> = ({
                     <Navigation className="w-4 h-4 text-blue-600" />
                     Travel Time (Minutes)
                   </label>
-                  <span className="text-[11px] text-slate-400 font-medium">Informational</span>
                 </div>
                 <div className="relative">
                   <input
