@@ -218,6 +218,8 @@ export async function formatJob(
   opts: FormatJobOptions = {},
 ): Promise<Job> {
   const forStaff = Boolean(opts.forStaff || (opts.viewer && opts.viewer.role !== 'manager'));
+  // Staff-role viewers get the informational list only: no pricing, no site access details.
+  const isStaffViewer = opts.viewer?.role === 'staff';
 
   let driverName: string | null = null;
   if (row.allocated_driver_user_id) {
@@ -269,7 +271,7 @@ export async function formatJob(
     city: row.city,
     postcode: row.postcode,
     location_notes: row.location_notes,
-    access_notes: row.access_notes,
+    access_notes: isStaffViewer ? undefined : row.access_notes,
     scope_notes: row.scope_notes,
     agreed_price: forStaff ? undefined : row.agreed_price,
     scheduled_date: row.scheduled_date,

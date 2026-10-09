@@ -35,7 +35,6 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   if (!isOpen) return null;
 
   const isManager = user?.role === 'manager';
-  const isTeamLead = user?.role === 'team_leader';
 
   const getDestination = (type: string) => {
     if (isManager) {
@@ -79,9 +78,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         case 'JOB_COMPLETED':
         case 'JOB_MEDIA_FAILED':
         case 'JOB_RUNNING_LATE':
-          return isTeamLead
-            ? { tab: 'my-jobs', label: 'View My Jobs' }
-            : { tab: 'dashboard', label: 'View in Home' };
+          return { tab: 'my-jobs', label: 'View My Jobs' };
         case 'TIMESHEET_APPROVED':
         case 'TIMESHEET_SUBMITTED':
         case 'TIMESHEET_SIGNED':

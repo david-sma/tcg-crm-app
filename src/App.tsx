@@ -85,6 +85,7 @@ function MainLayout() {
 
   const staffNavItems = [
     { id: 'dashboard', label: 'Today', icon: LayoutDashboard },
+    { id: 'my-jobs', label: 'Jobs', icon: Briefcase },
     { id: 'my-timesheet', label: 'Timesheet', icon: FileCheck },
     { id: 'roster', label: 'Roster', icon: Calendar },
     { id: 'availability', label: 'Availability', icon: Clock },
@@ -172,11 +173,7 @@ function MainLayout() {
     } else {
       switch (currentTab) {
         case 'my-jobs':
-          return isTeamLead ? (
-            <MyJobsView onNavigate={setActiveTab as any} />
-          ) : (
-            <StaffDashboard onNavigate={setActiveTab as any} />
-          );
+          return <MyJobsView onNavigate={setActiveTab as any} />;
         case 'my-timesheet':
           return <StaffTimesheetView onBackToDashboard={() => setActiveTab('dashboard')} />;
         case 'availability':

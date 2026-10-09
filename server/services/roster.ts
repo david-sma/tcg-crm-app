@@ -163,7 +163,7 @@ export async function publishRosterWeek(params: {
     .where(eq(rosterDraftShifts.roster_week_id, rosterWeekId));
 
   // 4. Fetch all active staff
-  const activeStaff = await db.select().from(users).where(and(eq(users.role, 'staff'), eq(users.is_active, true)));
+  const activeStaff = await db.select().from(users).where(and(inArray(users.role, ['staff', 'team_leader']), eq(users.is_active, true)));
   const activeStaffMap = new Map(activeStaff.map((u) => [u.id, u]));
 
   // Verify that all shifts belong to active staff

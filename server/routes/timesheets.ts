@@ -126,7 +126,7 @@ timesheetsRouter.get('/today', async (req: Request, res: Response) => {
     const activeStaff = await db
       .select({ id: users.id, name: users.name })
       .from(users)
-      .where(and(eq(users.is_active, true), eq(users.role, 'staff')));
+      .where(and(eq(users.is_active, true), inArray(users.role, ['staff', 'team_leader'])));
 
     const parsedActiveReport = activeReport ? formatReportForResponse(activeReport, activeEvents) : null;
 
@@ -867,7 +867,7 @@ timesheetsRouter.get('/manager-week', requireRole('manager'), async (req: Reques
         notes: users.notes,
       })
       .from(users)
-      .where(and(eq(users.is_active, true), eq(users.role, 'staff')))
+      .where(and(eq(users.is_active, true), inArray(users.role, ['staff', 'team_leader'])))
       .orderBy(users.name);
 
     // Fetch all shift reports for this week

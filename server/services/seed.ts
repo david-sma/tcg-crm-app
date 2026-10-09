@@ -49,8 +49,8 @@ async function seedFreshTeam() {
       updated_at: nowIso,
     });
 
-    // Provide default open availability for staff
-    if (member.role === 'staff') {
+    // Provide default open availability for staff and team leaders
+    if (member.role === 'staff' || member.role === 'team_leader') {
       await saveAvailabilityVersion({
         userId: userId,
         mondayStr: currentMonday,

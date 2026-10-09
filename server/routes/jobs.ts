@@ -42,6 +42,18 @@ export const jobsRouter = Router();
 
 jobsRouter.use(requireAuth);
 
+// Staff role: read-only jobs list only (GET /my). Job details and all
+// execution surfaces (start/complete/reports/media) are team-leader/manager only.
+jobsRouter.use((req, res, next) => {
+  if (req.user!.role === 'staff') {
+    const path = (req.path || '').replace(/\/+$/, '') || '/';
+    if (!(req.method === 'GET' && path === '/my')) {
+      return res.status(403).json({ error: 'Not available for your role' });
+    }
+  }
+  next();
+});
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const VALID_JOB_STATUSES = new Set<string>([
@@ -430,12 +442,9 @@ jobsRouter.get('/calendar', requireRole('manager'), async (req: Request, res: Re
   }
 });
 
-// GET /api/jobs/my - Jobs assigned to the caller (any authenticated user)
+// GET /api/jobs/my - Jobs assigned to the caller (any authenticated user; read-only list for staff)
 jobsRouter.get('/my', async (req: Request, res: Response) => {
   try {
-    if (req.user!.role === 'staff') {
-      return res.status(403).json({ error: 'My Jobs is available to team leaders' });
-    }
     const assignmentRows = await db
       .select()
       .from(jobAssignments)
@@ -462,6 +471,7 @@ jobsRouter.get('/my', async (req: Request, res: Response) => {
             includeAssignments: true,
             includeMedia: false,
             forStaff: true,
+            viewer: req.user,
             onlyAssignmentsForUserId: req.user!.id,
           },
         ),

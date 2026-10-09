@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db/index.ts';
 import { users, availabilityReports, availabilityVersions, availabilityWindows } from '../db/schema.ts';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import {
   getLatestUserAvailability,
   saveAvailabilityVersion,
@@ -164,7 +164,7 @@ availabilityRouter.get('/overview', requireRole('manager'), async (req: Request,
         is_active: users.is_active,
       })
       .from(users)
-      .where(and(eq(users.role, 'staff'), eq(users.is_active, true)))
+      .where(and(inArray(users.role, ['staff', 'team_leader']), eq(users.is_active, true)))
       .orderBy(users.name);
 
     const reportsList = await Promise.all(

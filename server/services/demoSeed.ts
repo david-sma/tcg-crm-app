@@ -23,7 +23,7 @@ export async function seedMockTimesheetData() {
 
     const allUsers = await db.select().from(users);
     const manager = allUsers.find((u) => u.role === 'manager');
-    const staffList = allUsers.filter((u) => u.role === 'staff');
+    const staffList = allUsers.filter((u) => u.role === 'staff' || u.role === 'team_leader');
 
     const [staffA, staffB, staffC, staffD, staffE] = staffList;
 

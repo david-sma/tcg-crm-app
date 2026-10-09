@@ -20,7 +20,7 @@ staffRouter.get('/', async (req: Request, res: Response) => {
     const statusFilter = req.query.status as string | undefined;
 
     const conditions: any[] = [];
-    if (roleFilter === 'staff' || roleFilter === 'manager') {
+    if (roleFilter === 'staff' || roleFilter === 'team_leader' || roleFilter === 'manager') {
       conditions.push(eq(users.role, roleFilter));
     }
     if (statusFilter === 'active') {
