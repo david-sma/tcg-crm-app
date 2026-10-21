@@ -13,7 +13,6 @@ import { eq, and, desc } from 'drizzle-orm';
 import { getCurrentWeekMonday, isValidMondayDate } from '../services/timezone.ts';
 import { logAuditEvent } from '../services/audit.ts';
 import { createInAppNotification } from '../services/notification.ts';
-import { maybePromoteJobsToOngoing } from '../services/jobs.ts';
 import { requireAuth } from '../middleware/auth.ts';
 import crypto from 'crypto';
 
@@ -253,8 +252,6 @@ personalRosterRouter.post('/acknowledge', async (req: Request, res: Response) =>
       metadata: { shift_id: shift_id || null, overall_status: overallStatus },
       ip_address: req.ip,
     });
-
-    maybePromoteJobsToOngoing(req.user!.id).catch(() => {});
 
     return res.json({
       success: true,

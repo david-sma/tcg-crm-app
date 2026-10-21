@@ -23,10 +23,10 @@ export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab }) => {
             <div className="p-2 rounded-xl bg-indigo-50 text-indigo-700">
               <Briefcase className="w-5 h-5" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Jobs &amp; Dispatches</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Jobs</h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
-            Job orders, scheduling, crew dispatch and photo evidence in one place.
+            Job orders, scheduling, crew allocation and photo evidence in one place.
           </p>
         </div>
       </div>

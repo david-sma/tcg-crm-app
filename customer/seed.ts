@@ -29,10 +29,24 @@ export const seedConfig: SeedConfig = {
       initialPassword: '***REMOVED***',
     },
     {
+      name: 'Anna',
+      role: 'customer_service',
+      phone: '0220000001',
+      title: 'Customer Service',
+      initialPassword: '***REMOVED***',
+    },
+    {
+      name: 'Ben',
+      role: 'service_team',
+      phone: '0220000002',
+      title: 'Service Team Coordinator',
+      initialPassword: '***REMOVED***',
+    },
+    {
       name: 'David',
-      role: 'team_leader',
+      role: 'staff',
       phone: '0210000011',
-      title: 'Team Leader',
+      title: 'Field Cleaning Specialist',
       initialPassword: '***REMOVED***',
     },
     {

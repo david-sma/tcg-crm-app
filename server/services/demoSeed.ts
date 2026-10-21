@@ -3,6 +3,7 @@ import { users, shiftReports, weeklyTimesheets } from '../db/schema.ts';
 import { getCurrentWeekMonday, getOffsetWeekMonday, getWeekDays } from './timezone.ts';
 import { recalculateWeeklyTimesheet } from './timesheet.ts';
 import { getAppSettings } from '../../src/config/appSettings.ts';
+import { WORKER_ROLES } from '../../src/config/roles.ts';
 import crypto from 'crypto';
 
 /**
@@ -23,7 +24,7 @@ export async function seedMockTimesheetData() {
 
     const allUsers = await db.select().from(users);
     const manager = allUsers.find((u) => u.role === 'manager');
-    const staffList = allUsers.filter((u) => u.role === 'staff' || u.role === 'team_leader');
+    const staffList = allUsers.filter((u) => WORKER_ROLES.includes(u.role as never));
 
     const [staffA, staffB, staffC, staffD, staffE] = staffList;
 

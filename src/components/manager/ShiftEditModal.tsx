@@ -306,7 +306,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               ) : (
                 activeStaff.map((staff) => (
                   <option key={staff.id} value={staff.id}>
-                    {staff.name} ({staff.phone_e164}) {staff.role === 'manager' ? '• Manager' : staff.role === 'team_leader' ? '• Team Lead' : ''}
+                    {staff.name} ({staff.phone_e164}) {staff.role === 'manager' ? '• Manager' : ''}
                   </option>
                 ))
               )}
@@ -436,7 +436,7 @@ export const ShiftEditModal: React.FC<ShiftEditModalProps> = ({
               />
             </div>
             <p className="text-[10px] text-slate-400">
-              Tip: Separate multiple custom labels with a comma (e.g. <em>Steam Clean, Team Lead</em>).
+              Tip: Separate multiple custom labels with a comma (e.g. <em>Steam Clean, Deep Clean</em>).
             </p>
           </div>
 

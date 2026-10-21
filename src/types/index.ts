@@ -1,4 +1,4 @@
-export type UserRole = 'manager' | 'team_leader' | 'staff';
+export type UserRole = 'manager' | 'customer_service' | 'service_team' | 'staff';
 
 export interface User {
   id: string;
@@ -252,10 +252,10 @@ export interface DayTimesheetRow {
 
 export type JobStatus =
   | 'new'
-  | 'enriching'
-  | 'confirmed'
+  | 'awaiting_info'
+  | 'ready'
+  | 'deal_confirmed'
   | 'scheduled'
-  | 'ongoing'
   | 'in_progress'
   | 'completed'
   | 'cancelled';
@@ -307,10 +307,10 @@ export interface Job {
   services: string[]; // legacy structured selection (superseded by services_text)
   services_text?: string | null; // free-text services required
   allocated_driver_user_id?: string | null;
-  driver_name?: string | null;
-  details: string;
-  lead_source: LeadSource;
-  customer_name: string;
+  allocated_staff_name?: string | null;
+  details?: string;
+  lead_source?: LeadSource;
+  customer_name?: string;
   customer_phone?: string | null;
   customer_email?: string | null;
   site_contact_name?: string | null;
@@ -326,8 +326,13 @@ export interface Job {
   scheduled_date?: string | null;
   scheduled_start_time?: string | null;
   scheduled_finish_time?: string | null;
+  ready_at?: string | null;
   start_notes?: string | null;
   completion_notes?: string | null;
+  faults_damages_checked: boolean;
+  faults_damages_checked_at?: string | null;
+  faults_damages_checked_by_user_id?: string | null;
+  faults_damages_checked_by_name?: string | null;
   running_late: boolean;
   late_reported_at?: string | null;
   late_reported_by_user_id?: string | null;

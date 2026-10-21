@@ -5,11 +5,9 @@ import {
   jobMedia,
   jobOrderCounters,
   jobs,
-  rosterWeeks,
-  staffRosterSnapshots,
   users,
 } from '../db/schema.ts';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type {
   Job,
   JobAssignment,
@@ -20,7 +18,6 @@ import type {
   JobStatus,
   LeadSource,
 } from '../../src/types/index.ts';
-import { logAuditEvent } from './audit.ts';
 import { createInAppNotification } from './notification.ts';
 
 export type JobRow = typeof jobs.$inferSelect;
@@ -41,11 +38,11 @@ export class JobTransitionError extends Error {
 }
 
 const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
-  new: ['enriching', 'confirmed', 'cancelled'],
-  enriching: ['new', 'confirmed', 'cancelled'],
-  confirmed: ['new', 'enriching', 'scheduled', 'cancelled'],
-  scheduled: ['ongoing', 'in_progress', 'cancelled'],
-  ongoing: ['in_progress', 'cancelled'],
+  new: ['awaiting_info', 'ready', 'cancelled'],
+  awaiting_info: ['ready', 'cancelled'],
+  ready: ['deal_confirmed', 'awaiting_info', 'cancelled'],
+  deal_confirmed: ['scheduled', 'ready', 'cancelled'],
+  scheduled: ['in_progress', 'cancelled'],
   in_progress: ['completed', 'cancelled'],
   completed: [],
   cancelled: [],
@@ -211,27 +208,34 @@ export interface FormatJobOptions {
   viewer?: { id: string; role: string } | null;
   forStaff?: boolean;
   onlyAssignmentsForUserId?: string;
+  /** True when the viewer is the per-job team lead (job_assignments.is_lead). */
+  viewerIsLead?: boolean;
 }
 
 export async function formatJob(
   row: JobRowWithCreator,
   opts: FormatJobOptions = {},
 ): Promise<Job> {
-  const forStaff = Boolean(opts.forStaff || (opts.viewer && opts.viewer.role !== 'manager'));
-  // Staff-role viewers get the informational list only: no pricing, no site access details.
-  const isStaffViewer = opts.viewer?.role === 'staff';
+  const role = opts.viewer?.role ?? null;
+  const isManager = role === 'manager';
+  const isOfficeRole = isManager || role === 'customer_service' || role === 'service_team';
+  // Field users (staff) get the full scope only when they are the job's team lead.
+  const isFieldViewer = Boolean(role) && !isOfficeRole;
+  const seesFullScope = isOfficeRole || Boolean(opts.viewerIsLead);
+  // Pricing is visible to managers only.
+  const seesPricing = isManager;
 
-  let driverName: string | null = null;
+  let allocatedStaffName: string | null = null;
   if (row.allocated_driver_user_id) {
     try {
-      const driverRows = await db
+      const allocatedRows = await db
         .select({ name: users.name })
         .from(users)
         .where(eq(users.id, row.allocated_driver_user_id))
         .limit(1);
-      driverName = driverRows[0]?.name ?? null;
+      allocatedStaffName = allocatedRows[0]?.name ?? null;
     } catch {
-      driverName = null;
+      allocatedStaffName = null;
     }
   }
 
@@ -249,50 +253,78 @@ export async function formatJob(
     }
   }
 
+  let faultsCheckedByName: string | null = null;
+  if (row.faults_damages_checked_by_user_id) {
+    try {
+      const checkerRows = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, row.faults_damages_checked_by_user_id))
+        .limit(1);
+      faultsCheckedByName = checkerRows[0]?.name ?? null;
+    } catch {
+      faultsCheckedByName = null;
+    }
+  }
+
+  // Basic card payload: job name, location, schedule and status only.
+  // Field users without the lead flag never receive customer contacts,
+  // scope, access details, notes or pricing.
   const job: Job = {
     id: row.id,
     job_order_number: row.job_order_number,
     title: row.title,
     status: row.status as JobStatus,
     job_type: row.job_type,
-    services: parseServices(row.services),
-    services_text: row.services_text ?? null,
-    allocated_driver_user_id: row.allocated_driver_user_id ?? null,
-    driver_name: driverName,
-    details: row.details,
-    lead_source: row.lead_source as LeadSource,
-    customer_name: row.customer_name,
-    customer_phone: row.customer_phone,
-    customer_email: row.customer_email,
-    site_contact_name: row.site_contact_name,
-    site_contact_phone: row.site_contact_phone,
+    services: [],
     address: row.address,
     suburb: row.suburb,
     city: row.city,
     postcode: row.postcode,
     location_notes: row.location_notes,
-    access_notes: isStaffViewer ? undefined : row.access_notes,
-    scope_notes: row.scope_notes,
-    agreed_price: forStaff ? undefined : row.agreed_price,
     scheduled_date: row.scheduled_date,
     scheduled_start_time: row.scheduled_start_time,
     scheduled_finish_time: row.scheduled_finish_time,
-    start_notes: row.start_notes,
-    completion_notes: row.completion_notes,
     running_late: Boolean(row.running_late),
-    late_reported_at: row.late_reported_at ?? null,
-    late_reported_by_user_id: row.late_reported_by_user_id ?? null,
-    late_reported_by_name: lateReportedByName,
     late_note: row.late_note ?? null,
-    started_at: row.started_at,
-    completed_at: row.completed_at,
-    cancelled_reason: row.cancelled_reason,
-    cancelled_at: row.cancelled_at,
-    created_by_user_id: row.created_by_user_id,
-    created_by_name: row.created_by_name,
+    faults_damages_checked: Boolean(row.faults_damages_checked),
     created_at: row.created_at,
     updated_at: row.updated_at,
-  };
+  } as Job;
+
+  if (seesFullScope) {
+    job.services = parseServices(row.services);
+    job.services_text = row.services_text ?? null;
+    job.allocated_driver_user_id = row.allocated_driver_user_id ?? null;
+    job.allocated_staff_name = allocatedStaffName;
+    job.details = row.details;
+    job.lead_source = row.lead_source as LeadSource;
+    job.customer_name = row.customer_name;
+    job.customer_phone = row.customer_phone;
+    job.customer_email = row.customer_email;
+    job.site_contact_name = row.site_contact_name;
+    job.site_contact_phone = row.site_contact_phone;
+    job.access_notes = row.access_notes;
+    job.scope_notes = row.scope_notes;
+    job.ready_at = row.ready_at;
+    job.start_notes = row.start_notes;
+    job.completion_notes = row.completion_notes;
+    job.faults_damages_checked_at = row.faults_damages_checked_at;
+    job.faults_damages_checked_by_user_id = row.faults_damages_checked_by_user_id;
+    job.faults_damages_checked_by_name = faultsCheckedByName;
+    job.late_reported_at = row.late_reported_at ?? null;
+    job.late_reported_by_user_id = row.late_reported_by_user_id ?? null;
+    job.late_reported_by_name = lateReportedByName;
+    job.started_at = row.started_at;
+    job.completed_at = row.completed_at;
+    job.cancelled_reason = row.cancelled_reason;
+    job.cancelled_at = row.cancelled_at;
+    job.created_by_user_id = row.created_by_user_id;
+    job.created_by_name = row.created_by_name;
+    if (seesPricing) {
+      job.agreed_price = row.agreed_price;
+    }
+  }
 
   if (opts.includeAssignments) {
     job.assignments = await loadJobAssignments(row.id, opts.onlyAssignmentsForUserId);
@@ -352,98 +384,6 @@ export async function notifyManagers(
     }
   } catch (err) {
     console.error('notifyManagers error:', err);
-  }
-}
-
-/**
- * When every user assigned to a scheduled job has acknowledged the published
- * roster for that job's week, promote the job from 'scheduled' to 'ongoing'.
- * Never throws to callers.
- */
-export async function maybePromoteJobsToOngoing(userId: string): Promise<void> {
-  try {
-    const assignmentRows = await db
-      .select({ job_id: jobAssignments.job_id })
-      .from(jobAssignments)
-      .where(eq(jobAssignments.user_id, userId));
-
-    const candidateJobIds = [...new Set(assignmentRows.map((row) => row.job_id))];
-    if (candidateJobIds.length === 0) {
-      return;
-    }
-
-    const candidates = await db
-      .select()
-      .from(jobs)
-      .where(and(inArray(jobs.id, candidateJobIds), eq(jobs.status, 'scheduled')));
-
-    for (const job of candidates) {
-      if (!job.scheduled_date) {
-        continue;
-      }
-
-      const assignments = await db
-        .select()
-        .from(jobAssignments)
-        .where(eq(jobAssignments.job_id, job.id));
-
-      const assignedUserIds = [...new Set(assignments.map((a) => a.user_id))];
-      if (assignedUserIds.length === 0) {
-        continue;
-      }
-
-      const weekStart = mondayOfDateString(job.scheduled_date);
-      const rosterWeek = (
-        await db
-          .select()
-          .from(rosterWeeks)
-          .where(eq(rosterWeeks.week_start_date, weekStart))
-          .limit(1)
-      )[0];
-
-      if (!rosterWeek?.latest_published_version_id) {
-        continue;
-      }
-
-      const snapshots = await db
-        .select()
-        .from(staffRosterSnapshots)
-        .where(eq(staffRosterSnapshots.roster_version_id, rosterWeek.latest_published_version_id));
-
-      const acknowledgedUserIds = new Set(
-        snapshots
-          .filter((snapshot) => snapshot.response_status === 'acknowledged')
-          .map((snapshot) => snapshot.user_id),
-      );
-
-      const allAcknowledged = assignedUserIds.every((id) => acknowledgedUserIds.has(id));
-      if (!allAcknowledged) {
-        continue;
-      }
-
-      const nowIso = new Date().toISOString();
-      await db
-        .update(jobs)
-        .set({ status: 'ongoing', updated_at: nowIso })
-        .where(and(eq(jobs.id, job.id), eq(jobs.status, 'scheduled')));
-
-      await logAuditEvent({
-        actor_user_id: userId,
-        event_type: 'job_status_changed',
-        entity_type: 'job',
-        entity_id: job.id,
-        metadata: { from: 'scheduled', to: 'ongoing', trigger: 'roster_ack' },
-      });
-
-      await notifyManagers(
-        'JOB_STATUS_CHANGED',
-        `Job ongoing: ${job.title}`,
-        `All assigned staff acknowledged their roster for job ${job.job_order_number}.`,
-        job.id,
-      );
-    }
-  } catch (err) {
-    console.error('maybePromoteJobsToOngoing error:', err);
   }
 }
 

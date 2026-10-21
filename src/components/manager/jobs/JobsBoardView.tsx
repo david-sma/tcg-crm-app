@@ -8,10 +8,10 @@ import { parseISO, format } from 'date-fns';
 
 export const JOB_STATUS_DOT: Record<string, string> = {
   new: 'bg-slate-400',
-  enriching: 'bg-amber-400',
-  confirmed: 'bg-sky-400',
+  awaiting_info: 'bg-amber-400',
+  ready: 'bg-teal-400',
+  deal_confirmed: 'bg-sky-400',
   scheduled: 'bg-indigo-400',
-  ongoing: 'bg-violet-400',
   in_progress: 'bg-blue-500',
   completed: 'bg-emerald-400',
   cancelled: 'bg-red-400',
@@ -19,10 +19,10 @@ export const JOB_STATUS_DOT: Record<string, string> = {
 
 export const JOB_STATUS_SOLID: Record<string, string> = {
   new: 'bg-slate-500 text-white border-slate-500',
-  enriching: 'bg-amber-500 text-white border-amber-500',
-  confirmed: 'bg-sky-500 text-white border-sky-500',
+  awaiting_info: 'bg-amber-500 text-white border-amber-500',
+  ready: 'bg-teal-500 text-white border-teal-500',
+  deal_confirmed: 'bg-sky-500 text-white border-sky-500',
   scheduled: 'bg-indigo-500 text-white border-indigo-500',
-  ongoing: 'bg-violet-500 text-white border-violet-500',
   in_progress: 'bg-blue-600 text-white border-blue-600',
   completed: 'bg-emerald-500 text-white border-emerald-500',
   cancelled: 'bg-red-500 text-white border-red-500',
@@ -30,10 +30,10 @@ export const JOB_STATUS_SOLID: Record<string, string> = {
 
 export const JOB_STATUS_CHIP: Record<string, string> = {
   new: 'bg-slate-100 text-slate-700 border-slate-200',
-  enriching: 'bg-amber-100 text-amber-800 border-amber-200',
-  confirmed: 'bg-sky-100 text-sky-800 border-sky-200',
+  awaiting_info: 'bg-amber-100 text-amber-800 border-amber-200',
+  ready: 'bg-teal-100 text-teal-800 border-teal-200',
+  deal_confirmed: 'bg-sky-100 text-sky-800 border-sky-200',
   scheduled: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-  ongoing: 'bg-violet-100 text-violet-800 border-violet-200',
   in_progress: 'bg-blue-100 text-blue-800 border-blue-200',
   completed: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   cancelled: 'bg-red-100 text-red-800 border-red-200',
@@ -67,10 +67,10 @@ export const formatJobTimeWindow = (job: Job): string => {
 
 const STATUS_ORDER: Record<string, number> = {
   new: 0,
-  enriching: 1,
-  confirmed: 2,
-  scheduled: 3,
-  ongoing: 4,
+  awaiting_info: 1,
+  ready: 2,
+  deal_confirmed: 3,
+  scheduled: 4,
   in_progress: 5,
   completed: 6,
   cancelled: 7,
@@ -152,8 +152,9 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
     (job) =>
       job.running_late ||
       job.status === 'new' ||
-      job.status === 'enriching' ||
-      (job.status === 'confirmed' && !job.scheduled_date),
+      job.status === 'awaiting_info' ||
+      job.status === 'ready' ||
+      (job.status === 'deal_confirmed' && !job.scheduled_date),
   );
   const needsAttentionIds = new Set(needsAttentionJobs.map((job) => job.id));
   const scheduledJobs = sortedJobs.filter(
@@ -295,7 +296,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
         <div className="py-16 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-slate-200">
           <Briefcase className="w-8 h-8 text-slate-300 mb-2" />
           <p className="text-sm font-semibold text-slate-600">No jobs yet</p>
-          <p className="text-xs text-slate-400 mt-1 max-w-xs">Create your first job order to start dispatching crews.</p>
+          <p className="text-xs text-slate-400 mt-1 max-w-xs">Create your first job order to start scheduling crews.</p>
         </div>
       ) : sortedJobs.length === 0 ? (
         <div className="py-16 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-slate-200">
@@ -397,7 +398,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
                   className="flex items-center gap-1.5 px-1 pb-1.5 cursor-pointer"
                   aria-label={doneExpanded ? 'Hide completed jobs' : 'Show completed jobs'}
                 >
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Done</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Completed</span>
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
                     {doneJobs.length}
                   </span>

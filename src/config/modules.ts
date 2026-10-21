@@ -61,7 +61,7 @@ export const CRM_MODULES: CRMModule[] = [
   },
   {
     id: 'jobs-dispatches',
-    name: 'Jobs & Dispatches',
+    name: 'Jobs',
     shortName: 'Jobs',
     description: 'Job orders, crew scheduling, on-site photo audits and completion reports',
     icon: Briefcase,

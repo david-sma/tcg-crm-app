@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
 import type { Job, JobAssignment, JobMedia, JobMediaPhase, JobStatus, LeadSource, User, UserRole } from '../../../types/index.ts';
+import { ROLE_LABELS } from '../../../config/roles.ts';
 import {
   JOB_TYPE_OPTIONS,
   LEAD_SOURCE_OPTIONS,
@@ -8,6 +9,7 @@ import {
   getLeadSourceLabel,
 } from '../../../config/jobServices.ts';
 import { formatDateTimeLocal } from '../../../lib/dateUtils.ts';
+import { useAuth } from '../../../context/AuthContext.tsx';
 import { JobMediaUploader } from '../../common/JobMediaUploader.tsx';
 import { ScheduleJobModal } from './ScheduleJobModal.tsx';
 import { JobStatusChip, formatJobTimeWindow } from './JobsBoardView.tsx';
@@ -104,11 +106,7 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
   </div>
 );
 
-const driverRoleHint = (role: UserRole): string => {
-  if (role === 'manager') return 'Manager';
-  if (role === 'team_leader') return 'Team Leader';
-  return 'Staff';
-};
+const driverRoleHint = (role: UserRole): string => ROLE_LABELS[role] || role;
 
 const loadActiveStaff = async (): Promise<User[]> => {
   const res = await apiFetch<{ staff?: User[]; users?: User[] } | User[]>('/api/staff?status=active');
@@ -120,6 +118,9 @@ const EmptyValue: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
 );
 
 export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, onClose, onChanged }) => {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
+  const canProcess = user?.role === 'manager' || user?.role === 'service_team';
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -197,6 +198,24 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
       onChanged();
     } catch (err: any) {
       setActionError(err?.message || 'Failed to remove assignment');
+    } finally {
+      setRemovingAssignmentId(null);
+    }
+  };
+
+  const setLead = async (assignmentId: string) => {
+    if (!job) return;
+    try {
+      setRemovingAssignmentId(assignmentId);
+      setActionError('');
+      const res = await apiFetch<{ job: Job }>(
+        `/api/jobs/${job.id}/assignments/${assignmentId}/set-lead`,
+        { method: 'POST' },
+      );
+      setJob(res.job);
+      onChanged();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to set team lead');
     } finally {
       setRemovingAssignmentId(null);
     }
@@ -291,7 +310,8 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
 
   const busy = mutating !== null || savingEdit || removingAssignmentId !== null || clearingLate;
   const status = job?.status;
-  const canCancel = !!job && status !== 'completed' && status !== 'cancelled';
+  const canCancel = !!job && status !== 'completed' && status !== 'cancelled' && canProcess;
+  const canIntake = canProcess || user?.role === 'customer_service';
 
   const inputClass =
     'w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500';
@@ -388,6 +408,25 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         {job.completion_notes || <EmptyValue />}
                       </div>
                     </div>
+                    <div>
+                      <div className="text-[11px] font-semibold text-blue-900 uppercase tracking-wider">Faults or damages checked</div>
+                      <div className="text-sm text-blue-950">
+                        {job.faults_damages_checked ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Yes
+                            {job.faults_damages_checked_at && (
+                              <span className="text-blue-900 font-normal">
+                                · {formatDateTimeLocal(job.faults_damages_checked_at)}
+                                {job.faults_damages_checked_by_name ? ` · ${job.faults_damages_checked_by_name}` : ''}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <EmptyValue />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -435,7 +474,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       </div>
                     </div>
                     <div>
-                      <label className={labelClass} htmlFor="edit-job-services-text">Services required</label>
+                      <label className={labelClass} htmlFor="edit-job-services-text">Services Required / Job Scope</label>
                       <textarea
                         id="edit-job-services-text"
                         rows={3}
@@ -446,7 +485,18 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       />
                     </div>
                     <div>
-                      <label className={labelClass} htmlFor="edit-job-driver">Allocated driver</label>
+                      <label className={labelClass} htmlFor="edit-job-access-notes">Access Requirements</label>
+                      <textarea
+                        id="edit-job-access-notes"
+                        rows={2}
+                        value={draft.access_notes}
+                        onChange={(e) => setDraftField('access_notes', e.target.value)}
+                        placeholder="e.g. Key under mat, gate code 1234, dog in property"
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass} htmlFor="edit-job-driver">Allocated Staff</label>
                       <select
                         id="edit-job-driver"
                         value={draft.allocated_driver_user_id}
@@ -454,7 +504,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         className={inputClass}
                         disabled={driversLoading}
                       >
-                        <option value="">No driver assigned</option>
+                        <option value="">None allocated</option>
                         {drivers.map((driver) => (
                           <option key={driver.id} value={driver.id}>
                             {driver.name} ({driverRoleHint(driver.role)})
@@ -584,16 +634,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         className={inputClass}
                       />
                     </div>
-                    <div>
-                      <label className={labelClass} htmlFor="edit-job-access-notes">Access notes</label>
-                      <textarea
-                        id="edit-job-access-notes"
-                        rows={2}
-                        value={draft.access_notes}
-                        onChange={(e) => setDraftField('access_notes', e.target.value)}
-                        className={inputClass}
-                      />
-                    </div>
                   </div>
 
                   <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3">
@@ -608,16 +648,18 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         className={inputClass}
                       />
                     </div>
-                    <div>
-                      <label className={labelClass} htmlFor="edit-job-agreed-price">Agreed price</label>
-                      <input
-                        id="edit-job-agreed-price"
-                        type="text"
-                        value={draft.agreed_price}
-                        onChange={(e) => setDraftField('agreed_price', e.target.value)}
-                        className={inputClass}
-                      />
-                    </div>
+                    {isManager && (
+                      <div>
+                        <label className={labelClass} htmlFor="edit-job-agreed-price">Pricing</label>
+                        <input
+                          id="edit-job-agreed-price"
+                          type="text"
+                          value={draft.agreed_price}
+                          onChange={(e) => setDraftField('agreed_price', e.target.value)}
+                          className={inputClass}
+                        />
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
@@ -627,15 +669,22 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       <Row label="Job type">
                         {job.job_type ? getJobTypeLabel(job.job_type) : <EmptyValue />}
                       </Row>
-                      <Row label="Services required">
+                      <Row label="Services Required / Job Scope">
                         {job.services_text ? (
                           <span className="whitespace-pre-wrap">{job.services_text}</span>
                         ) : (
                           <EmptyValue />
                         )}
                       </Row>
-                      <Row label="Driver">
-                        {job.driver_name || <EmptyValue />}
+                      <Row label="Access Requirements">
+                        {job.access_notes ? (
+                          <span className="whitespace-pre-wrap">{job.access_notes}</span>
+                        ) : (
+                          <EmptyValue />
+                        )}
+                      </Row>
+                      <Row label="Allocated Staff">
+                        {job.allocated_staff_name || <EmptyValue />}
                       </Row>
                       <Row label="Details">
                         {job.details ? (
@@ -703,13 +752,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                           <EmptyValue />
                         )}
                       </Row>
-                      <Row label="Access notes">
-                        {job.access_notes ? (
-                          <span className="whitespace-pre-wrap">{job.access_notes}</span>
-                        ) : (
-                          <EmptyValue />
-                        )}
-                      </Row>
                     </Section>
 
                     <Section title="Commercial" icon={<DollarSign className="w-4 h-4 text-indigo-600" />}>
@@ -720,9 +762,11 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                           <EmptyValue />
                         )}
                       </Row>
-                      <Row label="Agreed price">
-                        {job.agreed_price ? <span className="font-semibold">{job.agreed_price}</span> : <EmptyValue />}
-                      </Row>
+                      {isManager && (
+                        <Row label="Pricing">
+                          {job.agreed_price ? <span className="font-semibold">{job.agreed_price}</span> : <EmptyValue />}
+                        </Row>
+                      )}
                     </Section>
                   </>
                 )
@@ -755,19 +799,31 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                                 Lead
                               </span>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => removeAssignment(assignment.id)}
-                              disabled={removingAssignmentId === assignment.id}
-                              className="p-0.5 rounded-full hover:bg-white/70 text-slate-500 hover:text-rose-600 cursor-pointer disabled:opacity-50"
-                              title="Remove from job"
-                            >
-                              {removingAssignmentId === assignment.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <X className="w-3 h-3" />
-                              )}
-                            </button>
+                            {!assignment.is_lead && canProcess && (
+                              <button
+                                type="button"
+                                onClick={() => setLead(assignment.id)}
+                                className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm bg-white/80 text-indigo-700 hover:bg-white cursor-pointer"
+                                title="Make this person the team lead"
+                              >
+                                Make lead
+                              </button>
+                            )}
+                            {canProcess && (
+                              <button
+                                type="button"
+                                onClick={() => removeAssignment(assignment.id)}
+                                disabled={removingAssignmentId === assignment.id}
+                                className="p-0.5 rounded-full hover:bg-white/70 text-slate-500 hover:text-rose-600 cursor-pointer disabled:opacity-50"
+                                title="Remove from job"
+                              >
+                                {removingAssignmentId === assignment.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <X className="w-3 h-3" />
+                                )}
+                              </button>
+                            )}
                           </span>
                         ))}
                       </div>
@@ -837,17 +893,32 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                     <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Timeline</h3>
                   </div>
                   <div className="divide-y divide-slate-100">
-                    <Row label="Created">
+                    <Row label="Inquiry received (first contact)">
                       <span>
                         {formatDateTimeLocal(job.created_at)}
                         {job.created_by_name ? <span className="text-slate-500"> · {job.created_by_name}</span> : null}
                       </span>
                     </Row>
-                    <Row label="Started">
+                    <Row label="Started on site">
                       {job.started_at ? formatDateTimeLocal(job.started_at) : <EmptyValue />}
                     </Row>
                     <Row label="Completed">
                       {job.completed_at ? formatDateTimeLocal(job.completed_at) : <EmptyValue />}
+                    </Row>
+                    <Row label="Faults or damages checked">
+                      {job.faults_damages_checked ? (
+                        <span>
+                          Yes
+                          {job.faults_damages_checked_at && (
+                            <span className="text-slate-500">
+                              {' · '}{formatDateTimeLocal(job.faults_damages_checked_at)}
+                              {job.faults_damages_checked_by_name ? ` · ${job.faults_damages_checked_by_name}` : ''}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <EmptyValue />
+                      )}
                     </Row>
                     {job.cancelled_reason && (
                       <Row label="Cancelled">
@@ -956,53 +1027,103 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                   {status === 'scheduled' && (
                     <span className="inline-flex items-center gap-1 text-amber-700 font-medium">
                       <Clock className="w-3.5 h-3.5" />
-                      Waiting for staff confirmation
+                      Scheduled — waiting for the team lead to start on site
                     </span>
                   )}
-                  {status === 'ongoing' && (
-                    <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                  {status === 'ready' && (
+                    <span className="inline-flex items-center gap-1 text-teal-700 font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Confirmed by crew
+                      Ready for processing
                     </span>
                   )}
                 </div>
 
-                {status === 'new' && (
-                  <button
-                    type="button"
-                    onClick={() => changeStatus('enriching')}
-                    disabled={busy}
-                    className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-                  >
-                    {mutating === 'enriching' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
-                    Start enrichment
-                  </button>
-                )}
-
-                {status === 'enriching' && (
+                {status === 'new' && canIntake && (
                   <>
                     <button
                       type="button"
-                      onClick={() => changeStatus('new')}
+                      onClick={() => changeStatus('awaiting_info')}
                       disabled={busy}
                       className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors disabled:opacity-50 cursor-pointer"
                     >
-                      {mutating === 'new' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                      Back to new
+                      {mutating === 'awaiting_info' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+                      Mark awaiting info
                     </button>
                     <button
                       type="button"
-                      onClick={() => changeStatus('confirmed')}
+                      onClick={() => changeStatus('ready')}
                       disabled={busy}
-                      className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
                     >
-                      {mutating === 'confirmed' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                      Mark deal confirmed
+                      {mutating === 'ready' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                      Mark ready for processing
                     </button>
                   </>
                 )}
 
-                {(status === 'confirmed' || status === 'scheduled' || status === 'ongoing') && (
+                {status === 'awaiting_info' && canIntake && (
+                  <button
+                    type="button"
+                    onClick={() => changeStatus('ready')}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                  >
+                    {mutating === 'ready' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                    Mark ready for processing
+                  </button>
+                )}
+
+                {status === 'ready' && (
+                  <>
+                    {canIntake && (
+                      <button
+                        type="button"
+                        onClick={() => changeStatus('awaiting_info')}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {mutating === 'awaiting_info' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                        Back to awaiting info
+                      </button>
+                    )}
+                    {canProcess && (
+                      <button
+                        type="button"
+                        onClick={() => changeStatus('deal_confirmed')}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                      >
+                        {mutating === 'deal_confirmed' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                        Mark deal confirmed
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {status === 'deal_confirmed' && canProcess && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => changeStatus('ready')}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {mutating === 'ready' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                      Back to ready
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleOpen(true)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      <CalendarClock className="w-3.5 h-3.5" />
+                      Schedule job
+                    </button>
+                  </>
+                )}
+
+                {(status === 'scheduled' || status === 'in_progress') && canProcess && (
                   <button
                     type="button"
                     onClick={() => setScheduleOpen(true)}
@@ -1010,7 +1131,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                     className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                   >
                     <CalendarClock className="w-3.5 h-3.5" />
-                    {status === 'confirmed' ? 'Schedule job' : 'Reschedule'}
+                    Reschedule
                   </button>
                 )}
 

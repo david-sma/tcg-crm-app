@@ -16,6 +16,7 @@ import {
 import { logAuditEvent } from '../services/audit.ts';
 import { createInAppNotification } from '../services/notification.ts';
 import { requireAuth, requireRole } from '../middleware/auth.ts';
+import { WORKER_ROLES } from '../../src/config/roles.ts';
 import type { AvailabilityWindow } from '../../src/types/index.ts';
 
 export const availabilityRouter = Router();
@@ -164,7 +165,7 @@ availabilityRouter.get('/overview', requireRole('manager'), async (req: Request,
         is_active: users.is_active,
       })
       .from(users)
-      .where(and(inArray(users.role, ['staff', 'team_leader']), eq(users.is_active, true)))
+      .where(and(inArray(users.role, WORKER_ROLES), eq(users.is_active, true)))
       .orderBy(users.name);
 
     const reportsList = await Promise.all(

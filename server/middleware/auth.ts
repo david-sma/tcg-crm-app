@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../db/index.ts';
 import { sessions, users } from '../db/schema.ts';
 import { eq } from 'drizzle-orm';
-import type { User } from '../../src/types/index.ts';
+import type { User, UserRole } from '../../src/types/index.ts';
 
 declare global {
   namespace Express {
@@ -81,12 +81,24 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-export function requireRole(role: 'manager' | 'team_leader' | 'staff') {
+export function requireRole(role: UserRole) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
     if (req.user.role !== role) {
+      return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
+    }
+    next();
+  };
+}
+
+export function requireAnyRole(...roles: UserRole[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    if (!roles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
     }
     next();

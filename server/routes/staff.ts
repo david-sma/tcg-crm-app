@@ -6,6 +6,8 @@ import { generateStaffPassword, hashPassword, normalizePhone } from '../services
 import { logAuditEvent } from '../services/audit.ts';
 import { requireAuth, requireRole } from '../middleware/auth.ts';
 import { getAppSettings } from '../../src/config/appSettings.ts';
+import { USER_ROLES, ROLE_LABELS } from '../../src/config/roles.ts';
+import type { UserRole } from '../../src/types/index.ts';
 import crypto from 'crypto';
 
 export const staffRouter = Router();
@@ -20,7 +22,7 @@ staffRouter.get('/', async (req: Request, res: Response) => {
     const statusFilter = req.query.status as string | undefined;
 
     const conditions: any[] = [];
-    if (roleFilter === 'staff' || roleFilter === 'team_leader' || roleFilter === 'manager') {
+    if (roleFilter && USER_ROLES.includes(roleFilter as UserRole)) {
       conditions.push(eq(users.role, roleFilter));
     }
     if (statusFilter === 'active') {
@@ -65,7 +67,7 @@ staffRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'User name is required.' });
     }
 
-    const assignedRole = role === 'manager' ? 'manager' : 'staff';
+    const assignedRole: UserRole = USER_ROLES.includes(role as UserRole) ? role : 'staff';
 
     const normalized = normalizePhone(phone);
     if (!normalized.isValid) {
@@ -149,7 +151,7 @@ staffRouter.put('/:id', async (req: Request, res: Response) => {
       updateData.is_active = is_active;
     }
 
-    if (role && (role === 'manager' || role === 'team_leader' || role === 'staff')) {
+    if (role && USER_ROLES.includes(role as UserRole)) {
       if (existing.role === 'manager' && role !== 'manager') {
         // Prevent demoting the only active manager
         const activeManagers = await db
@@ -209,8 +211,10 @@ staffRouter.post('/:id/role', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    if (role !== 'manager' && role !== 'team_leader' && role !== 'staff') {
-      return res.status(400).json({ error: "Invalid role. Must be 'manager', 'team_leader' or 'staff'." });
+    if (!USER_ROLES.includes(role as UserRole)) {
+      return res.status(400).json({
+        error: `Invalid role. Must be one of: ${USER_ROLES.join(', ')}.`,
+      });
     }
 
     const existingList = await db.select().from(users).where(eq(users.id, id)).limit(1);
@@ -257,7 +261,7 @@ staffRouter.post('/:id/role', async (req: Request, res: Response) => {
       user: safeUser,
       previous_role: existing.role,
       new_role: role,
-      message: `Role successfully changed to ${role === 'manager' ? 'Manager' : role === 'team_leader' ? 'Team Leader' : 'Staff'}.`,
+      message: `Role successfully changed to ${ROLE_LABELS[role as UserRole] || role}.`,
     });
   } catch (err: any) {
     console.error('Change role error:', err);

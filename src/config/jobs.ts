@@ -21,10 +21,10 @@ export const JOB_VIDEO_TARGET_CRF = 26;
 
 export const JOB_STATUSES = [
   'new',
-  'enriching',
-  'confirmed',
+  'awaiting_info',
+  'ready',
+  'deal_confirmed',
   'scheduled',
-  'ongoing',
   'in_progress',
   'completed',
   'cancelled',
@@ -32,11 +32,11 @@ export const JOB_STATUSES = [
 
 export const JOB_STATUS_LABELS: Record<string, string> = {
   new: 'New',
-  enriching: 'Enriching',
-  confirmed: 'Confirmed',
+  awaiting_info: 'Awaiting Info',
+  ready: 'Ready for Processing',
+  deal_confirmed: 'Deal Confirmed',
   scheduled: 'Scheduled',
-  ongoing: 'Ongoing',
-  in_progress: 'In progress',
+  in_progress: 'In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
 };

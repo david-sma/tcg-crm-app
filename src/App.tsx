@@ -71,7 +71,8 @@ function MainLayout() {
   }
 
   const isManager = user.role === 'manager';
-  const isTeamLead = user.role === 'team_leader';
+  const isOfficeRole = user.role === 'manager' || user.role === 'customer_service' || user.role === 'service_team';
+  const isServiceTeam = user.role === 'manager' || user.role === 'service_team';
 
   const managerNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -83,15 +84,15 @@ function MainLayout() {
     { id: 'audit', label: 'Audit Log', icon: ShieldAlert },
   ];
 
-  const staffNavItems = [
+  // Customer service / service team: own timesheet, roster and availability tabs.
+  const officeNavItems = [
     { id: 'dashboard', label: 'Today', icon: LayoutDashboard },
-    { id: 'my-jobs', label: 'Jobs', icon: Briefcase },
     { id: 'my-timesheet', label: 'Timesheet', icon: FileCheck },
     { id: 'roster', label: 'Roster', icon: Calendar },
     { id: 'availability', label: 'Availability', icon: Clock },
   ];
 
-  const teamLeaderNavItems = [
+  const staffNavItems = [
     { id: 'dashboard', label: 'Today', icon: LayoutDashboard },
     { id: 'my-jobs', label: 'Jobs', icon: Briefcase },
     { id: 'my-timesheet', label: 'Timesheet', icon: FileCheck },
@@ -101,10 +102,10 @@ function MainLayout() {
 
   const jobsNavItems = [
     { id: 'jobs-board', label: 'Jobs Board', icon: LayoutGrid },
-    { id: 'jobs-calendar', label: 'Calendar', icon: CalendarDays },
+    ...(isServiceTeam ? [{ id: 'jobs-calendar', label: 'Calendar', icon: CalendarDays }] : []),
   ];
 
-  const navItems = isManager ? managerNavItems : isTeamLead ? teamLeaderNavItems : staffNavItems;
+  const navItems = isManager ? managerNavItems : isOfficeRole ? officeNavItems : staffNavItems;
   const barNavItems = activeModuleId === 'jobs-dispatches' ? jobsNavItems : navItems;
   const validTabIds = barNavItems.map((n) => n.id);
 
@@ -133,7 +134,7 @@ function MainLayout() {
   const currentModule = CRM_MODULES.find((m) => m.id === activeModuleId) || CRM_MODULES[0];
 
   const renderContent = () => {
-    if (activeModuleId === 'jobs-dispatches' && isManager) {
+    if (activeModuleId === 'jobs-dispatches' && isOfficeRole) {
       return (
         <JobsModule
           activeTab={currentTab === 'jobs-calendar' ? 'calendar' : 'board'}
@@ -143,7 +144,7 @@ function MainLayout() {
     }
 
     // If user is visiting an upcoming CRM module
-    if (activeModuleId !== 'staff-ops' && isManager) {
+    if (activeModuleId !== 'staff-ops' && isOfficeRole) {
       return (
         <ModuleRoadmapView
           module={currentModule}
@@ -169,6 +170,18 @@ function MainLayout() {
         case 'dashboard':
         default:
           return <ManagerDashboard onNavigate={setActiveTab} />;
+      }
+    } else if (isOfficeRole) {
+      switch (currentTab) {
+        case 'my-timesheet':
+          return <StaffTimesheetView onBackToDashboard={() => setActiveTab('dashboard')} />;
+        case 'availability':
+          return <StaffAvailability />;
+        case 'roster':
+          return <StaffRosterView />;
+        case 'dashboard':
+        default:
+          return <StaffDashboard onNavigate={setActiveTab as any} />;
       }
     } else {
       switch (currentTab) {

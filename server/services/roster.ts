@@ -19,6 +19,7 @@ import {
 import { sendPushNotificationToUser } from './notification.ts';
 import { logAuditEvent } from './audit.ts';
 import type { DayOfWeekIndex, DraftShift } from '../../src/types/index.ts';
+import { WORKER_ROLES } from '../../src/config/roles.ts';
 
 /**
  * Calculates deterministic SHA-256 hash of staff-visible shifts
@@ -163,7 +164,7 @@ export async function publishRosterWeek(params: {
     .where(eq(rosterDraftShifts.roster_week_id, rosterWeekId));
 
   // 4. Fetch all active staff
-  const activeStaff = await db.select().from(users).where(and(inArray(users.role, ['staff', 'team_leader']), eq(users.is_active, true)));
+  const activeStaff = await db.select().from(users).where(and(inArray(users.role, WORKER_ROLES), eq(users.is_active, true)));
   const activeStaffMap = new Map(activeStaff.map((u) => [u.id, u]));
 
   // Verify that all shifts belong to active staff

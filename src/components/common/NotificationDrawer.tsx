@@ -35,8 +35,23 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   if (!isOpen) return null;
 
   const isManager = user?.role === 'manager';
+  const isOfficeRole = isManager || user?.role === 'customer_service' || user?.role === 'service_team';
 
   const getDestination = (type: string) => {
+    // Job notifications: office roles work the Jobs module, field staff their own list.
+    if (
+      type === 'JOB_ASSIGNED' ||
+      type === 'JOB_STATUS_CHANGED' ||
+      type === 'JOB_STARTED' ||
+      type === 'JOB_COMPLETED' ||
+      type === 'JOB_MEDIA_FAILED' ||
+      type === 'JOB_RUNNING_LATE'
+    ) {
+      return isOfficeRole
+        ? { tab: 'jobs-dispatches', label: 'Open Jobs' }
+        : { tab: 'my-jobs', label: 'View My Jobs' };
+    }
+
     if (isManager) {
       switch (type) {
         case 'CONFLICT_REPORTED':
@@ -46,51 +61,25 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           return { tab: 'roster-builder', label: 'Open Roster Builder' };
         case 'AVAILABILITY_CHANGED':
           return { tab: 'availability', label: 'View Staff Availability' };
-        case 'JOB_ASSIGNED':
-        case 'JOB_STATUS_CHANGED':
-        case 'JOB_STARTED':
-        case 'JOB_COMPLETED':
-        case 'JOB_MEDIA_FAILED':
-        case 'JOB_RUNNING_LATE':
-          return { tab: 'jobs-dispatches', label: 'Open Jobs & Dispatches' };
         case 'SHIFT_STARTED':
-        case 'SHIFT_COMPLETED':
-        case 'SHIFT_FINISHED':
         case 'TIMESHEET_SUBMITTED':
-        case 'TIMESHEET_SIGNED':
-        case 'TIMESHEET_APPROVED':
-        case 'SHIFT_OVERRIDE':
-        case 'SHIFT_ADJUSTED':
           return { tab: 'timesheets', label: 'View Timesheets & Live Duty' };
         default:
           return { tab: 'dashboard', label: 'View in Dashboard' };
       }
-    } else {
-      switch (type) {
-        case 'ROSTER_PUBLISHED':
-        case 'ROSTER_REVISED':
-          return { tab: 'roster', label: 'View My Roster' };
-        case 'AVAILABILITY_CHANGED':
-          return { tab: 'availability', label: 'View My Availability' };
-        case 'JOB_ASSIGNED':
-        case 'JOB_STATUS_CHANGED':
-        case 'JOB_STARTED':
-        case 'JOB_COMPLETED':
-        case 'JOB_MEDIA_FAILED':
-        case 'JOB_RUNNING_LATE':
-          return { tab: 'my-jobs', label: 'View My Jobs' };
-        case 'TIMESHEET_APPROVED':
-        case 'TIMESHEET_SUBMITTED':
-        case 'TIMESHEET_SIGNED':
-        case 'SHIFT_OVERRIDE':
-        case 'SHIFT_ADJUSTED':
-        case 'SHIFT_STARTED':
-        case 'SHIFT_COMPLETED':
-        case 'SHIFT_FINISHED':
-          return { tab: 'my-timesheet', label: 'View My Timesheet' };
-        default:
-          return { tab: 'dashboard', label: 'View in Home' };
-      }
+    }
+
+    switch (type) {
+      case 'ROSTER_PUBLISHED':
+      case 'ROSTER_REVISED':
+        return { tab: 'roster', label: 'View My Roster' };
+      case 'AVAILABILITY_CHANGED':
+        return { tab: 'availability', label: 'View My Availability' };
+      case 'TIMESHEET_APPROVED':
+      case 'SHIFT_STARTED':
+        return { tab: 'my-timesheet', label: 'View My Timesheet' };
+      default:
+        return { tab: 'dashboard', label: 'View in Home' };
     }
   };
 

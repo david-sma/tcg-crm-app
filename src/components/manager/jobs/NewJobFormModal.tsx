@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
 import type { Job, LeadSource, User, UserRole } from '../../../types/index.ts';
+import { ROLE_LABELS } from '../../../config/roles.ts';
 import {
   JOB_TYPE_OPTIONS,
   LEAD_SOURCE_OPTIONS,
 } from '../../../config/jobServices.ts';
 import { JobMediaUploader } from '../../common/JobMediaUploader.tsx';
+import { useAuth } from '../../../context/AuthContext.tsx';
 import { X, FilePlus2, CheckCircle2, Camera, Loader2, ImagePlus } from 'lucide-react';
 
 interface NewJobFormModalProps {
@@ -20,11 +22,7 @@ interface FormErrors {
   address?: string;
 }
 
-const roleHint = (role: UserRole): string => {
-  if (role === 'manager') return 'Manager';
-  if (role === 'team_leader') return 'Team Leader';
-  return 'Staff';
-};
+const roleHint = (role: UserRole): string => ROLE_LABELS[role] || role;
 
 const EMPTY_FORM = {
   title: '',
@@ -49,6 +47,8 @@ const EMPTY_FORM = {
 };
 
 export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClose, onCreated }) => {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -125,7 +125,7 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
           location_notes: form.location_notes.trim() || null,
           access_notes: form.access_notes.trim() || null,
           scope_notes: form.scope_notes.trim() || null,
-          agreed_price: form.agreed_price.trim() || null,
+          ...(isManager ? { agreed_price: form.agreed_price.trim() || null } : {}),
         }),
       });
       setCreatedJob(res.job);
@@ -156,7 +156,7 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
               </h2>
               <p className="text-xs text-white/80">
                 {phase === 'details'
-                  ? 'Capture the enquiry — you can refine it later.'
+                  ? 'Capture the inquiry — you can refine it later.'
                   : 'Intake photos help the crew prepare. Upload in the background as you finish up.'}
               </p>
             </div>
@@ -196,6 +196,23 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
                 {errors.title && <p className="text-[11px] text-rose-600 mt-1">{errors.title}</p>}
               </div>
 
+              {isManager && (
+                <div>
+                  <label className={labelClass} htmlFor="new-job-agreed-price">
+                    Pricing
+                  </label>
+                  <input
+                    id="new-job-agreed-price"
+                    type="text"
+                    value={form.agreed_price}
+                    onChange={(e) => setField('agreed_price', e.target.value)}
+                    placeholder="e.g. $450 incl. GST"
+                    className={inputClass()}
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Managers only — other roles cannot see this.</p>
+                </div>
+              )}
+
               <div>
                 <label className={labelClass} htmlFor="new-job-type">
                   Job type
@@ -216,7 +233,7 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
 
               <div>
                 <label className={labelClass} htmlFor="new-job-services-text">
-                  Services required
+                  Services Required / Job Scope
                 </label>
                 <textarea
                   id="new-job-services-text"
@@ -229,8 +246,22 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
               </div>
 
               <div>
+                <label className={labelClass} htmlFor="new-job-access-notes">
+                  Access Requirements
+                </label>
+                <textarea
+                  id="new-job-access-notes"
+                  rows={2}
+                  value={form.access_notes}
+                  onChange={(e) => setField('access_notes', e.target.value)}
+                  placeholder="e.g. Key under mat, gate code 1234, dog in property"
+                  className={inputClass()}
+                />
+              </div>
+
+              <div>
                 <label className={labelClass} htmlFor="new-job-driver">
-                  Allocated driver
+                  Allocated Staff
                 </label>
                 <select
                   id="new-job-driver"
@@ -238,7 +269,7 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
                   onChange={(e) => setField('allocated_driver_user_id', e.target.value)}
                   className={inputClass()}
                 >
-                  <option value="">No driver assigned</option>
+                  <option value="">None allocated</option>
                   {drivers.map((driver) => (
                     <option key={driver.id} value={driver.id}>
                       {driver.name} ({roleHint(driver.role)})
@@ -257,6 +288,19 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
                   value={form.details}
                   onChange={(e) => setField('details', e.target.value)}
                   placeholder="What does the customer need done?"
+                  className={inputClass()}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass} htmlFor="new-job-scope-notes">
+                  Scope notes
+                </label>
+                <textarea
+                  id="new-job-scope-notes"
+                  rows={2}
+                  value={form.scope_notes}
+                  onChange={(e) => setField('scope_notes', e.target.value)}
                   className={inputClass()}
                 />
               </div>
@@ -410,48 +454,6 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
                   value={form.location_notes}
                   onChange={(e) => setField('location_notes', e.target.value)}
                   placeholder="e.g. Unit 4B, upstairs of the dairy"
-                  className={inputClass()}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Scope &amp; access</h3>
-              <div>
-                <label className={labelClass} htmlFor="new-job-access-notes">
-                  Access notes
-                </label>
-                <textarea
-                  id="new-job-access-notes"
-                  rows={2}
-                  value={form.access_notes}
-                  onChange={(e) => setField('access_notes', e.target.value)}
-                  placeholder="e.g. Key under mat, gate code 1234, dog in property"
-                  className={inputClass()}
-                />
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="new-job-scope-notes">
-                  Scope notes
-                </label>
-                <textarea
-                  id="new-job-scope-notes"
-                  rows={2}
-                  value={form.scope_notes}
-                  onChange={(e) => setField('scope_notes', e.target.value)}
-                  className={inputClass()}
-                />
-              </div>
-              <div>
-                <label className={labelClass} htmlFor="new-job-agreed-price">
-                  Agreed price
-                </label>
-                <input
-                  id="new-job-agreed-price"
-                  type="text"
-                  value={form.agreed_price}
-                  onChange={(e) => setField('agreed_price', e.target.value)}
-                  placeholder="e.g. $450 incl. GST"
                   className={inputClass()}
                 />
               </div>

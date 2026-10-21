@@ -6,6 +6,7 @@ import { NotificationDrawer } from './NotificationDrawer.tsx';
 import { CompanyLogo } from './CompanyLogo.tsx';
 import { useBrand } from '../../context/BrandContext.tsx';
 import { CRM_MODULES, CRMModule } from '../../config/modules';
+import { ROLE_LABELS } from '../../config/roles';
 
 interface HeaderProps {
   onLogoClick?: () => void;
@@ -28,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   if (!user) return null;
 
-  const isManager = user.role === 'manager';
+  const isOfficeRole = user.role === 'manager' || user.role === 'customer_service' || user.role === 'service_team';
   const currentModule = CRM_MODULES.find((m) => m.id === activeModuleId) || CRM_MODULES[0];
 
   return (
@@ -61,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
                         : 'bg-[var(--color-brand-accent)]/15 text-emerald-800 border border-[var(--color-brand-accent)]/30'
                     }`}
                   >
-                    {user.role}
+                    {ROLE_LABELS[user.role] || user.role}
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-400 block leading-tight">
@@ -70,8 +71,8 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </button>
 
-            {/* CRM Module Switcher (Manager Only) */}
-            {isManager && (
+            {/* CRM Module Switcher (Office roles) */}
+            {isOfficeRole && (
               <div className="relative pl-3 ml-2 border-l border-slate-200 hidden md:block">
                 <button
                   type="button"

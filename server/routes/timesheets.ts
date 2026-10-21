@@ -31,6 +31,7 @@ import { uploadShiftPhoto, getPhotoBufferFromStorage } from '../services/storage
 import { ShiftPhotoValidationError } from '../services/image.ts';
 import { seedMockTimesheetData } from '../services/demoSeed.ts';
 import { getAppSettings } from '../../src/config/appSettings.ts';
+import { WORKER_ROLES } from '../../src/config/roles.ts';
 import { loadSeedConfig } from '../../src/config/loadCustomer.ts';
 import { parseISO, startOfWeek, addDays } from 'date-fns';
 import { toZonedTime, format as formatZoned } from 'date-fns-tz';
@@ -126,7 +127,7 @@ timesheetsRouter.get('/today', async (req: Request, res: Response) => {
     const activeStaff = await db
       .select({ id: users.id, name: users.name })
       .from(users)
-      .where(and(eq(users.is_active, true), inArray(users.role, ['staff', 'team_leader'])));
+      .where(and(eq(users.is_active, true), inArray(users.role, WORKER_ROLES)));
 
     const parsedActiveReport = activeReport ? formatReportForResponse(activeReport, activeEvents) : null;
 
@@ -867,7 +868,7 @@ timesheetsRouter.get('/manager-week', requireRole('manager'), async (req: Reques
         notes: users.notes,
       })
       .from(users)
-      .where(and(eq(users.is_active, true), inArray(users.role, ['staff', 'team_leader'])))
+      .where(and(eq(users.is_active, true), inArray(users.role, WORKER_ROLES)))
       .orderBy(users.name);
 
     // Fetch all shift reports for this week

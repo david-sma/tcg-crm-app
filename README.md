@@ -66,22 +66,19 @@ full list.
 - `npm start` — `node dist/server.cjs`.
 - `npm run lint` — the only check: `tsc --noEmit`.
 - Install with Bun (`bun.lock` committed; no package-lock.json).
-- Schema changes: edit `src/db/schema.ts`, then `bunx drizzle-kit push --config src/db/drizzle.config.ts`.
+- Schema changes: edit `src/db/schema.ts`, then `bunx drizzle-kit generate --config src/db/drizzle.config.ts`, commit the new `drizzle/*.sql` file. Migrations apply automatically at server boot.
 
 ## Deploying (Railway + Supabase)
 
-1. **Supabase first:** run `bunx drizzle-kit push --config src/db/drizzle.config.ts`
-   against the production DB and review the SQL before confirming. Expected: only
-   `CREATE TABLE company_settings ...` (purely additive — the running app ignores
-   the new table, so this is zero-downtime).
-2. **Railway:** build command `npm run build`, start command `npm start`,
+1. **Railway:** build command `npm run build`, start command `npm start`,
    `NODE_ENV=production`, plus the env vars above. A failed build keeps the old
-   deployment live.
-3. **First boot** of the new code seeds `company_settings` from `customer/` and
-   leaves existing users untouched (team seeding only runs on an empty `users`
-   table). Look for `Seeded company_settings for "..."` in the logs.
-4. **Verify:** `GET /api/health` → ok · `GET /api/settings` → brand JSON ·
+   deployment live. On boot the server applies any pending `drizzle/` migrations
+   to the database its env vars point at (dev or prod), then seeds
+   `company_settings` on first boot. Look for migration + `Seeded company_settings`
+   lines in the logs. Databases created before boot-time migrations existed are
+   baselined automatically on first boot.
+2. **Verify:** `GET /api/health` → ok · `GET /api/settings` → brand JSON ·
    login works · `/manifest.webmanifest`, `/app-icon.svg`, `/sw.js` return 200.
 
-Rollback: redeploy the previous Railway build (old code ignores `company_settings`);
-optionally `DROP TABLE company_settings;` afterwards.
+Rollback: redeploy the previous Railway build. New columns are additive so the
+old code keeps working against the migrated database.

@@ -10,7 +10,7 @@ Mobile-first workforce roster/timesheet PWA. Express + Vite/React 19 single proc
 - `npm start` — `node dist/server.cjs`. Requires `NODE_ENV=production`; otherwise it boots Vite middleware instead of serving `dist/` statics (`server.ts:61`).
 - `npm run lint` — the ONLY check: `tsc --noEmit`. No tests, ESLint, formatter, or CI exist. Verify changes with typecheck + manual `/api/health` or route hits.
 - Install with Bun (`bun.lock` committed; no package-lock.json).
-- Schema changes: edit `src/db/schema.ts`, then `bunx drizzle-kit push --config src/db/drizzle.config.ts`. No migrations directory and no npm script wraps this.
+- Schema changes: edit `src/db/schema.ts`, then `bunx drizzle-kit generate --config src/db/drizzle.config.ts` (or `generate --custom --name=…` for hand-written SQL), and commit the new `drizzle/*.sql` file. Migrations are applied automatically at boot (`runMigrations()` in `bootstrapInitialData`); `bunx drizzle-kit push` is for local Docker experiments only. Data backfills go in a `--custom` migration as idempotent SQL.
 
 ## Architecture
 

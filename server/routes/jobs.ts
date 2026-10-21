@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import { and, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/index.ts';
 import { jobAssignments, jobMedia, jobs, users } from '../db/schema.ts';
-import { requireAuth, requireRole } from '../middleware/auth.ts';
+import { requireAuth, requireRole, requireAnyRole } from '../middleware/auth.ts';
+import { OFFICE_ROLES, PROCESSING_ROLES, WORKER_ROLES } from '../../src/config/roles.ts';
 import { logAuditEvent } from '../services/audit.ts';
 import {
   addDaysToDateString,
@@ -42,26 +43,14 @@ export const jobsRouter = Router();
 
 jobsRouter.use(requireAuth);
 
-// Staff role: read-only jobs list only (GET /my). Job details and all
-// execution surfaces (start/complete/reports/media) are team-leader/manager only.
-jobsRouter.use((req, res, next) => {
-  if (req.user!.role === 'staff') {
-    const path = (req.path || '').replace(/\/+$/, '') || '/';
-    if (!(req.method === 'GET' && path === '/my')) {
-      return res.status(403).json({ error: 'Not available for your role' });
-    }
-  }
-  next();
-});
-
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const VALID_JOB_STATUSES = new Set<string>([
   'new',
-  'enriching',
-  'confirmed',
+  'awaiting_info',
+  'ready',
+  'deal_confirmed',
   'scheduled',
-  'ongoing',
   'in_progress',
   'completed',
   'cancelled',
@@ -76,13 +65,18 @@ const VALID_LEAD_SOURCES = new Set<string>([
 ]);
 const VALID_PHASES = new Set<string>(['intake', 'start', 'completion', 'other']);
 const VALID_MEDIA_TYPES = new Set<string>(['photo', 'video']);
-const STATUS_ENDPOINT_VALUES = new Set<string>(['new', 'enriching', 'confirmed', 'cancelled']);
+const STATUS_ENDPOINT_VALUES = new Set<string>([
+  'awaiting_info',
+  'ready',
+  'deal_confirmed',
+  'cancelled',
+]);
 const CANCELLABLE_STATUSES = new Set<string>([
   'new',
-  'enriching',
-  'confirmed',
+  'awaiting_info',
+  'ready',
+  'deal_confirmed',
   'scheduled',
-  'ongoing',
   'in_progress',
 ]);
 
@@ -262,8 +256,8 @@ async function buildJobsQuery(params: {
   };
 }
 
-// POST /api/jobs - Create job order (manager only)
-jobsRouter.post('/', requireRole('manager'), async (req: Request, res: Response) => {
+// POST /api/jobs - Create job order (intake roles)
+jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: Response) => {
   try {
     const body: Body = req.body || {};
 
@@ -322,7 +316,7 @@ jobsRouter.post('/', requireRole('manager'), async (req: Request, res: Response)
     const rawDriver = body.allocated_driver_user_id;
     if (rawDriver !== undefined && rawDriver !== null) {
       if (typeof rawDriver !== 'string') {
-        return res.status(400).json({ error: 'Allocated driver must be an active staff member' });
+        return res.status(400).json({ error: 'Allocated staff must be an active team member' });
       }
       const trimmedDriver = rawDriver.trim();
       if (trimmedDriver.length > 0) {
@@ -333,7 +327,7 @@ jobsRouter.post('/', requireRole('manager'), async (req: Request, res: Response)
           .limit(1);
         const driver = driverRows[0];
         if (!driver || !driver.is_active) {
-          return res.status(400).json({ error: 'Allocated driver must be an active staff member' });
+          return res.status(400).json({ error: 'Allocated staff must be an active team member' });
         }
         allocatedDriverUserId = trimmedDriver;
       }
@@ -391,7 +385,8 @@ jobsRouter.post('/', requireRole('manager'), async (req: Request, res: Response)
 });
 
 // GET /api/jobs - List jobs (manager only)
-jobsRouter.get('/', requireRole('manager'), async (req: Request, res: Response) => {
+// GET /api/jobs - List job orders (office roles)
+jobsRouter.get('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: Response) => {
   try {
     const result = await buildJobsQuery({
       status: typeof req.query.status === 'string' ? req.query.status : undefined,
@@ -417,7 +412,7 @@ jobsRouter.get('/', requireRole('manager'), async (req: Request, res: Response) 
 });
 
 // GET /api/jobs/calendar - Jobs scheduled within a week (manager only)
-jobsRouter.get('/calendar', requireRole('manager'), async (req: Request, res: Response) => {
+jobsRouter.get('/calendar', requireAnyRole(...PROCESSING_ROLES), async (req: Request, res: Response) => {
   try {
     const week =
       typeof req.query.week === 'string' && req.query.week !== ''
@@ -464,6 +459,7 @@ jobsRouter.get('/my', async (req: Request, res: Response) => {
 
     const list = [];
     for (const row of rows) {
+      const viewerAssignment = assignmentRows.find((a) => a.job_id === row.job.id);
       list.push(
         await formatJob(
           { ...row.job, created_by_name: row.created_by_name ?? null },
@@ -473,6 +469,7 @@ jobsRouter.get('/my', async (req: Request, res: Response) => {
             forStaff: true,
             viewer: req.user,
             onlyAssignmentsForUserId: req.user!.id,
+            viewerIsLead: Boolean(viewerAssignment?.is_lead),
           },
         ),
       );
@@ -537,13 +534,16 @@ jobsRouter.post('/media/upload-url', async (req: Request, res: Response) => {
       });
     }
 
-    if (req.user!.role !== 'manager') {
+    if (!OFFICE_ROLES.includes(req.user!.role)) {
       const assignment = await getJobAssignment(job.id, req.user!.id);
       if (!assignment) {
         return res.status(403).json({ error: 'You are not assigned to this job' });
       }
       if (phase === 'intake') {
-        return res.status(403).json({ error: 'Only managers can upload intake media' });
+        return res.status(403).json({ error: 'Only office roles can upload intake media' });
+      }
+      if (!assignment.is_lead && req.user!.role !== 'manager') {
+        return res.status(403).json({ error: 'Only the team lead can upload job evidence' });
       }
     }
 
@@ -768,23 +768,25 @@ jobsRouter.post('/media/:mediaId/retry', async (req: Request, res: Response) => 
   }
 });
 
-// GET /api/jobs/:id - Get one job (manager or assigned staff)
+// GET /api/jobs/:id - Get one job (office roles, or assigned crew)
 jobsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const job = await loadJobOr404(req, res);
     if (!job) return;
 
-    if (req.user!.role !== 'manager') {
+    if (!OFFICE_ROLES.includes(req.user!.role)) {
       const assignment = await getJobAssignment(job.id, req.user!.id);
       if (!assignment) {
         return res.status(403).json({ error: 'You are not assigned to this job' });
       }
     }
 
+    const assignment = await getJobAssignment(job.id, req.user!.id);
     const formatted = await formatJob(job, {
       includeAssignments: true,
       includeMedia: true,
       viewer: req.user,
+      viewerIsLead: Boolean(assignment?.is_lead),
     });
 
     return res.json({ job: formatted });
@@ -793,8 +795,8 @@ jobsRouter.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// PUT /api/jobs/:id - Partial update (manager only)
-jobsRouter.put('/:id', requireRole('manager'), async (req: Request, res: Response) => {
+// PUT /api/jobs/:id - Partial update (office roles; pricing is manager-only)
+jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: Response) => {
   try {
     const job = await loadJobOr404(req, res);
     if (!job) return;
@@ -864,6 +866,9 @@ jobsRouter.put('/:id', requireRole('manager'), async (req: Request, res: Respons
     }
 
     if (hasField(body, 'agreed_price')) {
+      if (req.user!.role !== 'manager') {
+        return res.status(403).json({ error: 'Only managers can view or set pricing' });
+      }
       const value = readPrice(body.agreed_price);
       if (value.error) return res.status(400).json({ error: value.error });
       patch.agreed_price = value.value ?? null;
@@ -896,12 +901,12 @@ jobsRouter.put('/:id', requireRole('manager'), async (req: Request, res: Respons
             .limit(1);
           const driver = driverRows[0];
           if (!driver || !driver.is_active) {
-            return res.status(400).json({ error: 'Allocated driver must be an active staff member' });
+            return res.status(400).json({ error: 'Allocated staff must be an active team member' });
           }
           patch.allocated_driver_user_id = trimmedDriver;
         }
       } else {
-        return res.status(400).json({ error: 'Allocated driver must be an active staff member' });
+        return res.status(400).json({ error: 'Allocated staff must be an active team member' });
       }
     }
 
@@ -928,8 +933,9 @@ jobsRouter.put('/:id', requireRole('manager'), async (req: Request, res: Respons
   }
 });
 
-// POST /api/jobs/:id/status - Pipeline status transitions (manager only)
-jobsRouter.post('/:id/status', requireRole('manager'), async (req: Request, res: Response) => {
+// POST /api/jobs/:id/status - Pipeline status transitions
+// Intake roles move jobs to awaiting_info/ready; only processing roles confirm or cancel.
+jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: Response) => {
   try {
     const job = await loadJobOr404(req, res);
     if (!job) return;
@@ -942,6 +948,10 @@ jobsRouter.post('/:id/status', requireRole('manager'), async (req: Request, res:
       return res.status(400).json({
         error: `status must be one of: ${[...STATUS_ENDPOINT_VALUES].join(', ')}`,
       });
+    }
+
+    if ((status === 'deal_confirmed' || status === 'cancelled') && !PROCESSING_ROLES.includes(req.user!.role)) {
+      return res.status(403).json({ error: 'Only the service team can confirm deals or cancel jobs' });
     }
 
     const fromStatus = job.status as JobStatus;
@@ -986,7 +996,11 @@ jobsRouter.post('/:id/status', requireRole('manager'), async (req: Request, res:
 
       await db
         .update(jobs)
-        .set({ status, updated_at: nowIso })
+        .set({
+          status,
+          ...(status === 'ready' ? { ready_at: nowIso } : {}),
+          updated_at: nowIso,
+        })
         .where(eq(jobs.id, job.id));
 
       await auditJob(req, 'job_status_changed', job.id, {
@@ -1009,8 +1023,8 @@ jobsRouter.post('/:id/status', requireRole('manager'), async (req: Request, res:
   }
 });
 
-// POST /api/jobs/:id/schedule - Schedule visit and (re)assign staff (manager only)
-jobsRouter.post('/:id/schedule', requireRole('manager'), async (req: Request, res: Response) => {
+// POST /api/jobs/:id/schedule - Schedule visit and (re)assign staff (service team)
+jobsRouter.post('/:id/schedule', requireAnyRole(...PROCESSING_ROLES), async (req: Request, res: Response) => {
   try {
     const job = await loadJobOr404(req, res);
     if (!job) return;
@@ -1089,17 +1103,30 @@ jobsRouter.post('/:id/schedule', requireRole('manager'), async (req: Request, re
     }
 
     const currentStatus = job.status as JobStatus;
-    if (currentStatus !== 'confirmed' && currentStatus !== 'scheduled') {
+    if (currentStatus !== 'deal_confirmed' && currentStatus !== 'scheduled') {
       return res.status(400).json({ error: 'Confirm the deal before scheduling' });
     }
 
-    if (!requested.some((assignment) => assignment.is_lead)) {
+    // Exactly one team lead per job (information stays with one person on site).
+    const requestedLeads = requested.filter((assignment) => assignment.is_lead);
+    if (requestedLeads.length > 1) {
+      return res.status(400).json({ error: 'Only one team lead per job is allowed' });
+    }
+    if (requestedLeads.length === 0) {
       requested[0].is_lead = true;
     }
 
     const nowIso = new Date().toISOString();
     const existing = await listJobAssignmentRows(job.id);
     const existingByUser = new Map(existing.map((row) => [row.user_id, row]));
+
+    // Demote current leads first so the one-lead-per-job index is never violated mid-save.
+    if (existing.some((row) => row.is_lead)) {
+      await db
+        .update(jobAssignments)
+        .set({ is_lead: false })
+        .where(and(eq(jobAssignments.job_id, job.id), eq(jobAssignments.is_lead, true)));
+    }
 
     for (const assignment of requested) {
       const match = existingByUser.get(assignment.user_id);
@@ -1190,10 +1217,10 @@ jobsRouter.post('/:id/schedule', requireRole('manager'), async (req: Request, re
   }
 });
 
-// DELETE /api/jobs/:id/assignments/:assignmentId - Remove one assignment (manager only)
+// DELETE /api/jobs/:id/assignments/:assignmentId - Remove one assignment (service team)
 jobsRouter.delete(
   '/:id/assignments/:assignmentId',
-  requireRole('manager'),
+  requireAnyRole(...PROCESSING_ROLES),
   async (req: Request, res: Response) => {
     try {
       const job = await loadJobOr404(req, res);
@@ -1232,6 +1259,60 @@ jobsRouter.delete(
   },
 );
 
+// POST /api/jobs/:id/assignments/:assignmentId/set-lead - Swap the team lead without rescheduling
+jobsRouter.post(
+  '/:id/assignments/:assignmentId/set-lead',
+  requireAnyRole(...PROCESSING_ROLES),
+  async (req: Request, res: Response) => {
+    try {
+      const job = await loadJobOr404(req, res);
+      if (!job) return;
+
+      const assignmentId = String(req.params.assignmentId);
+      const assignment = (
+        await db
+          .select()
+          .from(jobAssignments)
+          .where(and(eq(jobAssignments.id, assignmentId), eq(jobAssignments.job_id, job.id)))
+          .limit(1)
+      )[0];
+
+      if (!assignment) {
+        return res.status(404).json({ error: 'Assignment not found' });
+      }
+
+      if (assignment.is_lead) {
+        return res.status(400).json({ error: 'This crew member is already the team lead' });
+      }
+
+      const nowIso = new Date().toISOString();
+      await db
+        .update(jobAssignments)
+        .set({ is_lead: false })
+        .where(and(eq(jobAssignments.job_id, job.id), eq(jobAssignments.is_lead, true)));
+      await db
+        .update(jobAssignments)
+        .set({ is_lead: true })
+        .where(eq(jobAssignments.id, assignment.id));
+
+      await auditJob(req, 'job_lead_changed', job.id, {
+        assignment_id: assignment.id,
+        user_id: assignment.user_id,
+      });
+
+      const formatted = await formatJob(job, {
+        includeAssignments: true,
+        includeMedia: true,
+        viewer: req.user,
+      });
+
+      return res.json({ job: formatted });
+    } catch (err: any) {
+      return serverError(res, 'Set job lead', err);
+    }
+  },
+);
+
 async function assertExecutionAccess(
   req: Request,
   res: Response,
@@ -1258,7 +1339,7 @@ jobsRouter.post('/:id/start', async (req: Request, res: Response) => {
     if (!(await assertExecutionAccess(req, res, job))) return;
 
     const currentStatus = job.status as JobStatus;
-    if (currentStatus !== 'scheduled' && currentStatus !== 'ongoing') {
+    if (currentStatus !== 'scheduled') {
       return res.status(409).json({
         error: `Job cannot be started from status '${currentStatus}'`,
       });
@@ -1331,6 +1412,13 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
     const completionNotes =
       typeof rawNotes === 'string' && rawNotes.trim().length > 0 ? rawNotes.trim() : null;
 
+    // Mandatory on-site accountability check before a job can be closed.
+    if (body.faults_damages_checked !== true) {
+      return res.status(400).json({
+        error: 'Confirm you checked for faults or damages before closing the job',
+      });
+    }
+
     const nowIso = new Date().toISOString();
     const wasFlaggedLate = Boolean(job.running_late);
     await db
@@ -1341,6 +1429,9 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
               status: 'completed',
               completed_at: nowIso,
               completion_notes: completionNotes,
+              faults_damages_checked: true,
+              faults_damages_checked_at: nowIso,
+              faults_damages_checked_by_user_id: req.user!.id,
               running_late: false,
               updated_at: nowIso,
             }
@@ -1348,6 +1439,9 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
               status: 'completed',
               completed_at: nowIso,
               completion_notes: completionNotes,
+              faults_damages_checked: true,
+              faults_damages_checked_at: nowIso,
+              faults_damages_checked_by_user_id: req.user!.id,
               updated_at: nowIso,
             },
       )
@@ -1357,6 +1451,7 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
       from: currentStatus,
       to: 'completed',
       notes: completionNotes,
+      faults_damages_checked: true,
     });
 
     if (wasFlaggedLate) {
@@ -1392,7 +1487,7 @@ jobsRouter.post('/:id/running-late', async (req: Request, res: Response) => {
     if (!(await assertExecutionAccess(req, res, job))) return;
 
     const currentStatus = job.status as JobStatus;
-    if (currentStatus !== 'ongoing' && currentStatus !== 'in_progress') {
+    if (currentStatus !== 'scheduled' && currentStatus !== 'in_progress') {
       return res.status(409).json({
         error: `Job cannot be flagged as running late from status '${currentStatus}'`,
       });

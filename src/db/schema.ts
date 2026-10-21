@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { pgTable, text, integer, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core';
 
 export const companySettings = pgTable('company_settings', {
@@ -32,7 +33,7 @@ export const users = pgTable('users', {
   id: text('id').primaryKey(),
   phone_e164: text('phone_e164').notNull().unique(),
   password_hash: text('password_hash').notNull(),
-  role: text('role').notNull().default('staff'), // 'manager' | 'team_leader' | 'staff'
+  role: text('role').notNull().default('staff'), // 'manager' | 'customer_service' | 'service_team' | 'staff'
   name: text('name').notNull(),
   notes: text('notes'),
   is_active: boolean('is_active').notNull().default(true),
@@ -277,7 +278,7 @@ export const jobs = pgTable('jobs', {
   id: text('id').primaryKey(),
   job_order_number: text('job_order_number').notNull().unique(), // JO-YYYY-####
   title: text('title').notNull(),
-  status: text('status').notNull().default('new'), // 'new' | 'enriching' | 'confirmed' | 'scheduled' | 'ongoing' | 'in_progress' | 'completed' | 'cancelled'
+  status: text('status').notNull().default('new'), // 'new' | 'awaiting_info' | 'ready' | 'deal_confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
   job_type: text('job_type').notNull().default(''), // primary category id from JOB_TYPE_OPTIONS
   services: text('services').notNull().default('[]'), // legacy JSON array of service catalog ids (superseded by services_text)
   services_text: text('services_text'), // free-text services required (structured later by AI processing)
@@ -300,8 +301,12 @@ export const jobs = pgTable('jobs', {
   scheduled_date: text('scheduled_date'), // YYYY-MM-DD (job visit date, business-local)
   scheduled_start_time: text('scheduled_start_time'), // HH:mm business-local
   scheduled_finish_time: text('scheduled_finish_time'), // HH:mm business-local
+  ready_at: text('ready_at'), // when customer service marked the job ready for processing (handoff timestamp)
   start_notes: text('start_notes'), // staff note when confirming job in process
   completion_notes: text('completion_notes'), // staff note when reporting job completed
+  faults_damages_checked: boolean('faults_damages_checked').notNull().default(false), // required on-site faults/damages confirmation before closing
+  faults_damages_checked_at: text('faults_damages_checked_at'),
+  faults_damages_checked_by_user_id: text('faults_damages_checked_by_user_id').references(() => users.id),
   running_late: boolean('running_late').notNull().default(false),
   late_reported_at: text('late_reported_at'),
   late_reported_by_user_id: text('late_reported_by_user_id').references(() => users.id),
@@ -330,6 +335,7 @@ export const jobAssignments = pgTable('job_assignments', {
   index('job_assignments_job_idx').on(table.job_id),
   index('job_assignments_user_idx').on(table.user_id),
   index('job_assignments_shift_idx').on(table.shift_id),
+  uniqueIndex('job_assignments_one_lead_idx').on(table.job_id).where(sql`is_lead`),
 ]);
 
 export const jobMedia = pgTable('job_media', {

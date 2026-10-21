@@ -130,7 +130,7 @@ export const JOB_SERVICE_CATEGORIES: JobServiceCategory[] = [
 
 export const LEAD_SOURCE_OPTIONS: { id: string; label: string }[] = [
   { id: 'manual', label: 'Manual entry' },
-  { id: 'phone', label: 'Phone enquiry' },
+  { id: 'phone', label: 'Phone inquiry' },
   { id: 'facebook', label: 'Facebook' },
   { id: 'website', label: 'Website' },
   { id: 'referral', label: 'Referral' },

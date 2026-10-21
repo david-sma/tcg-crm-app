@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../lib/api.ts';
 import { PasswordRevealModal } from '../common/PasswordRevealModal.tsx';
 import type { User, UserRole } from '../../types/index.ts';
+import { ROLE_LABELS, ROLE_HINTS, USER_ROLES } from '../../config/roles.ts';
 import { useBrand } from '../../context/BrandContext.tsx';
 import {
   UserPlus,
@@ -22,10 +23,13 @@ import {
   Users,
 } from 'lucide-react';
 
-export const roleLabel = (role: UserRole): string => {
-  if (role === 'manager') return 'Manager';
-  if (role === 'team_leader') return 'Team Leader';
-  return 'Staff';
+export const roleLabel = (role: UserRole): string => ROLE_LABELS[role] || role;
+
+const ROLE_TONES: Record<string, { avatar: string; badge: string }> = {
+  manager: { avatar: 'bg-purple-50 text-purple-800 border-purple-200', badge: 'bg-purple-100 text-purple-900 border-purple-300' },
+  customer_service: { avatar: 'bg-sky-50 text-sky-800 border-sky-200', badge: 'bg-sky-100 text-sky-900 border-sky-300' },
+  service_team: { avatar: 'bg-teal-50 text-teal-800 border-teal-200', badge: 'bg-teal-100 text-teal-900 border-teal-300' },
+  staff: { avatar: 'bg-slate-100 text-slate-800 border-slate-200', badge: 'bg-slate-100 text-slate-700 border-slate-300' },
 };
 
 export const StaffManagement: React.FC = () => {
@@ -34,7 +38,7 @@ export const StaffManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'staff' | 'team_leader' | 'manager'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
 
   // Create Staff Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -288,8 +292,15 @@ export const StaffManagement: React.FC = () => {
   });
 
   const managerCount = staffList.filter((s) => s.role === 'manager').length;
-  const teamLeadCount = staffList.filter((s) => s.role === 'team_leader').length;
+  const customerServiceCount = staffList.filter((s) => s.role === 'customer_service').length;
+  const serviceTeamCount = staffList.filter((s) => s.role === 'service_team').length;
   const workerCount = staffList.filter((s) => s.role === 'staff').length;
+  const roleCounts: Record<UserRole, number> = {
+    manager: managerCount,
+    customer_service: customerServiceCount,
+    service_team: serviceTeamCount,
+    staff: workerCount,
+  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
@@ -374,39 +385,19 @@ export const StaffManagement: React.FC = () => {
             >
               All Roles ({staffList.length})
             </button>
-            <button
-              id="filter-role-staff-btn"
-              type="button"
-              onClick={() => setRoleFilter('staff')}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1 ${
-                roleFilter === 'staff' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <UserIcon className="w-3 h-3 text-slate-500" />
-              <span>Staff ({workerCount})</span>
-            </button>
-            <button
-              id="filter-role-team-leader-btn"
-              type="button"
-              onClick={() => setRoleFilter('team_leader')}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1 ${
-                roleFilter === 'team_leader' ? 'bg-white text-sky-950 font-semibold shadow-xs' : 'text-slate-600 hover:text-sky-900'
-              }`}
-            >
-              <Users className="w-3 h-3 text-sky-600" />
-              <span>Team Leads ({teamLeadCount})</span>
-            </button>
-            <button
-              id="filter-role-manager-btn"
-              type="button"
-              onClick={() => setRoleFilter('manager')}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1 ${
-                roleFilter === 'manager' ? 'bg-white text-purple-950 font-semibold shadow-xs' : 'text-slate-600 hover:text-purple-900'
-              }`}
-            >
-              <Shield className="w-3 h-3 text-purple-600" />
-              <span>Managers ({managerCount})</span>
-            </button>
+            {(USER_ROLES as readonly UserRole[]).map((role) => (
+              <button
+                key={role}
+                id={`filter-role-${role.replace(/_/g, '-')}-btn`}
+                type="button"
+                onClick={() => setRoleFilter(role)}
+                className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  roleFilter === role ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>{ROLE_LABELS[role]} ({roleCounts[role]})</span>
+              </button>
+            ))}
           </div>
 
           {/* Status Filter */}
@@ -459,7 +450,7 @@ export const StaffManagement: React.FC = () => {
           <div className="divide-y divide-slate-100">
             {filteredStaff.map((staff) => {
               const isManager = staff.role === 'manager';
-              const isTeamLead = staff.role === 'team_leader';
+              const roleTone = ROLE_TONES[staff.role] || ROLE_TONES.staff;
 
               return (
                 <div
@@ -472,10 +463,8 @@ export const StaffManagement: React.FC = () => {
                       className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border relative ${
                         isManager
                           ? 'bg-purple-50 text-purple-800 border-purple-200'
-                          : isTeamLead
-                          ? 'bg-sky-50 text-sky-800 border-sky-200'
                           : staff.is_active
-                          ? 'bg-slate-100 text-slate-800 border-slate-200'
+                          ? roleTone.avatar
                           : 'bg-rose-50 text-rose-600 border-rose-200'
                       }`}
                     >
@@ -494,15 +483,9 @@ export const StaffManagement: React.FC = () => {
                         {/* Role Badge */}
                         <span
                           id={`role-badge-${staff.id}`}
-                          className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 border ${
-                            isManager
-                              ? 'bg-purple-100 text-purple-900 border-purple-300'
-                              : isTeamLead
-                              ? 'bg-sky-100 text-sky-900 border-sky-300'
-                              : 'bg-slate-100 text-slate-700 border-slate-300'
-                          }`}
+                          className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 border ${roleTone.badge}`}
                         >
-                          {isManager ? <Shield className="w-3 h-3 text-purple-700" /> : isTeamLead ? <Users className="w-3 h-3 text-sky-700" /> : <UserIcon className="w-3 h-3 text-slate-500" />}
+                          {isManager ? <Shield className="w-3 h-3 text-purple-700" /> : <UserIcon className="w-3 h-3 text-slate-500" />}
                           <span>{roleLabel(staff.role)}</span>
                         </span>
 
@@ -541,8 +524,6 @@ export const StaffManagement: React.FC = () => {
                       className={`inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg border text-xs font-semibold transition-all ${
                         isManager
                           ? 'border-purple-200 bg-purple-50/70 text-purple-900'
-                          : isTeamLead
-                          ? 'border-sky-200 bg-sky-50/70 text-sky-900'
                           : 'border-slate-200 bg-white text-slate-700'
                       }`}
                       title={`Change role for ${staff.name}`}
@@ -558,9 +539,9 @@ export const StaffManagement: React.FC = () => {
                         className="bg-transparent text-xs font-semibold py-0.5 pr-1 focus:outline-hidden cursor-pointer"
                         aria-label={`Change role for ${staff.name}`}
                       >
-                        <option value="staff">Staff</option>
-                        <option value="team_leader">Team Leader</option>
-                        <option value="manager">Manager</option>
+                        {USER_ROLES.map((role) => (
+                          <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                        ))}
                       </select>
                     </div>
 
@@ -648,9 +629,9 @@ export const StaffManagement: React.FC = () => {
                     onChange={(e) => setTargetNewRole(e.target.value as UserRole)}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-purple-700"
                   >
-                    <option value="staff">Staff</option>
-                    <option value="team_leader">Team Leader</option>
-                    <option value="manager">Manager</option>
+                    {USER_ROLES.map((role) => (
+                      <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -783,63 +764,28 @@ export const StaffManagement: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Account Role <span className="text-rose-500">*</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      id="create-role-staff-opt"
-                      onClick={() => setCreateRole('staff')}
-                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
-                        createRole === 'staff'
-                          ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
-                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <UserIcon className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-bold">Staff</div>
-                        <div className={`text-[10px] mt-0.5 ${createRole === 'staff' ? 'text-slate-300' : 'text-slate-400'}`}>
-                          Standard worker
+                  <div className="grid grid-cols-2 gap-2">
+                    {USER_ROLES.map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        id={`create-role-${role.replace(/_/g, '-')}-opt`}
+                        onClick={() => setCreateRole(role)}
+                        className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                          createRole === role
+                            ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        {role === 'manager' ? <Shield className="w-4 h-4 shrink-0 mt-0.5" /> : <UserIcon className="w-4 h-4 shrink-0 mt-0.5" />}
+                        <div>
+                          <div className="text-xs font-bold">{ROLE_LABELS[role]}</div>
+                          <div className={`text-[10px] mt-0.5 ${createRole === role ? 'text-slate-300' : 'text-slate-400'}`}>
+                            {ROLE_HINTS[role]}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      id="create-role-team-leader-opt"
-                      onClick={() => setCreateRole('team_leader')}
-                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
-                        createRole === 'team_leader'
-                          ? 'border-sky-800 bg-sky-800 text-white shadow-xs'
-                          : 'border-slate-200 bg-white hover:bg-sky-50 text-slate-700'
-                      }`}
-                    >
-                      <Users className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-bold">Team Leader</div>
-                        <div className={`text-[10px] mt-0.5 ${createRole === 'team_leader' ? 'text-sky-200' : 'text-slate-400'}`}>
-                          Crew lead
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      id="create-role-manager-opt"
-                      onClick={() => setCreateRole('manager')}
-                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
-                        createRole === 'manager'
-                          ? 'border-purple-800 bg-purple-800 text-white shadow-xs'
-                          : 'border-slate-200 bg-white hover:bg-purple-50 text-slate-700'
-                      }`}
-                    >
-                      <Shield className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-bold">Manager</div>
-                        <div className={`text-[10px] mt-0.5 ${createRole === 'manager' ? 'text-purple-200' : 'text-slate-400'}`}>
-                          Admin & roster control
-                        </div>
-                      </div>
-                    </button>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -943,63 +889,28 @@ export const StaffManagement: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Role
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      id="edit-role-staff-opt"
-                      onClick={() => setEditRole('staff')}
-                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
-                        editRole === 'staff'
-                          ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
-                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <UserIcon className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-bold">Staff</div>
-                        <div className={`text-[10px] mt-0.5 ${editRole === 'staff' ? 'text-slate-300' : 'text-slate-400'}`}>
-                          Standard worker
+                  <div className="grid grid-cols-2 gap-2">
+                    {USER_ROLES.map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        id={`edit-role-${role.replace(/_/g, '-')}-opt`}
+                        onClick={() => setEditRole(role)}
+                        className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
+                          editRole === role
+                            ? 'border-slate-900 bg-slate-900 text-white shadow-xs'
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        {role === 'manager' ? <Shield className="w-4 h-4 shrink-0 mt-0.5" /> : <UserIcon className="w-4 h-4 shrink-0 mt-0.5" />}
+                        <div>
+                          <div className="text-xs font-bold">{ROLE_LABELS[role]}</div>
+                          <div className={`text-[10px] mt-0.5 ${editRole === role ? 'text-slate-300' : 'text-slate-400'}`}>
+                            {ROLE_HINTS[role]}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      id="edit-role-team-leader-opt"
-                      onClick={() => setEditRole('team_leader')}
-                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
-                        editRole === 'team_leader'
-                          ? 'border-sky-800 bg-sky-800 text-white shadow-xs'
-                          : 'border-slate-200 bg-white hover:bg-sky-50 text-slate-700'
-                      }`}
-                    >
-                      <Users className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-bold">Team Leader</div>
-                        <div className={`text-[10px] mt-0.5 ${editRole === 'team_leader' ? 'text-sky-200' : 'text-slate-400'}`}>
-                          Crew lead
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      id="edit-role-manager-opt"
-                      onClick={() => setEditRole('manager')}
-                      className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${
-                        editRole === 'manager'
-                          ? 'border-purple-800 bg-purple-800 text-white shadow-xs'
-                          : 'border-slate-200 bg-white hover:bg-purple-50 text-slate-700'
-                      }`}
-                    >
-                      <Shield className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-bold">Manager</div>
-                        <div className={`text-[10px] mt-0.5 ${editRole === 'manager' ? 'text-purple-200' : 'text-slate-400'}`}>
-                          Full management access
-                        </div>
-                      </div>
-                    </button>
+                      </button>
+                    ))}
                   </div>
                 </div>
 

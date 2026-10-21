@@ -1,15 +1,21 @@
 import { db } from '../db/index.ts';
 import { users } from '../db/schema.ts';
+import { runMigrations } from '../../src/db/migrate.ts';
 import { hashPassword, normalizePhone } from './crypto.ts';
 import { saveAvailabilityVersion } from './availability.ts';
 import { getCurrentWeekMonday } from './timezone.ts';
 import { loadCompanySettings } from './companySettings.ts';
 import { loadSeedConfig } from '../../src/config/loadCustomer.ts';
+import { WORKER_ROLES } from '../../src/config/roles.ts';
 import type { SeedAvailabilityWindow } from '../../src/config/customerSchema.ts';
 import type { DayOfWeekIndex } from '../../src/types/index.ts';
 import crypto from 'crypto';
 
 export async function bootstrapInitialData() {
+  // Apply pending schema/data migrations to whichever database the env points at.
+  // Databases built with `drizzle-kit push` are baselined automatically on first run.
+  await runMigrations();
+
   // Branding/settings row is seeded from customer/brand.ts when missing,
   // then loaded into memory for server-side logic (timezone, phone country).
   await loadCompanySettings();
@@ -50,7 +56,7 @@ async function seedFreshTeam() {
     });
 
     // Provide default open availability for staff and team leaders
-    if (member.role === 'staff' || member.role === 'team_leader') {
+    if (WORKER_ROLES.includes(member.role as never)) {
       await saveAvailabilityVersion({
         userId: userId,
         mondayStr: currentMonday,

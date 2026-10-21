@@ -11,10 +11,10 @@ import { StaffJobDetailModal } from './StaffJobDetailModal.tsx';
 
 const STATUS_CHIP_CLASS: Record<string, string> = {
   new: 'bg-slate-100 text-slate-600',
-  enriching: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-teal-100 text-teal-700',
+  awaiting_info: 'bg-amber-100 text-amber-700',
+  ready: 'bg-teal-100 text-teal-700',
+  deal_confirmed: 'bg-sky-100 text-sky-700',
   scheduled: 'bg-indigo-100 text-indigo-700',
-  ongoing: 'bg-violet-100 text-violet-700',
   in_progress: 'bg-blue-100 text-blue-700',
   completed: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-700',
@@ -55,7 +55,6 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
   const [error, setError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const { user } = useAuth();
-  const readOnly = user?.role === 'staff';
 
   const todayStr = useMemo(() => {
     const { yyyy, mm, dd } = getNowInBusinessTz();
@@ -99,18 +98,18 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
       },
       {
         key: 'done',
-        label: 'Done',
+        label: 'Completed',
         items: jobs.filter(isDone).sort(bySchedule),
       },
     ];
   }, [jobs, todayStr]);
 
   const renderCard = (job: Job) => {
-    const isLeadJob = job.assignments?.[0]?.is_lead === true;
+    const isLeadJob = job.assignments?.some((a) => a.user_id === user?.id && a.is_lead) ?? false;
     const crewCount = job.assignments?.length ?? 0;
     const chipClass = STATUS_CHIP_CLASS[job.status] || 'bg-slate-100 text-slate-600';
     const showStartHint =
-      isLeadJob && (job.status === 'scheduled' || job.status === 'ongoing') && job.scheduled_date === todayStr;
+      isLeadJob && job.status === 'scheduled' && job.scheduled_date === todayStr;
 
     const cardBody = (
       <>
@@ -163,7 +162,7 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
           )}
         </div>
 
-        {readOnly && (
+        {job.customer_name && (
           <div className="mt-2.5 space-y-1.5 border-t border-slate-100 pt-2.5">
             <div className="flex items-start justify-between gap-2">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Customer</span>
@@ -193,22 +192,22 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
             ) : null}
             {job.services_text ? (
               <div>
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Services</span>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Services Required / Job Scope</span>
                 <p className="text-[13px] text-slate-700 leading-snug mt-0.5">{job.services_text}</p>
               </div>
             ) : null}
-            {job.driver_name ? (
+            {job.allocated_staff_name ? (
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Driver</span>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Allocated Staff</span>
                 <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-slate-900">
                   <Car className="w-3.5 h-3.5 text-slate-400" />
-                  {job.driver_name}
+                  {job.allocated_staff_name}
                 </span>
               </div>
             ) : null}
           </div>
         )}
-        {!readOnly && showStartHint && (
+        {showStartHint && (
           <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
             Start job
             <ArrowRight className="w-3.5 h-3.5" />
@@ -216,16 +215,6 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
         )}
       </>
     );
-    if (readOnly) {
-      return (
-        <div
-          key={job.id}
-          className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-xs"
-        >
-          {cardBody}
-        </div>
-      );
-    }
     return (
       <button
         key={job.id}
@@ -243,7 +232,7 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">My Jobs</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {readOnly ? 'Jobs assigned to you.' : 'Jobs assigned to you. Tap one to see the details.'}
+            Jobs assigned to you. Tap one to see the details.
           </p>
       </div>
 
@@ -300,15 +289,13 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
         </div>
       )}
 
-      {!readOnly && (
-        <StaffJobDetailModal
-          isOpen={selectedJobId !== null}
-          jobId={selectedJobId}
-          onClose={() => setSelectedJobId(null)}
-          onChanged={() => loadJobs({ silent: true })}
-          onNavigate={onNavigate}
-        />
-      )}
+      <StaffJobDetailModal
+        isOpen={selectedJobId !== null}
+        jobId={selectedJobId}
+        onClose={() => setSelectedJobId(null)}
+        onChanged={() => loadJobs({ silent: true })}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 };
