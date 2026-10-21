@@ -24,6 +24,12 @@ export const INTAKE_TARGET_SOFT_HOURS = 2;
 export const INTAKE_TARGET_HARD_HOURS = 4;
 export const PROCESS_TARGET_HOURS = 24;
 
+/** Calendar time grid bounds (business-local) and slot geometry. */
+export const CALENDAR_START_HOUR = 6;
+export const CALENDAR_END_HOUR = 18;
+export const CALENDAR_SLOT_MINUTES = 30;
+export const CALENDAR_PX_PER_HOUR = 64;
+
 export const JOB_STATUSES = [
   'new',
   'awaiting_info',

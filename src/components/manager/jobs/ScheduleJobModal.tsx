@@ -11,7 +11,15 @@ interface ScheduleJobModalProps {
   job: Job;
   onClose: () => void;
   onScheduled: (job: Job) => void;
+  /** Prefill from a calendar slot click (used when the job has no schedule yet). */
+  prefill?: { date: string; startTime: string } | null;
 }
+
+const addHoursToTime = (time: string, hours: number): string => {
+  const [h, m] = time.split(':').map(Number);
+  const total = h * 60 + m + hours * 60;
+  return `${String(Math.min(23, Math.floor(total / 60))).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+};
 
 const localDateFromIso = (iso: string): string => {
   try {
@@ -31,10 +39,11 @@ const mondayOf = (dateStr: string): string => {
 
 const todayLocalDate = (): string => localDateFromIso(new Date().toISOString());
 
-export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job, onClose, onScheduled }) => {
-  const [scheduledDate, setScheduledDate] = useState(job.scheduled_date || todayLocalDate());
-  const [startTime, setStartTime] = useState(job.scheduled_start_time || '09:00');
-  const [finishTime, setFinishTime] = useState(job.scheduled_finish_time || '12:00');
+export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job, onClose, onScheduled, prefill }) => {
+  const initialStart = job.scheduled_start_time || prefill?.startTime || '09:00';
+  const [scheduledDate, setScheduledDate] = useState(job.scheduled_date || prefill?.date || todayLocalDate());
+  const [startTime, setStartTime] = useState(initialStart);
+  const [finishTime, setFinishTime] = useState(job.scheduled_finish_time || addHoursToTime(initialStart, 3));
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
     (job.assignments || []).map((a) => a.user_id),
   );
@@ -67,9 +76,10 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
 
   useEffect(() => {
     if (isOpen) {
-      setScheduledDate(job.scheduled_date || todayLocalDate());
-      setStartTime(job.scheduled_start_time || '09:00');
-      setFinishTime(job.scheduled_finish_time || '12:00');
+      const start = job.scheduled_start_time || prefill?.startTime || '09:00';
+      setScheduledDate(job.scheduled_date || prefill?.date || todayLocalDate());
+      setStartTime(start);
+      setFinishTime(job.scheduled_finish_time || addHoursToTime(start, 3));
       const existing = job.assignments || [];
       setSelectedUserIds(existing.map((a) => a.user_id));
       setLeadUserId(existing.find((a) => a.is_lead)?.user_id || existing[0]?.user_id);
@@ -77,7 +87,7 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
       setSubmitting(false);
       loadContext();
     }
-  }, [isOpen, job.id]);
+  }, [isOpen, job.id, prefill?.date, prefill?.startTime]);
 
   if (!isOpen) return null;
 
@@ -182,6 +192,7 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
               <input
                 id="schedule-start-input"
                 type="time"
+                step={1800}
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-mono bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
@@ -194,6 +205,7 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
               <input
                 id="schedule-finish-input"
                 type="time"
+                step={1800}
                 value={finishTime}
                 onChange={(e) => setFinishTime(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-mono bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"

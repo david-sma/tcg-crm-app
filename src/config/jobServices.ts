@@ -30,6 +30,52 @@ export const JOB_TYPE_OPTIONS: JobTypeOption[] = [
   { id: 'other', label: 'Other' },
 ];
 
+/** Calendar color groups: commercial / residential / maintenance. */
+export type JobTypeColorGroup = 'commercial' | 'residential' | 'maintenance';
+
+export const JOB_TYPE_COLOR_GROUP: Record<string, JobTypeColorGroup> = {
+  residential_clean: 'residential',
+  move_in_clean: 'residential',
+  end_of_tenancy: 'residential',
+  commercial_clean: 'commercial',
+  common_areas: 'commercial',
+  post_builders: 'maintenance',
+  deep_clean: 'maintenance',
+  carpet_upholstery: 'maintenance',
+  windows_exterior: 'maintenance',
+  specialty: 'maintenance',
+  other: 'maintenance',
+};
+
+export const JOB_TYPE_GROUP_LABELS: Record<JobTypeColorGroup, string> = {
+  commercial: 'Commercial',
+  residential: 'Residential',
+  maintenance: 'Maintenance',
+};
+
+export function getJobTypeColorGroup(typeId: string): JobTypeColorGroup {
+  return JOB_TYPE_COLOR_GROUP[typeId] || 'maintenance';
+}
+
+/** Block styling per color group (calendar). */
+export const JOB_TYPE_GROUP_BLOCKS: Record<JobTypeColorGroup, { block: string; bar: string; legend: string }> = {
+  commercial: {
+    block: 'bg-sky-50 border-sky-300 hover:border-sky-400',
+    bar: 'bg-sky-500',
+    legend: 'bg-sky-200 border-sky-300',
+  },
+  residential: {
+    block: 'bg-emerald-50 border-emerald-300 hover:border-emerald-400',
+    bar: 'bg-emerald-500',
+    legend: 'bg-emerald-200 border-emerald-300',
+  },
+  maintenance: {
+    block: 'bg-violet-50 border-violet-300 hover:border-violet-400',
+    bar: 'bg-violet-500',
+    legend: 'bg-violet-200 border-violet-300',
+  },
+};
+
 export const JOB_SERVICE_CATEGORIES: JobServiceCategory[] = [
   {
     id: 'general',
