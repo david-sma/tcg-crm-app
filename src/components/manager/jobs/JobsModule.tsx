@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { JobsBoardView } from './JobsBoardView.tsx';
 import { JobsCalendarView } from './JobsCalendarView.tsx';
+import { ProcessQueueView } from './ProcessQueueView.tsx';
 import { JobDetailModal } from './JobDetailModal.tsx';
 import { Briefcase } from 'lucide-react';
 
-export type JobsTab = 'board' | 'calendar';
+export type JobsTab = 'board' | 'queue' | 'calendar';
 
 interface JobsModuleProps {
   activeTab: JobsTab;
@@ -33,6 +34,8 @@ export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab }) => {
 
       {activeTab === 'board' ? (
         <JobsBoardView onOpenJob={(id) => setSelectedJobId(id)} refreshKey={refreshKey} />
+      ) : activeTab === 'queue' ? (
+        <ProcessQueueView onOpenJob={(id) => setSelectedJobId(id)} refreshKey={refreshKey} />
       ) : (
         <JobsCalendarView onOpenJob={(id) => setSelectedJobId(id)} refreshKey={refreshKey} />
       )}

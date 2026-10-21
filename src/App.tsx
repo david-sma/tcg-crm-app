@@ -45,11 +45,15 @@ function MainLayout() {
   const [activeModuleId, setActiveModuleId] = useState<string>('staff-ops');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
-  // Reset tab to dashboard whenever user or user role changes
+  // Reset tab to dashboard whenever user or user role changes.
+  // ?module=jobs-dispatches deep link (push notification clicks) restores the jobs module.
   useEffect(() => {
     if (user?.id) {
+      const deepLinked = new URLSearchParams(window.location.search).get('module');
+      const startModule = deepLinked === 'jobs-dispatches' && user.role !== 'staff' ? 'jobs-dispatches' : 'staff-ops';
       setActiveTab('dashboard');
-      setActiveModuleId('staff-ops');
+      setActiveModuleId(startModule);
+      if (startModule === 'jobs-dispatches') setActiveTab('jobs-board');
     }
   }, [user?.id, user?.role]);
 
@@ -102,7 +106,12 @@ function MainLayout() {
 
   const jobsNavItems = [
     { id: 'jobs-board', label: 'Jobs Board', icon: LayoutGrid },
-    ...(isServiceTeam ? [{ id: 'jobs-calendar', label: 'Calendar', icon: CalendarDays }] : []),
+    ...(isServiceTeam
+      ? [
+          { id: 'jobs-queue', label: 'Process Queue', icon: ClipboardList },
+          { id: 'jobs-calendar', label: 'Calendar', icon: CalendarDays },
+        ]
+      : []),
   ];
 
   const navItems = isManager ? managerNavItems : isOfficeRole ? officeNavItems : staffNavItems;
@@ -135,12 +144,8 @@ function MainLayout() {
 
   const renderContent = () => {
     if (activeModuleId === 'jobs-dispatches' && isOfficeRole) {
-      return (
-        <JobsModule
-          activeTab={currentTab === 'jobs-calendar' ? 'calendar' : 'board'}
-          onNavigate={handleNavigateToTab}
-        />
-      );
+      const jobsTab = currentTab === 'jobs-calendar' ? 'calendar' : currentTab === 'jobs-queue' ? 'queue' : 'board';
+      return <JobsModule activeTab={jobsTab} onNavigate={handleNavigateToTab} />;
     }
 
     // If user is visiting an upcoming CRM module

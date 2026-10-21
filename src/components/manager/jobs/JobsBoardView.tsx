@@ -3,6 +3,7 @@ import { apiFetch } from '../../../lib/api.ts';
 import type { Job, JobStatus } from '../../../types/index.ts';
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '../../../config/jobs.ts';
 import { NewJobFormModal } from './NewJobFormModal.tsx';
+import { IntakeTargetChip } from './TargetChip.tsx';
 import { Plus, Search, AlertTriangle, CheckCircle2, X, Loader2, Briefcase, ChevronDown, ChevronRight } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 
@@ -199,6 +200,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
             className="w-2 h-2 rounded-full bg-amber-400 shrink-0"
           />
         ) : null}
+        {(job.status === 'new' || job.status === 'awaiting_info') && <IntakeTargetChip job={job} />}
         <JobStatusChip status={job.status} />
       </div>
     );
@@ -353,6 +355,11 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
                           Late
                         </span>
                       ) : null}
+                      {(job.status === 'new' || job.status === 'awaiting_info') && (
+                        <span className="mr-1">
+                          <IntakeTargetChip job={job} />
+                        </span>
+                      )}
                       <JobStatusChip status={job.status} />
                     </td>
                   </tr>

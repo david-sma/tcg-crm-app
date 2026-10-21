@@ -19,6 +19,11 @@ export const JOB_MEDIA_MAX_ATTEMPTS = 3;
 export const JOB_VIDEO_TARGET_MAX_EDGE_PX = 1280;
 export const JOB_VIDEO_TARGET_CRF = 26;
 
+/** Workflow time targets (dashboard chips; soft = amber warning, hard = red overdue). */
+export const INTAKE_TARGET_SOFT_HOURS = 2;
+export const INTAKE_TARGET_HARD_HOURS = 4;
+export const PROCESS_TARGET_HOURS = 24;
+
 export const JOB_STATUSES = [
   'new',
   'awaiting_info',

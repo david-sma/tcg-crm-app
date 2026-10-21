@@ -62,6 +62,12 @@ notificationsRouter.post('/mark-all-read', async (req: Request, res: Response) =
   }
 });
 
+// GET /api/notifications/vapid-public-key - Public key for Web Push subscription
+notificationsRouter.get('/vapid-public-key', async (req: Request, res: Response) => {
+  const publicKey = process.env.VAPID_PUBLIC_KEY || null;
+  return res.json({ publicKey, enabled: Boolean(publicKey) });
+});
+
 // POST /api/notifications/push-subscription - Register Web Push subscription
 notificationsRouter.post('/push-subscription', async (req: Request, res: Response) => {
   try {

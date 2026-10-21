@@ -42,6 +42,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     if (
       type === 'JOB_ASSIGNED' ||
       type === 'JOB_STATUS_CHANGED' ||
+      type === 'JOB_READY_FOR_HANDOFF' ||
       type === 'JOB_STARTED' ||
       type === 'JOB_COMPLETED' ||
       type === 'JOB_MEDIA_FAILED' ||
@@ -93,15 +94,14 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
       case 'TIMESHEET_APPROVED':
         return <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />;
       case 'TIMESHEET_SUBMITTED':
-      case 'TIMESHEET_SIGNED':
         return <FileCheck className="w-4 h-4 text-blue-600 shrink-0" />;
       case 'SHIFT_STARTED':
         return <Clock className="w-4 h-4 text-emerald-600 shrink-0" />;
-      case 'SHIFT_COMPLETED':
-      case 'SHIFT_FINISHED':
+      case 'SHIFT_EVENT':
         return <ClipboardList className="w-4 h-4 text-purple-600 shrink-0" />;
       case 'JOB_ASSIGNED':
       case 'JOB_STATUS_CHANGED':
+      case 'JOB_READY_FOR_HANDOFF':
       case 'JOB_STARTED':
       case 'JOB_COMPLETED':
       case 'JOB_MEDIA_FAILED':

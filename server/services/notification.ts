@@ -22,23 +22,26 @@ export function configureWebPush() {
 
 configureWebPush();
 
+export type InAppNotificationType =
+  | 'ROSTER_PUBLISHED'
+  | 'ROSTER_REVISED'
+  | 'AVAILABILITY_CHANGED'
+  | 'CONFLICT_REPORTED'
+  | 'SHIFT_STARTED'
+  | 'SHIFT_EVENT'
+  | 'TIMESHEET_SUBMITTED'
+  | 'TIMESHEET_APPROVED'
+  | 'JOB_ASSIGNED'
+  | 'JOB_STATUS_CHANGED'
+  | 'JOB_READY_FOR_HANDOFF'
+  | 'JOB_STARTED'
+  | 'JOB_COMPLETED'
+  | 'JOB_RUNNING_LATE'
+  | 'JOB_MEDIA_FAILED';
+
 export async function createInAppNotification(params: {
   userId: string;
-  type:
-    | 'ROSTER_PUBLISHED'
-    | 'ROSTER_REVISED'
-    | 'AVAILABILITY_CHANGED'
-    | 'CONFLICT_REPORTED'
-    | 'SHIFT_STARTED'
-    | 'SHIFT_EVENT'
-    | 'TIMESHEET_SUBMITTED'
-    | 'TIMESHEET_APPROVED'
-    | 'JOB_ASSIGNED'
-    | 'JOB_STATUS_CHANGED'
-    | 'JOB_STARTED'
-    | 'JOB_COMPLETED'
-    | 'JOB_RUNNING_LATE'
-    | 'JOB_MEDIA_FAILED';
+  type: InAppNotificationType;
   title: string;
   body: string;
   relatedEntityType?: string;
@@ -62,10 +65,11 @@ export async function createInAppNotification(params: {
   // Also attempt Web Push non-blockingly
   setImmediate(async () => {
     try {
+      const url = params.type.startsWith('JOB_') ? '/?module=jobs-dispatches' : '/?module=staff-ops';
       await sendPushNotificationToUser(params.userId, {
         title: params.title,
         body: params.body,
-        url: '/staff/roster',
+        url,
       });
     } catch {
       // Push error is non-blocking

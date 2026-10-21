@@ -17,6 +17,18 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
+/** VAPID applicationServerKey must be the raw bytes of the URL-safe base64 key. */
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) {
+    output[i] = raw.charCodeAt(i);
+  }
+  return output;
+}
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -95,22 +107,34 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         setPushSubscribed(true);
         localStorage.setItem('portal_push_enabled', 'granted');
 
-        // Check if service worker is active to subscribe
         if ('serviceWorker' in navigator && 'PushManager' in window) {
           try {
+            const keyRes = await apiFetch<{ publicKey: string | null; enabled: boolean }>(
+              '/api/notifications/vapid-public-key',
+            );
+            if (!keyRes.enabled || !keyRes.publicKey) {
+              return; // server has no VAPID key configured yet — in-app notifications still work
+            }
+
             const reg = await navigator.serviceWorker.ready;
-            const sub = await reg.pushManager.getSubscription();
-            if (sub) {
-              const subJson = sub.toJSON();
-              await apiFetch('/api/notifications/subscribe', {
-                method: 'POST',
-                body: JSON.stringify({
-                  endpoint: sub.endpoint,
-                  p256dh: subJson.keys?.p256dh || '',
-                  auth: subJson.keys?.auth || '',
-                }),
+            let sub = await reg.pushManager.getSubscription();
+            if (!sub) {
+              sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(keyRes.publicKey),
               });
             }
+            const subJson = sub.toJSON();
+            await apiFetch('/api/notifications/push-subscription', {
+              method: 'POST',
+              body: JSON.stringify({
+                endpoint: sub.endpoint,
+                keys: {
+                  p256dh: subJson.keys?.p256dh || '',
+                  auth: subJson.keys?.auth || '',
+                },
+              }),
+            });
           } catch (swErr) {
             console.warn('Service worker push sync:', swErr);
           }

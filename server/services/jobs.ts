@@ -7,7 +7,7 @@ import {
   jobs,
   users,
 } from '../db/schema.ts';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type {
   Job,
   JobAssignment,
@@ -338,23 +338,24 @@ export function addDaysToDateString(dateStr: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** Notify every active manager; never throws. */
-export async function notifyManagers(
+/** Notify every active user in the given roles; never throws. */
+export async function notifyRoles(
+  roles: string[],
   type: NotificationType,
   title: string,
   body: string,
   relatedEntityId?: string,
 ): Promise<void> {
   try {
-    const managers = await db
+    const recipients = await db
       .select({ id: users.id })
       .from(users)
-      .where(and(eq(users.role, 'manager'), eq(users.is_active, true)));
+      .where(and(inArray(users.role, roles), eq(users.is_active, true)));
 
-    for (const manager of managers) {
+    for (const recipient of recipients) {
       try {
         await createInAppNotification({
-          userId: manager.id,
+          userId: recipient.id,
           type,
           title,
           body,
@@ -362,12 +363,22 @@ export async function notifyManagers(
           relatedEntityId,
         });
       } catch (err) {
-        console.error('Failed to notify manager:', err);
+        console.error('Failed to notify user:', err);
       }
     }
   } catch (err) {
-    console.error('notifyManagers error:', err);
+    console.error('notifyRoles error:', err);
   }
+}
+
+/** Notify every active manager; never throws. */
+export async function notifyManagers(
+  type: NotificationType,
+  title: string,
+  body: string,
+  relatedEntityId?: string,
+): Promise<void> {
+  await notifyRoles(['manager'], type, title, body, relatedEntityId);
 }
 
 /** Notify a single user without letting failures bubble up. */

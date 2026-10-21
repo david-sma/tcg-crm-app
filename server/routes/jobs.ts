@@ -17,6 +17,7 @@ import {
   listJobMediaRows,
   newId,
   notifyManagers,
+  notifyRoles,
   notifyUserSafe,
   nextJobOrderNumber,
   type JobRowWithCreator,
@@ -950,6 +951,17 @@ jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Requ
         to: status,
         reason: reason || null,
       });
+
+      if (status === 'ready') {
+        // Handoff: customer service has finished intake — prompt the service team.
+        await notifyRoles(
+          ['service_team', 'manager'],
+          'JOB_READY_FOR_HANDOFF',
+          `New job to process: ${job.title}`,
+          `${job.job_order_number} is ready for processing — confirm, schedule and allocate the crew (target: within 24 hours).`,
+          job.id,
+        );
+      }
     }
 
     const updated = await getJobById(job.id);
@@ -1387,6 +1399,15 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
       'JOB_COMPLETED',
       `Job completed: ${job.title}`,
       `${req.user!.name} completed job ${job.job_order_number} at ${job.address}.`,
+      job.id,
+    );
+
+    // Completed jobs route back to the service team for a final check before invoicing.
+    await notifyRoles(
+      ['service_team'],
+      'JOB_COMPLETED',
+      `Job completed — final check: ${job.title}`,
+      `${job.job_order_number} is complete. Review the record before invoicing.`,
       job.id,
     );
 
