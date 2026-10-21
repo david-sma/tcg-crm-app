@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
-import type { Job, LeadSource, User, UserRole } from '../../../types/index.ts';
-import { ROLE_LABELS } from '../../../config/roles.ts';
+import type { Job, LeadSource } from '../../../types/index.ts';
 import {
   JOB_TYPE_OPTIONS,
   LEAD_SOURCE_OPTIONS,
@@ -22,14 +21,10 @@ interface FormErrors {
   address?: string;
 }
 
-const roleHint = (role: UserRole): string => ROLE_LABELS[role] || role;
-
 const EMPTY_FORM = {
   title: '',
   job_type: JOB_TYPE_OPTIONS[0]?.id || 'other',
   services_text: '',
-  allocated_driver_user_id: '',
-  details: '',
   lead_source: 'manual' as LeadSource,
   customer_name: '',
   customer_phone: '',
@@ -42,7 +37,6 @@ const EMPTY_FORM = {
   postcode: '',
   location_notes: '',
   access_notes: '',
-  scope_notes: '',
   agreed_price: '',
 };
 
@@ -55,7 +49,6 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
   const [submitError, setSubmitError] = useState('');
   const [phase, setPhase] = useState<'details' | 'photos'>('details');
   const [createdJob, setCreatedJob] = useState<Job | null>(null);
-  const [drivers, setDrivers] = useState<User[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -65,19 +58,6 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
       setSubmitting(false);
       setPhase('details');
       setCreatedJob(null);
-      let cancelled = false;
-      (async () => {
-        try {
-          const res = await apiFetch<{ staff?: User[]; users?: User[] } | User[]>('/api/staff?status=active');
-          const list = Array.isArray(res) ? res : res.staff || res.users || [];
-          if (!cancelled) setDrivers(list);
-        } catch {
-          if (!cancelled) setDrivers([]);
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
     }
   }, [isOpen]);
 
@@ -110,8 +90,6 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
           job_type: form.job_type,
           services: [],
           services_text: form.services_text.trim() || undefined,
-          allocated_driver_user_id: form.allocated_driver_user_id || null,
-          details: form.details.trim(),
           lead_source: form.lead_source,
           customer_name: form.customer_name.trim(),
           customer_phone: form.customer_phone.trim() || null,
@@ -124,7 +102,6 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
           postcode: form.postcode.trim() || null,
           location_notes: form.location_notes.trim() || null,
           access_notes: form.access_notes.trim() || null,
-          scope_notes: form.scope_notes.trim() || null,
           ...(isManager ? { agreed_price: form.agreed_price.trim() || null } : {}),
         }),
       });
@@ -255,52 +232,6 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
                   value={form.access_notes}
                   onChange={(e) => setField('access_notes', e.target.value)}
                   placeholder="e.g. Key under mat, gate code 1234, dog in property"
-                  className={inputClass()}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass} htmlFor="new-job-driver">
-                  Allocated Staff
-                </label>
-                <select
-                  id="new-job-driver"
-                  value={form.allocated_driver_user_id}
-                  onChange={(e) => setField('allocated_driver_user_id', e.target.value)}
-                  className={inputClass()}
-                >
-                  <option value="">None allocated</option>
-                  {drivers.map((driver) => (
-                    <option key={driver.id} value={driver.id}>
-                      {driver.name} ({roleHint(driver.role)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className={labelClass} htmlFor="new-job-details">
-                  Details
-                </label>
-                <textarea
-                  id="new-job-details"
-                  rows={3}
-                  value={form.details}
-                  onChange={(e) => setField('details', e.target.value)}
-                  placeholder="What does the customer need done?"
-                  className={inputClass()}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass} htmlFor="new-job-scope-notes">
-                  Scope notes
-                </label>
-                <textarea
-                  id="new-job-scope-notes"
-                  rows={2}
-                  value={form.scope_notes}
-                  onChange={(e) => setField('scope_notes', e.target.value)}
                   className={inputClass()}
                 />
               </div>

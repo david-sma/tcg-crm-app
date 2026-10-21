@@ -3,7 +3,6 @@ import { format, parseISO } from 'date-fns';
 import {
   AlertTriangle,
   Briefcase,
-  Car,
   CheckCircle2,
   Loader2,
   MapPin,
@@ -296,15 +295,6 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
                       )}
                     </div>
                   </div>
-                  {job.allocated_staff_name && (
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Car className="w-4 h-4 text-slate-400 shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs text-slate-500">Allocated Staff</div>
-                        <div className="text-sm font-medium text-slate-700 truncate">{job.allocated_staff_name}</div>
-                      </div>
-                    </div>
-                  )}
                   {job.location_notes && (
                     <div className="text-xs text-slate-600">
                       <span className="font-semibold">Location notes:</span>{' '}
@@ -391,18 +381,6 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
                       ) : (
                         <p className="text-sm text-slate-400">—</p>
                       )}
-                    </div>
-                  )}
-                  {job.details && (
-                    <div>
-                      <div className="text-xs text-slate-500">Details</div>
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{job.details}</p>
-                    </div>
-                  )}
-                  {job.scope_notes && (
-                    <div>
-                      <div className="text-xs text-slate-500">Scope notes</div>
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{job.scope_notes}</p>
                     </div>
                   )}
                 </div>

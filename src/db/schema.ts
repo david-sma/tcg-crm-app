@@ -281,9 +281,7 @@ export const jobs = pgTable('jobs', {
   status: text('status').notNull().default('new'), // 'new' | 'awaiting_info' | 'ready' | 'deal_confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
   job_type: text('job_type').notNull().default(''), // primary category id from JOB_TYPE_OPTIONS
   services: text('services').notNull().default('[]'), // legacy JSON array of service catalog ids (superseded by services_text)
-  services_text: text('services_text'), // free-text services required (structured later by AI processing)
-  allocated_driver_user_id: text('allocated_driver_user_id').references(() => users.id),
-  details: text('details').notNull().default(''),
+  services_text: text('services_text'), // free-text services required / job scope
   lead_source: text('lead_source').notNull().default('manual'), // 'manual' | 'phone' | 'facebook' | 'website' | 'referral' | 'other'
   customer_name: text('customer_name').notNull().default(''),
   customer_phone: text('customer_phone'),
@@ -295,8 +293,7 @@ export const jobs = pgTable('jobs', {
   city: text('city'),
   postcode: text('postcode'),
   location_notes: text('location_notes'),
-  access_notes: text('access_notes'),
-  scope_notes: text('scope_notes'), // sales-defined scope
+  access_notes: text('access_notes'), // access requirements
   agreed_price: text('agreed_price'),
   scheduled_date: text('scheduled_date'), // YYYY-MM-DD (job visit date, business-local)
   scheduled_start_time: text('scheduled_start_time'), // HH:mm business-local

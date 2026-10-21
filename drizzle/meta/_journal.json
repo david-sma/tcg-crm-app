@@ -43,6 +43,13 @@
       "when": 1792389012079,
       "tag": "0005_cms_phase1_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792569811559,
+      "tag": "0006_curvy_darkstar",
+      "breakpoints": true
     }
   ]
 }

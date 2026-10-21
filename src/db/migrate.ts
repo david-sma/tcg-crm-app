@@ -73,6 +73,9 @@ const BASELINE_PROBES: Record<string, () => Promise<boolean>> = {
     probe(sql`select 1 as ok from information_schema.columns where table_schema = 'public' and table_name = 'jobs' and column_name = 'running_late'`),
   '0004_orange_proemial_gods': () =>
     probe(sql`select 1 as ok from information_schema.columns where table_schema = 'public' and table_name = 'jobs' and column_name = 'ready_at'`),
+  // Drop-only migration: it has been applied when the column is gone.
+  '0006_curvy_darkstar': async () =>
+    !(await probe(sql`select 1 as ok from information_schema.columns where table_schema = 'public' and table_name = 'jobs' and column_name = 'details'`)),
 };
 
 /**

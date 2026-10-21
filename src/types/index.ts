@@ -305,10 +305,7 @@ export interface Job {
   status: JobStatus;
   job_type: string;
   services: string[]; // legacy structured selection (superseded by services_text)
-  services_text?: string | null; // free-text services required
-  allocated_driver_user_id?: string | null;
-  allocated_staff_name?: string | null;
-  details?: string;
+  services_text?: string | null; // free-text services required / job scope
   lead_source?: LeadSource;
   customer_name?: string;
   customer_phone?: string | null;
@@ -321,8 +318,7 @@ export interface Job {
   postcode?: string | null;
   location_notes?: string | null;
   access_notes?: string | null;
-  scope_notes?: string | null;
-  agreed_price?: string | null; // omitted in staff-facing payloads
+  agreed_price?: string | null; // omitted in non-manager payloads
   scheduled_date?: string | null;
   scheduled_start_time?: string | null;
   scheduled_finish_time?: string | null;

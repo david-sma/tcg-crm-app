@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { ArrowRight, Briefcase, Car, MapPin, RefreshCw, Star, Users } from 'lucide-react';
+import { ArrowRight, Briefcase, MapPin, RefreshCw, Star, Users } from 'lucide-react';
 import { apiFetch } from '../../lib/api.ts';
 import { getNowInBusinessTz } from '../../lib/dateUtils.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
@@ -194,15 +194,6 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
               <div>
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Services Required / Job Scope</span>
                 <p className="text-[13px] text-slate-700 leading-snug mt-0.5">{job.services_text}</p>
-              </div>
-            ) : null}
-            {job.allocated_staff_name ? (
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Allocated Staff</span>
-                <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-slate-900">
-                  <Car className="w-3.5 h-3.5 text-slate-400" />
-                  {job.allocated_staff_name}
-                </span>
               </div>
             ) : null}
           </div>

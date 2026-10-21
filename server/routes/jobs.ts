@@ -276,9 +276,6 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     const services = readServices(body.services);
     if (services.error) return res.status(400).json({ error: services.error });
 
-    const details = readOptionalText(body, 'details');
-    if (details.error) return res.status(400).json({ error: details.error });
-
     const leadSource = readLeadSource(body.lead_source);
     if (leadSource.error) return res.status(400).json({ error: leadSource.error });
 
@@ -293,14 +290,17 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
       'postcode',
       'location_notes',
       'access_notes',
-      'scope_notes',
     ]) {
       const result = readOptionalText(body, key);
       if (result.error) return res.status(400).json({ error: result.error });
       optionalText[key] = result.value ?? null;
     }
 
-    const price = readPrice(body.agreed_price);
+    // Pricing is manager-only; other roles never see it, so their values are ignored.
+    const price =
+      req.user!.role === 'manager'
+        ? readPrice(body.agreed_price)
+        : { value: null as string | null };
     if (price.error) return res.status(400).json({ error: price.error });
 
     const servicesText = readOptionalText(body, 'services_text');
@@ -311,27 +311,6 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
         : servicesText.value.trim().length > 0
           ? servicesText.value.trim()
           : null;
-
-    let allocatedDriverUserId: string | null = null;
-    const rawDriver = body.allocated_driver_user_id;
-    if (rawDriver !== undefined && rawDriver !== null) {
-      if (typeof rawDriver !== 'string') {
-        return res.status(400).json({ error: 'Allocated staff must be an active team member' });
-      }
-      const trimmedDriver = rawDriver.trim();
-      if (trimmedDriver.length > 0) {
-        const driverRows = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, trimmedDriver))
-          .limit(1);
-        const driver = driverRows[0];
-        if (!driver || !driver.is_active) {
-          return res.status(400).json({ error: 'Allocated staff must be an active team member' });
-        }
-        allocatedDriverUserId = trimmedDriver;
-      }
-    }
 
     const id = newId();
     const nowIso = new Date().toISOString();
@@ -344,7 +323,6 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
       status: 'new',
       job_type: (jobType.value as string) ?? '',
       services: JSON.stringify(services.value ?? []),
-      details: (details.value as string) ?? '',
       lead_source: leadSource.value ?? 'manual',
       customer_name: customerName.value,
       customer_phone: optionalText.customer_phone ?? null,
@@ -357,10 +335,8 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
       postcode: optionalText.postcode ?? null,
       location_notes: optionalText.location_notes ?? null,
       access_notes: optionalText.access_notes ?? null,
-      scope_notes: optionalText.scope_notes ?? null,
       agreed_price: price.value ?? null,
       services_text: servicesTextValue,
-      allocated_driver_user_id: allocatedDriverUserId,
       created_by_user_id: req.user!.id,
       created_at: nowIso,
       updated_at: nowIso,
@@ -828,12 +804,6 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
       patch.job_type = value.value ?? '';
     }
 
-    if (hasField(body, 'details')) {
-      const value = readOptionalText(body, 'details');
-      if (value.error) return res.status(400).json({ error: value.error });
-      patch.details = value.value ?? '';
-    }
-
     if (hasField(body, 'services')) {
       const value = readServices(body.services);
       if (value.error) return res.status(400).json({ error: value.error });
@@ -856,7 +826,6 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
       'postcode',
       'location_notes',
       'access_notes',
-      'scope_notes',
     ]) {
       if (hasField(body, key)) {
         const value = readOptionalText(body, key);
@@ -865,10 +834,8 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
       }
     }
 
-    if (hasField(body, 'agreed_price')) {
-      if (req.user!.role !== 'manager') {
-        return res.status(403).json({ error: 'Only managers can view or set pricing' });
-      }
+    // Pricing is manager-only; other roles never see it, so their values are ignored.
+    if (hasField(body, 'agreed_price') && req.user!.role === 'manager') {
       const value = readPrice(body.agreed_price);
       if (value.error) return res.status(400).json({ error: value.error });
       patch.agreed_price = value.value ?? null;
@@ -883,31 +850,6 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
           : value.value.trim().length > 0
             ? value.value.trim()
             : null;
-    }
-
-    if (hasField(body, 'allocated_driver_user_id')) {
-      const rawDriver = body.allocated_driver_user_id;
-      if (rawDriver === null) {
-        patch.allocated_driver_user_id = null;
-      } else if (typeof rawDriver === 'string') {
-        const trimmedDriver = rawDriver.trim();
-        if (trimmedDriver.length === 0) {
-          patch.allocated_driver_user_id = null;
-        } else {
-          const driverRows = await db
-            .select()
-            .from(users)
-            .where(eq(users.id, trimmedDriver))
-            .limit(1);
-          const driver = driverRows[0];
-          if (!driver || !driver.is_active) {
-            return res.status(400).json({ error: 'Allocated staff must be an active team member' });
-          }
-          patch.allocated_driver_user_id = trimmedDriver;
-        }
-      } else {
-        return res.status(400).json({ error: 'Allocated staff must be an active team member' });
-      }
     }
 
     const changedFields = Object.keys(patch);
@@ -1178,23 +1120,6 @@ jobsRouter.post('/:id/schedule', requireAnyRole(...PROCESSING_ROLES), async (req
         body: notificationBody,
         relatedEntityId: job.id,
       });
-    }
-
-    if (job.allocated_driver_user_id && !seenUserIds.has(job.allocated_driver_user_id)) {
-      const driverRows = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.id, job.allocated_driver_user_id))
-        .limit(1);
-      if (driverRows[0]) {
-        await notifyUserSafe({
-          userId: job.allocated_driver_user_id,
-          type: 'JOB_ASSIGNED',
-          title: `New job assigned: ${job.title}`,
-          body: notificationBody,
-          relatedEntityId: job.id,
-        });
-      }
     }
 
     await auditJob(req, 'job_scheduled', job.id, {

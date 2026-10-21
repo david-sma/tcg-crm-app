@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
-import type { Job, JobAssignment, JobMedia, JobMediaPhase, JobStatus, LeadSource, User, UserRole } from '../../../types/index.ts';
-import { ROLE_LABELS } from '../../../config/roles.ts';
+import type { Job, JobAssignment, JobMedia, JobMediaPhase, JobStatus, LeadSource } from '../../../types/index.ts';
 import {
   JOB_TYPE_OPTIONS,
   LEAD_SOURCE_OPTIONS,
@@ -47,8 +46,6 @@ interface JobDraft {
   title: string;
   job_type: string;
   services_text: string;
-  allocated_driver_user_id: string;
-  details: string;
   lead_source: LeadSource;
   customer_name: string;
   customer_phone: string;
@@ -61,7 +58,6 @@ interface JobDraft {
   postcode: string;
   location_notes: string;
   access_notes: string;
-  scope_notes: string;
   agreed_price: string;
 }
 
@@ -69,8 +65,6 @@ const draftFromJob = (job: Job): JobDraft => ({
   title: job.title || '',
   job_type: job.job_type || '',
   services_text: job.services_text || '',
-  allocated_driver_user_id: job.allocated_driver_user_id || '',
-  details: job.details || '',
   lead_source: job.lead_source || 'manual',
   customer_name: job.customer_name || '',
   customer_phone: job.customer_phone || '',
@@ -83,7 +77,6 @@ const draftFromJob = (job: Job): JobDraft => ({
   postcode: job.postcode || '',
   location_notes: job.location_notes || '',
   access_notes: job.access_notes || '',
-  scope_notes: job.scope_notes || '',
   agreed_price: job.agreed_price || '',
 });
 
@@ -106,13 +99,6 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
   </div>
 );
 
-const driverRoleHint = (role: UserRole): string => ROLE_LABELS[role] || role;
-
-const loadActiveStaff = async (): Promise<User[]> => {
-  const res = await apiFetch<{ staff?: User[]; users?: User[] } | User[]>('/api/staff?status=active');
-  return Array.isArray(res) ? res : res.staff || res.users || [];
-};
-
 const EmptyValue: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   <span className="text-slate-400 italic">{children || '—'}</span>
 );
@@ -133,8 +119,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
   const [cancelReason, setCancelReason] = useState('');
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [removingAssignmentId, setRemovingAssignmentId] = useState<string | null>(null);
-  const [drivers, setDrivers] = useState<User[]>([]);
-  const [driversLoading, setDriversLoading] = useState(false);
   const [clearingLate, setClearingLate] = useState(false);
 
   const loadJob = useCallback(async () => {
@@ -225,11 +209,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
     if (!job) return;
     setDraft(draftFromJob(job));
     setEditing(true);
-    setDriversLoading(true);
-    loadActiveStaff()
-      .then(setDrivers)
-      .catch(() => setDrivers([]))
-      .finally(() => setDriversLoading(false));
   };
 
   const clearLate = async () => {
@@ -261,8 +240,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
           job_type: draft.job_type,
           services: [],
           services_text: draft.services_text.trim() || null,
-          allocated_driver_user_id: draft.allocated_driver_user_id || null,
-          details: draft.details.trim(),
           lead_source: draft.lead_source,
           customer_name: draft.customer_name.trim(),
           customer_phone: draft.customer_phone.trim() || null,
@@ -275,8 +252,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
           postcode: draft.postcode.trim() || null,
           location_notes: draft.location_notes.trim() || null,
           access_notes: draft.access_notes.trim() || null,
-          scope_notes: draft.scope_notes.trim() || null,
-          agreed_price: draft.agreed_price.trim() || null,
+          ...(isManager ? { agreed_price: draft.agreed_price.trim() || null } : {}),
         }),
       });
       setJob(res.job);
@@ -495,33 +471,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         className={inputClass}
                       />
                     </div>
-                    <div>
-                      <label className={labelClass} htmlFor="edit-job-driver">Allocated Staff</label>
-                      <select
-                        id="edit-job-driver"
-                        value={draft.allocated_driver_user_id}
-                        onChange={(e) => setDraftField('allocated_driver_user_id', e.target.value)}
-                        className={inputClass}
-                        disabled={driversLoading}
-                      >
-                        <option value="">None allocated</option>
-                        {drivers.map((driver) => (
-                          <option key={driver.id} value={driver.id}>
-                            {driver.name} ({driverRoleHint(driver.role)})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass} htmlFor="edit-job-details">Details</label>
-                      <textarea
-                        id="edit-job-details"
-                        rows={3}
-                        value={draft.details}
-                        onChange={(e) => setDraftField('details', e.target.value)}
-                        className={inputClass}
-                      />
-                    </div>
                   </div>
 
                   <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3">
@@ -638,16 +587,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
 
                   <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3">
                     <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Commercial</h3>
-                    <div>
-                      <label className={labelClass} htmlFor="edit-job-scope-notes">Scope notes</label>
-                      <textarea
-                        id="edit-job-scope-notes"
-                        rows={2}
-                        value={draft.scope_notes}
-                        onChange={(e) => setDraftField('scope_notes', e.target.value)}
-                        className={inputClass}
-                      />
-                    </div>
                     {isManager && (
                       <div>
                         <label className={labelClass} htmlFor="edit-job-agreed-price">Pricing</label>
@@ -679,16 +618,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       <Row label="Access Requirements">
                         {job.access_notes ? (
                           <span className="whitespace-pre-wrap">{job.access_notes}</span>
-                        ) : (
-                          <EmptyValue />
-                        )}
-                      </Row>
-                      <Row label="Allocated Staff">
-                        {job.allocated_staff_name || <EmptyValue />}
-                      </Row>
-                      <Row label="Details">
-                        {job.details ? (
-                          <span className="whitespace-pre-wrap">{job.details}</span>
                         ) : (
                           <EmptyValue />
                         )}
@@ -754,20 +683,13 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       </Row>
                     </Section>
 
-                    <Section title="Commercial" icon={<DollarSign className="w-4 h-4 text-indigo-600" />}>
-                      <Row label="Scope notes">
-                        {job.scope_notes ? (
-                          <span className="whitespace-pre-wrap">{job.scope_notes}</span>
-                        ) : (
-                          <EmptyValue />
-                        )}
-                      </Row>
-                      {isManager && (
+                    {isManager && (
+                      <Section title="Commercial" icon={<DollarSign className="w-4 h-4 text-indigo-600" />}>
                         <Row label="Pricing">
                           {job.agreed_price ? <span className="font-semibold">{job.agreed_price}</span> : <EmptyValue />}
                         </Row>
-                      )}
-                    </Section>
+                      </Section>
+                    )}
                   </>
                 )
               )}

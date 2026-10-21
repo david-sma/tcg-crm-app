@@ -20,15 +20,16 @@ import {
   publishRosterWeek,
 } from '../services/roster.ts';
 import { logAuditEvent } from '../services/audit.ts';
-import { requireAuth, requireRole } from '../middleware/auth.ts';
+import { requireAuth, requireRole, requireAnyRole } from '../middleware/auth.ts';
 import crypto from 'crypto';
 
 export const rosterRouter = Router();
 
-rosterRouter.use(requireAuth, requireRole('manager'));
+rosterRouter.use(requireAuth);
 
 // GET /api/rosters/week - Get draft shifts, published version info, and availability warnings
-rosterRouter.get('/week', async (req: Request, res: Response) => {
+// (service team needs the shift context when scheduling jobs — read-only for them).
+rosterRouter.get('/week', requireAnyRole('manager', 'service_team'), async (req: Request, res: Response) => {
   try {
     const week = (req.query.week as string) || getCurrentWeekMonday();
     if (!isValidMondayDate(week)) {
@@ -135,6 +136,9 @@ rosterRouter.get('/week', async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Failed to retrieve roster week' });
   }
 });
+
+// Everything beyond the week view above is roster management: Manager only.
+rosterRouter.use(requireRole('manager'));
 
 // POST /api/rosters/shifts - Create draft shift
 rosterRouter.post('/shifts', async (req: Request, res: Response) => {

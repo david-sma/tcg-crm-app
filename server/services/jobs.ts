@@ -220,24 +220,11 @@ export async function formatJob(
   const isManager = role === 'manager';
   const isOfficeRole = isManager || role === 'customer_service' || role === 'service_team';
   // Field users (staff) get the full scope only when they are the job's team lead.
-  const isFieldViewer = Boolean(role) && !isOfficeRole;
   const seesFullScope = isOfficeRole || Boolean(opts.viewerIsLead);
   // Pricing is visible to managers only.
   const seesPricing = isManager;
-
-  let allocatedStaffName: string | null = null;
-  if (row.allocated_driver_user_id) {
-    try {
-      const allocatedRows = await db
-        .select({ name: users.name })
-        .from(users)
-        .where(eq(users.id, row.allocated_driver_user_id))
-        .limit(1);
-      allocatedStaffName = allocatedRows[0]?.name ?? null;
-    } catch {
-      allocatedStaffName = null;
-    }
-  }
+  // Customer service owns intake only; staff/crew details belong to the service team.
+  const seesCrew = role !== 'customer_service';
 
   let lateReportedByName: string | null = null;
   if (row.late_reported_by_user_id) {
@@ -295,9 +282,6 @@ export async function formatJob(
   if (seesFullScope) {
     job.services = parseServices(row.services);
     job.services_text = row.services_text ?? null;
-    job.allocated_driver_user_id = row.allocated_driver_user_id ?? null;
-    job.allocated_staff_name = allocatedStaffName;
-    job.details = row.details;
     job.lead_source = row.lead_source as LeadSource;
     job.customer_name = row.customer_name;
     job.customer_phone = row.customer_phone;
@@ -305,7 +289,6 @@ export async function formatJob(
     job.site_contact_name = row.site_contact_name;
     job.site_contact_phone = row.site_contact_phone;
     job.access_notes = row.access_notes;
-    job.scope_notes = row.scope_notes;
     job.ready_at = row.ready_at;
     job.start_notes = row.start_notes;
     job.completion_notes = row.completion_notes;
@@ -326,7 +309,7 @@ export async function formatJob(
     }
   }
 
-  if (opts.includeAssignments) {
+  if (opts.includeAssignments && seesCrew) {
     job.assignments = await loadJobAssignments(row.id, opts.onlyAssignmentsForUserId);
   }
 

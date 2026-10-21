@@ -4,7 +4,7 @@ import { users, sessions } from '../db/schema.ts';
 import { eq, desc, and } from 'drizzle-orm';
 import { generateStaffPassword, hashPassword, normalizePhone } from '../services/crypto.ts';
 import { logAuditEvent } from '../services/audit.ts';
-import { requireAuth, requireRole } from '../middleware/auth.ts';
+import { requireAuth, requireRole, requireAnyRole } from '../middleware/auth.ts';
 import { getAppSettings } from '../../src/config/appSettings.ts';
 import { USER_ROLES, ROLE_LABELS } from '../../src/config/roles.ts';
 import type { UserRole } from '../../src/types/index.ts';
@@ -12,11 +12,12 @@ import crypto from 'crypto';
 
 export const staffRouter = Router();
 
-// Protect all staff routes: Manager only
-staffRouter.use(requireAuth, requireRole('manager'));
+// Staff directory: managers and service team can look up the active list
+// (service team needs it for crew allocation when scheduling jobs).
+// All account mutations below stay manager-only.
+staffRouter.use(requireAuth);
 
-// GET /api/staff - List all team members (staff & managers)
-staffRouter.get('/', async (req: Request, res: Response) => {
+staffRouter.get('/', requireAnyRole('manager', 'service_team'), async (req: Request, res: Response) => {
   try {
     const roleFilter = req.query.role as string | undefined;
     const statusFilter = req.query.status as string | undefined;
@@ -57,6 +58,9 @@ staffRouter.get('/', async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Failed to retrieve staff list' });
   }
 });
+
+// Everything beyond the list above is account management: Manager only.
+staffRouter.use(requireRole('manager'));
 
 // POST /api/staff - Create new staff or manager account
 staffRouter.post('/', async (req: Request, res: Response) => {
