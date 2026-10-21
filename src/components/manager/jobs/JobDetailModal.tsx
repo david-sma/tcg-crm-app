@@ -821,6 +821,11 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         {job.created_by_name ? <span className="text-slate-500"> · {job.created_by_name}</span> : null}
                       </span>
                     </Row>
+                    {job.ready_at && (
+                      <Row label="Ready for processing">
+                        <span>{formatDateTimeLocal(job.ready_at)}</span>
+                      </Row>
+                    )}
                     <Row label="Started on site">
                       {job.started_at ? formatDateTimeLocal(job.started_at) : <EmptyValue />}
                     </Row>

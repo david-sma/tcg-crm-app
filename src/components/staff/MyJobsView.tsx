@@ -33,7 +33,7 @@ function formatTimeWindow(job: Job): string {
   const start = job.scheduled_start_time;
   const finish = job.scheduled_finish_time;
   if (start && finish) return `${start}–${finish}`;
-  return start || finish || 'Time TBC';
+  return start || finish || 'Time not set';
 }
 
 function addressLine(job: Job): string {
@@ -141,7 +141,7 @@ export const MyJobsView: React.FC<{ onNavigate?: (tab: string) => void }> = ({ o
 
         <div className="flex items-center gap-1.5 mt-2 text-slate-600 min-w-0">
           <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-          <span className="text-sm truncate">{addressLine(job) || 'Address TBC'}</span>
+          <span className="text-sm truncate">{addressLine(job) || 'Address not set'}</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mt-2.5">

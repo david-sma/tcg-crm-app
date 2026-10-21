@@ -193,7 +193,7 @@ export const JobsCalendarView: React.FC<JobsCalendarViewProps> = ({ onOpenJob, r
     const timeLabel =
       job.scheduled_start_time && job.scheduled_finish_time
         ? `${job.scheduled_start_time}–${job.scheduled_finish_time}`
-        : 'Time TBC';
+        : 'Time not set';
     return (
       <div
         key={job.id}
@@ -482,7 +482,7 @@ export const JobsCalendarView: React.FC<JobsCalendarViewProps> = ({ onOpenJob, r
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {job.job_order_number} · {job.address || 'Address TBC'}
+                        {job.job_order_number} · {job.address || 'Address not set'}
                       </div>
                     </button>
                   );

@@ -44,7 +44,7 @@ function formatTimeWindow(job: Job): string {
   const start = job.scheduled_start_time;
   const finish = job.scheduled_finish_time;
   if (start && finish) return `${start} – ${finish}`;
-  return start || finish || 'Time TBC';
+  return start || finish || 'Time not set';
 }
 
 interface StaffJobDetailModalProps {
@@ -287,7 +287,7 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
                   <div className="flex items-start gap-2 min-w-0">
                     <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-700">{job.address || 'Address TBC'}</div>
+                      <div className="text-sm font-medium text-slate-700">{job.address || 'Address not set'}</div>
                       {[job.suburb, job.city, job.postcode].filter(Boolean).length > 0 && (
                         <div className="text-xs text-slate-500">
                           {[job.suburb, job.city, job.postcode].filter(Boolean).join(', ')}
