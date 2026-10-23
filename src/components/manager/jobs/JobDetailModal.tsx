@@ -53,9 +53,6 @@ interface JobDraft {
   site_contact_name: string;
   site_contact_phone: string;
   address: string;
-  suburb: string;
-  city: string;
-  postcode: string;
   location_notes: string;
   access_notes: string;
   agreed_price: string;
@@ -72,9 +69,6 @@ const draftFromJob = (job: Job): JobDraft => ({
   site_contact_name: job.site_contact_name || '',
   site_contact_phone: job.site_contact_phone || '',
   address: job.address || '',
-  suburb: job.suburb || '',
-  city: job.city || '',
-  postcode: job.postcode || '',
   location_notes: job.location_notes || '',
   access_notes: job.access_notes || '',
   agreed_price: job.agreed_price || '',
@@ -247,9 +241,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
           site_contact_name: draft.site_contact_name.trim() || null,
           site_contact_phone: draft.site_contact_phone.trim() || null,
           address: draft.address.trim(),
-          suburb: draft.suburb.trim() || null,
-          city: draft.city.trim() || null,
-          postcode: draft.postcode.trim() || null,
           location_notes: draft.location_notes.trim() || null,
           access_notes: draft.access_notes.trim() || null,
           ...(isManager ? { agreed_price: draft.agreed_price.trim() || null } : {}),
@@ -538,40 +529,9 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         type="text"
                         value={draft.address}
                         onChange={(e) => setDraftField('address', e.target.value)}
+                        placeholder="e.g. 12 Harbour View Road, Devonport, Auckland 0624"
                         className={inputClass}
                       />
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className={labelClass} htmlFor="edit-job-suburb">Suburb</label>
-                        <input
-                          id="edit-job-suburb"
-                          type="text"
-                          value={draft.suburb}
-                          onChange={(e) => setDraftField('suburb', e.target.value)}
-                          className={inputClass}
-                        />
-                      </div>
-                      <div>
-                        <label className={labelClass} htmlFor="edit-job-city">City</label>
-                        <input
-                          id="edit-job-city"
-                          type="text"
-                          value={draft.city}
-                          onChange={(e) => setDraftField('city', e.target.value)}
-                          className={inputClass}
-                        />
-                      </div>
-                      <div>
-                        <label className={labelClass} htmlFor="edit-job-postcode">Postcode</label>
-                        <input
-                          id="edit-job-postcode"
-                          type="text"
-                          value={draft.postcode}
-                          onChange={(e) => setDraftField('postcode', e.target.value)}
-                          className={inputClass}
-                        />
-                      </div>
                     </div>
                     <div>
                       <label className={labelClass} htmlFor="edit-job-location-notes">Location notes</label>
@@ -667,13 +627,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
 
                     <Section title="Location" icon={<MapPin className="w-4 h-4 text-indigo-600" />}>
                       <Row label="Address">{job.address || <EmptyValue />}</Row>
-                      <Row label="Suburb / city / postcode">
-                        {[job.suburb, job.city, job.postcode].filter(Boolean).length > 0 ? (
-                          <span>{[job.suburb, job.city, job.postcode].filter(Boolean).join(', ')}</span>
-                        ) : (
-                          <EmptyValue />
-                        )}
-                      </Row>
                       <Row label="Location notes">
                         {job.location_notes ? (
                           <span className="whitespace-pre-wrap">{job.location_notes}</span>

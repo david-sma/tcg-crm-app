@@ -119,7 +119,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
   const searchedJobs = jobs.filter((job) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return [job.title, job.customer_name, job.address, job.suburb, job.city, job.job_order_number]
+    return [job.title, job.customer_name, job.address, job.job_order_number]
       .filter(Boolean)
       .some((value) => (value as string).toLowerCase().includes(q));
   });
@@ -174,7 +174,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
   };
 
   const whereSummary = (job: Job): string =>
-    [job.suburb, job.city].filter(Boolean).join(', ') || job.address || '—';
+    job.address || '—';
 
   const renderCompactRow = (job: Job) => {
     const meta = [formatJobTimeWindow(job), whereSummary(job) === '—' ? '' : whereSummary(job), crewSummary(job) === '—' ? '' : crewSummary(job)]

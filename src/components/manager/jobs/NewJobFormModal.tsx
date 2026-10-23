@@ -32,9 +32,6 @@ const EMPTY_FORM = {
   site_contact_name: '',
   site_contact_phone: '',
   address: '',
-  suburb: '',
-  city: '',
-  postcode: '',
   location_notes: '',
   access_notes: '',
   agreed_price: '',
@@ -97,9 +94,6 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
           site_contact_name: form.site_contact_name.trim() || null,
           site_contact_phone: form.site_contact_phone.trim() || null,
           address: form.address.trim(),
-          suburb: form.suburb.trim() || null,
-          city: form.city.trim() || null,
-          postcode: form.postcode.trim() || null,
           location_notes: form.location_notes.trim() || null,
           access_notes: form.access_notes.trim() || null,
           ...(isManager ? { agreed_price: form.agreed_price.trim() || null } : {}),
@@ -333,47 +327,10 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
                   type="text"
                   value={form.address}
                   onChange={(e) => setField('address', e.target.value)}
+                  placeholder="e.g. 12 Harbour View Road, Devonport, Auckland 0624"
                   className={inputClass(!!errors.address)}
                 />
                 {errors.address && <p className="text-[11px] text-rose-600 mt-1">{errors.address}</p>}
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className={labelClass} htmlFor="new-job-suburb">
-                    Suburb
-                  </label>
-                  <input
-                    id="new-job-suburb"
-                    type="text"
-                    value={form.suburb}
-                    onChange={(e) => setField('suburb', e.target.value)}
-                    className={inputClass()}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="new-job-city">
-                    City
-                  </label>
-                  <input
-                    id="new-job-city"
-                    type="text"
-                    value={form.city}
-                    onChange={(e) => setField('city', e.target.value)}
-                    className={inputClass()}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="new-job-postcode">
-                    Postcode
-                  </label>
-                  <input
-                    id="new-job-postcode"
-                    type="text"
-                    value={form.postcode}
-                    onChange={(e) => setField('postcode', e.target.value)}
-                    className={inputClass()}
-                  />
-                </div>
               </div>
               <div>
                 <label className={labelClass} htmlFor="new-job-location-notes">

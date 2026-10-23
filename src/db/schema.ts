@@ -289,9 +289,6 @@ export const jobs = pgTable('jobs', {
   site_contact_name: text('site_contact_name'),
   site_contact_phone: text('site_contact_phone'),
   address: text('address').notNull().default(''),
-  suburb: text('suburb'),
-  city: text('city'),
-  postcode: text('postcode'),
   location_notes: text('location_notes'),
   access_notes: text('access_notes'), // access requirements
   agreed_price: text('agreed_price'),

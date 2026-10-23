@@ -313,9 +313,6 @@ export interface Job {
   site_contact_name?: string | null;
   site_contact_phone?: string | null;
   address: string;
-  suburb?: string | null;
-  city?: string | null;
-  postcode?: string | null;
   location_notes?: string | null;
   access_notes?: string | null;
   agreed_price?: string | null; // omitted in non-manager payloads

@@ -37,7 +37,7 @@ function formatTimeWindow(job: Job): string {
 }
 
 function addressLine(job: Job): string {
-  return [job.address, job.suburb, job.city].filter(Boolean).join(', ');
+  return job.address || '';
 }
 
 function bySchedule(a: Job, b: Job): number {

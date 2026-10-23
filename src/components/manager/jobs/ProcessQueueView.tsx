@@ -14,7 +14,7 @@ const Row: React.FC<{ job: Job; onOpen: (id: string) => void; soft: number; hard
   since,
   targetLabel,
 }) => {
-  const where = [job.address, job.suburb, job.city].filter(Boolean).join(', ');
+  const where = job.address || '';
   return (
     <button
       type="button"

@@ -199,7 +199,7 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
   const canComplete = isLead && status === 'in_progress';
   const canReportLate = isLead && (status === 'scheduled' || status === 'in_progress');
   const showCompletedPanel = isLead && status === 'completed';
-  const fullAddress = job ? [job.address, job.suburb, job.city, job.postcode].filter(Boolean).join(', ') : '';
+  const fullAddress = job?.address || '';
   const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(fullAddress)}`;
 
   return (
@@ -288,11 +288,6 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
                     <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-slate-700">{job.address || 'Address not set'}</div>
-                      {[job.suburb, job.city, job.postcode].filter(Boolean).length > 0 && (
-                        <div className="text-xs text-slate-500">
-                          {[job.suburb, job.city, job.postcode].filter(Boolean).join(', ')}
-                        </div>
-                      )}
                     </div>
                   </div>
                   {job.location_notes && (
