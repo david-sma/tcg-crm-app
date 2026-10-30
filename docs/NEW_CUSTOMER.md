@@ -10,7 +10,7 @@ All customer-specific data lives in `customer/` (committed to the repo):
 | File | Purpose |
 |---|---|
 | `customer/brand.ts` | Company name, short name, app title, tagline, city, address, support email, timezone, locale, phone country + examples, brand colors, shift-type presets, default location names |
-| `customer/seed.ts` | Team members to seed on first boot: name, role, phone, title, **initialPassword**. Only used when `users` is empty. |
+| `customer/seed.ts` | Team members to seed on first boot: name, role, phone, title. Only used when `users` is empty. Initial passwords come from `SEED_MANAGER_PASSWORD` / `SEED_STAFF_PASSWORD`, otherwise they are generated and printed once in the first-boot log. Never commit real passwords or phone numbers. |
 | `customer/logo.svg` | In-app logo mark (SVG, `viewBox` required; wordmark optional) |
 | `customer/app-icon.svg` | PWA / favicon artwork (square tile) |
 
@@ -21,6 +21,8 @@ with the field name.
 
 Same as any deploy: database (`SUPABASE_HOST/...` or legacy `SQL_HOST/...`),
 `SUPABASE_S3_*` (timesheet photos), `VAPID_*` (web push), `PORT`, `NODE_ENV=production`.
+Optional for the first boot only: `SEED_MANAGER_PASSWORD`, `SEED_STAFF_PASSWORD`
+(min 6 chars; unset → random per-user passwords printed in the boot log).
 
 ## 3. Create schema + build + boot
 
@@ -56,5 +58,4 @@ First boot inserts one `company_settings` row and the `customer/seed.ts` team.
   Keep `false` for real customers.
 - `public/manifest.webmanifest`, `public/app-icon.*`, `public/sw.js` are
   **generated** from `customer/` — never edit them by hand.
-- `customer/seed.ts` contains initial passwords: server-only import, never
-  import it from frontend code.
+- `customer/seed.ts` is a server-only import — never import it from frontend code.

@@ -44,7 +44,8 @@ export const seedMemberSchema = z.object({
   role: z.enum(['manager', 'customer_service', 'service_team', 'staff']),
   phone: z.string().min(5),
   title: z.string(),
-  initialPassword: z.string().min(6),
+  // Optional override; otherwise SEED_MANAGER_PASSWORD / SEED_STAFF_PASSWORD or a generated one.
+  initialPassword: z.string().min(6).optional(),
 });
 
 export const seedAvailabilityWindowSchema = z.object({

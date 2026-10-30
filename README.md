@@ -13,7 +13,7 @@ see [docs/NEW_CUSTOMER.md](docs/NEW_CUSTOMER.md) for the full checklist.
 | File | Purpose |
 |---|---|
 | `customer/brand.ts` | Branding + locale: company name, short name, app title, tagline, city, address, support email, timezone, locale, phone country + examples, brand colors, shift-type presets, default location names |
-| `customer/seed.ts` | Team to seed on first boot: name, role, phone, title, **initialPassword**. Only used when the `users` table is empty. **Server-only import — never import from frontend code (contains passwords).** |
+| `customer/seed.ts` | Team to seed on first boot: name, role, phone, title. Only used when the `users` table is empty. Initial passwords come from `SEED_MANAGER_PASSWORD` / `SEED_STAFF_PASSWORD` (or are generated and printed in the first-boot log). **Server-only import — never import from frontend code.** |
 | `customer/logo.svg` | In-app logo mark (SVG, needs a `viewBox`; wordmark optional) |
 | `customer/app-icon.svg` | PWA / favicon artwork (square tile) |
 

@@ -2,66 +2,59 @@ import type { SeedConfig } from '../src/config/customerSchema.ts';
 
 /**
  * Per-customer seed data, applied on first boot when the `users` table is empty.
- * SECURITY: this file contains initial account passwords — import it from
- * server code only, never from frontend code.
+ * Initial passwords are NOT stored here: they come from SEED_MANAGER_PASSWORD /
+ * SEED_STAFF_PASSWORD, or are generated and printed once in the boot log.
+ * Import from server code only, never from frontend code.
  */
 export const seedConfig: SeedConfig = {
   team: [
     {
-      name: 'Mike',
+      name: 'Alex',
       role: 'manager',
-      phone: '0210000012',
+      phone: '0210000001',
       title: 'Operations Manager',
-      initialPassword: '***REMOVED***',
     },
     {
-      name: 'StaffOne',
+      name: 'Sam',
       role: 'staff',
-      phone: '0210000016',
+      phone: '0210000002',
       title: 'Staff Cleaning Specialist',
-      initialPassword: '***REMOVED***',
     },
     {
-      name: 'StaffTwo',
+      name: 'Jordan',
       role: 'staff',
-      phone: '0210000013',
+      phone: '0210000003',
       title: 'Staff Cleaning Specialist',
-      initialPassword: '***REMOVED***',
     },
     {
-      name: 'Anna',
+      name: 'Taylor',
       role: 'customer_service',
-      phone: '0220000001',
+      phone: '0210000004',
       title: 'Customer Service',
-      initialPassword: '***REMOVED***',
     },
     {
-      name: 'Ben',
+      name: 'Casey',
       role: 'service_team',
-      phone: '0220000002',
+      phone: '0210000005',
       title: 'Service Team Coordinator',
-      initialPassword: '***REMOVED***',
     },
     {
-      name: 'David',
+      name: 'Riley',
       role: 'staff',
-      phone: '0210000011',
+      phone: '0210000006',
       title: 'Field Cleaning Specialist',
-      initialPassword: '***REMOVED***',
     },
     {
-      name: 'StaffThree',
+      name: 'Morgan',
       role: 'staff',
-      phone: '0210000014',
+      phone: '0210000007',
       title: 'Staff Cleaning Specialist',
-      initialPassword: '***REMOVED***',
     },
     {
-      name: 'Saved',
+      name: 'Jamie',
       role: 'staff',
-      phone: '0210000015',
+      phone: '0210000008',
       title: 'Staff Cleaning Specialist',
-      initialPassword: '***REMOVED***',
     },
   ],
   availability: [

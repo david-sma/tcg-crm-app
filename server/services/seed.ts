@@ -30,6 +30,21 @@ export async function bootstrapInitialData() {
   await seedFreshTeam();
 }
 
+/**
+ * Resolves a seeded member's first password without ever committing it to the repo:
+ * explicit config value, then role-level env var, then a random one printed once.
+ */
+function resolveInitialPassword(member: { role: string; initialPassword?: string }): {
+  password: string;
+  generated: boolean;
+} {
+  if (member.initialPassword) return { password: member.initialPassword, generated: false };
+  const envPassword =
+    member.role === 'manager' ? process.env.SEED_MANAGER_PASSWORD : process.env.SEED_STAFF_PASSWORD;
+  if (envPassword && envPassword.length >= 6) return { password: envPassword, generated: false };
+  return { password: crypto.randomBytes(9).toString('base64url'), generated: true };
+}
+
 async function seedFreshTeam() {
   const seed = loadSeedConfig();
   const nowIso = new Date().toISOString();
@@ -40,7 +55,11 @@ async function seedFreshTeam() {
   for (const member of seed.team) {
     const userId = crypto.randomUUID();
     const phoneNorm = normalizePhone(member.phone).e164;
-    const passwordHash = await hashPassword(member.initialPassword);
+    const { password, generated } = resolveInitialPassword(member);
+    const passwordHash = await hashPassword(password);
+    if (generated) {
+      console.log(`  Generated initial password for ${member.name} (${phoneNorm}): ${password}`);
+    }
 
     await db.insert(users).values({
       id: userId,
