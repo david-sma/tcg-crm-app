@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext.tsx';
 import { useNotifications } from '../../context/NotificationContext.tsx';
 import { Bell, LogOut, ChevronDown, Layers, Check } from 'lucide-react';
 import { NotificationDrawer } from './NotificationDrawer.tsx';
+import { PasswordDueBanner } from './PasswordDueBanner.tsx';
 import { CompanyLogo } from './CompanyLogo.tsx';
 import { useBrand } from '../../context/BrandContext.tsx';
 import { CRM_MODULES, CRMModule } from '../../config/modules';
@@ -187,6 +188,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </header>
+
+      <PasswordDueBanner />
 
       <NotificationDrawer
         isOpen={drawerOpen}

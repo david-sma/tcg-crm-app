@@ -6,6 +6,7 @@ import { generateStaffPassword, hashPassword, normalizePhone } from '../services
 import { logAuditEvent } from '../services/audit.ts';
 import { requireAuth, requireRole, requireAnyRole } from '../middleware/auth.ts';
 import { getAppSettings } from '../../src/config/appSettings.ts';
+import { isPasswordDue } from '../../src/config/passwordPolicy.ts';
 import { USER_ROLES, ROLE_LABELS } from '../../src/config/roles.ts';
 import type { UserRole } from '../../src/types/index.ts';
 import crypto from 'crypto';
@@ -40,6 +41,7 @@ staffRouter.get('/', requireAnyRole('manager', 'service_team'), async (req: Requ
         name: users.name,
         notes: users.notes,
         is_active: users.is_active,
+        password_changed_at: users.password_changed_at,
         created_at: users.created_at,
         updated_at: users.updated_at,
       })
@@ -52,7 +54,9 @@ staffRouter.get('/', requireAnyRole('manager', 'service_team'), async (req: Requ
       list = await query.orderBy(desc(users.created_at));
     }
 
-    return res.json({ staff: list });
+    return res.json({
+      staff: list.map((row) => ({ ...row, password_due: isPasswordDue(row.password_changed_at) })),
+    });
   } catch (err) {
     console.error('List staff error:', err);
     return res.status(500).json({ error: 'Failed to retrieve staff list' });
@@ -99,6 +103,7 @@ staffRouter.post('/', async (req: Request, res: Response) => {
       notes: notes?.trim() || null,
       is_active: true,
       password_version: 1,
+      password_changed_at: nowIso,
       created_at: nowIso,
       updated_at: nowIso,
     });
@@ -286,6 +291,7 @@ staffRouter.post('/:id/reset-password', async (req: Request, res: Response) => {
     const rawPassword = generateStaffPassword();
     const passwordHash = await hashPassword(rawPassword);
     const newVersion = existing.password_version + 1;
+    const nowIso = new Date().toISOString();
 
     // Update password hash and increment password_version (which invalidates all sessions)
     await db
@@ -293,7 +299,8 @@ staffRouter.post('/:id/reset-password', async (req: Request, res: Response) => {
       .set({
         password_hash: passwordHash,
         password_version: newVersion,
-        updated_at: new Date().toISOString(),
+        password_changed_at: nowIso,
+        updated_at: nowIso,
       })
       .where(eq(users.id, id));
 
@@ -307,7 +314,7 @@ staffRouter.post('/:id/reset-password', async (req: Request, res: Response) => {
       event_type: 'STAFF_PASSWORD_RESET',
       entity_type: 'user',
       entity_id: id,
-      metadata: { target_name: existing.name },
+      metadata: { target_name: existing.name, password_changed_at: nowIso },
       ip_address: req.ip,
     });
 

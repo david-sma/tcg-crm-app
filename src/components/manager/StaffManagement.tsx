@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../lib/api.ts';
+import { PASSWORD_MAX_AGE_DAYS } from '../../config/passwordPolicy.ts';
 import { PasswordRevealModal } from '../common/PasswordRevealModal.tsx';
 import type { User, UserRole } from '../../types/index.ts';
 import { ROLE_LABELS, ROLE_HINTS, USER_ROLES } from '../../config/roles.ts';
@@ -39,6 +40,7 @@ export const StaffManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
+  const [dueOnly, setDueOnly] = useState(false);
 
   // Create Staff Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -288,7 +290,8 @@ export const StaffManagement: React.FC = () => {
       statusFilter === 'all' ? true : statusFilter === 'active' ? s.is_active : !s.is_active;
     const matchesRole =
       roleFilter === 'all' ? true : s.role === roleFilter;
-    return matchesSearch && matchesStatus && matchesRole;
+    const matchesDue = !dueOnly || s.password_due === true;
+    return matchesSearch && matchesStatus && matchesRole && matchesDue;
   });
 
   const managerCount = staffList.filter((s) => s.role === 'manager').length;
@@ -301,6 +304,7 @@ export const StaffManagement: React.FC = () => {
     service_team: serviceTeamCount,
     staff: workerCount,
   };
+  const passwordDueCount = staffList.filter((s) => s.password_due === true).length;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
@@ -433,6 +437,22 @@ export const StaffManagement: React.FC = () => {
               All Status
             </button>
           </div>
+
+          {/* Password Due Filter */}
+          <button
+            id="filter-password-due-btn"
+            type="button"
+            onClick={() => setDueOnly((v) => !v)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium rounded-xl border transition-all ${
+              dueOnly
+                ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900'
+            }`}
+            title={`Show only accounts whose password is over ${PASSWORD_MAX_AGE_DAYS} days old`}
+          >
+            <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+            <span>Password due ({passwordDueCount})</span>
+          </button>
         </div>
       </div>
 
@@ -544,6 +564,18 @@ export const StaffManagement: React.FC = () => {
                         ))}
                       </select>
                     </div>
+
+                    {/* Password Due Badge */}
+                    {staff.password_due && (
+                      <span
+                        id={`password-due-badge-${staff.id}`}
+                        className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs font-semibold"
+                        title={`Password is over ${PASSWORD_MAX_AGE_DAYS} days old — reset it for ${staff.name}`}
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Password due</span>
+                      </span>
+                    )}
 
                     {/* Reset Password Button */}
                     <button

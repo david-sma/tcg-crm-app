@@ -6,6 +6,7 @@ import { normalizePhone, verifyPassword } from '../services/crypto.ts';
 import { logAuditEvent } from '../services/audit.ts';
 import { SESSION_COOKIE_NAME, requireAuth, resetLoginRateLimit } from '../middleware/auth.ts';
 import { getAppSettings } from '../../src/config/appSettings.ts';
+import { isPasswordDue } from '../../src/config/passwordPolicy.ts';
 import crypto from 'crypto';
 
 export const authRouter = Router();
@@ -90,7 +91,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     });
 
     const { password_hash, ...safeUser } = user;
-    return res.json({ user: safeUser, sessionId, token: sessionId });
+    return res.json({
+      user: { ...safeUser, password_due: isPasswordDue(user.password_changed_at) },
+      sessionId,
+      token: sessionId,
+    });
   } catch (err: any) {
     console.error('Login error:', err);
     return res.status(500).json({ error: 'Internal server error during login' });
@@ -117,5 +122,7 @@ authRouter.get('/me', requireAuth, (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Not authenticated' });
   }
   const { password_hash, ...safeUser }: any = req.user;
-  return res.json({ user: safeUser });
+  return res.json({
+    user: { ...safeUser, password_due: isPasswordDue(safeUser.password_changed_at) },
+  });
 });

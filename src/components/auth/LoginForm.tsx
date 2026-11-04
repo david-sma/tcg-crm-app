@@ -93,6 +93,7 @@ export const LoginForm: React.FC = () => {
                   className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[var(--color-brand)] transition-all"
                 />
               </div>
+              <p className="text-[11px] text-slate-400 mt-1">Forgot password? Ask your manager to reset it.</p>
             </div>
 
             <button

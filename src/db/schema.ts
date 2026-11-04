@@ -38,6 +38,7 @@ export const users = pgTable('users', {
   notes: text('notes'),
   is_active: boolean('is_active').notNull().default(true),
   password_version: integer('password_version').notNull().default(1),
+  password_changed_at: text('password_changed_at'), // ISO; null only before backfill migration
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
 }, (table) => [

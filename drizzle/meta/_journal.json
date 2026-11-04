@@ -57,6 +57,20 @@
       "when": 1792753072076,
       "tag": "0007_dark_mulholland_black",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793780297990,
+      "tag": "0008_moaning_the_spike",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793780312041,
+      "tag": "0009_password_changed_at_backfill",
+      "breakpoints": true
     }
   ]
 }

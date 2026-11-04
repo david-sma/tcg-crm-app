@@ -8,6 +8,8 @@ export interface User {
   notes?: string | null;
   is_active: boolean;
   password_version: number;
+  password_changed_at?: string | null; // ISO; when the password was last set/Reset
+  password_due?: boolean; // computed API-side from password_changed_at (see src/config/passwordPolicy.ts)
   created_at: string;
   updated_at: string;
 }

@@ -70,6 +70,7 @@ async function seedFreshTeam() {
       notes: member.title,
       is_active: true,
       password_version: 1,
+      password_changed_at: nowIso,
       created_at: nowIso,
       updated_at: nowIso,
     });
