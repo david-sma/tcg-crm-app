@@ -12,6 +12,21 @@ Mobile-first workforce roster/timesheet PWA. Express + Vite/React 19 single proc
 - Install with Bun (`bun.lock` committed; no package-lock.json).
 - Schema changes: edit `src/db/schema.ts`, then `bunx drizzle-kit generate --config src/db/drizzle.config.ts` (or `generate --custom --name=…` for hand-written SQL), and commit the new `drizzle/*.sql` file. Migrations apply automatically at boot (`runMigrations()` in `bootstrapInitialData`, including auto-baselining databases originally created with `drizzle-kit push`). Data backfills go in a `--custom` migration as idempotent SQL.
 
+## Environments (dev vs prod) — read before touching the DB
+
+- Two Supabase projects (DB + S3) and two Railway deployments exist: **dev** and **prod**. There is no local Postgres; Docker is not part of this stack.
+- Local env files (both gitignored): `.env` → **PROD** Supabase/S3 (deploy parity), `.env.dev` → dev. The server loads NO env file itself — run it as `node --env-file=.env.dev node_modules\tsx\dist\cli.mjs server.ts` (or export vars in the shell).
+- **Before any command that touches the database, confirm which env file it uses.** Booting `server.ts` applies pending migrations and writes data (seeding, media queue) to whatever DB its env points at — a casual local boot against `.env` mutates prod. Run test writes and feature verification against `.env.dev` only.
+- Resetting a password logs the user out of all devices and the temp password is shown exactly once (then unrecoverable) — treat `POST /api/staff/:id/reset-password` as a real-world action even on seeded accounts.
+- Safe verification loop: boot with `--env-file=.env.dev`, exercise APIs with a session row inserted directly into `sessions` (auth accepts `?token=<id>`), check UI at `localhost:3000`, then delete your test rows.
+
+## Running on Windows (this repo was started on Linux)
+
+- A copied/older `node_modules` from Linux lacks Windows natives and shims. Symptoms and fixes:
+  - rollup "Cannot find module @rollup/rollup-win32-arm64-msvc", esbuild "Host version does not match binary version", lightningcss "Cannot find module '../lightningcss.win32-arm64-msvc.node'", or sharp load errors → `bun install` on Windows (preferred; also creates the `.bin` shims and per-platform `ffmpeg-static`), or manually add `@esbuild/win32-arm64`, `@rollup/rollup-win32-arm64-msvc`, `lightningcss-win32-arm64-msvc`, `@img/sharp-win32-arm64` + `@img/sharp-libvips-win32-arm64` at versions matching the installed packages.
+  - `npm run lint`/`dev` fail with "'tsc' is not recognized" (bun's `.bin` entries have no `.cmd` shims) → run tools directly: `node node_modules\typescript\bin\tsc --noEmit`, `node node_modules\drizzle-kit\bin.cjs generate --config src/db/drizzle.config.ts`, `node node_modules\tsx\dist\cli.mjs server.ts`.
+  - PowerShell execution policy blocks `npx.ps1`/`npm.ps1` → call `*.cmd` shims or `node <pkg>\bin.cjs` directly (or `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`).
+
 ## Architecture
 
 - Entry `server.ts`: mounts routers under `/api/auth|staff|availability|rosters|personal-roster|notifications|audit|timesheets|jobs|settings`; `/api/health` and `/api/settings` are registered before auth. `bootstrapInitialData()` seeds `company_settings` + team from `customer/` on first boot (team only when `users` is empty).
