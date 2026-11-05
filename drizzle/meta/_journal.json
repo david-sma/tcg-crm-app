@@ -71,6 +71,13 @@
       "when": 1793780312041,
       "tag": "0009_password_changed_at_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793852583168,
+      "tag": "0010_password_clock_reset",
+      "breakpoints": true
     }
   ]
 }
