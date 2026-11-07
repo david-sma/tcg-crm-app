@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, X, Share, PlusSquare, Check } from 'lucide-react';
 import { CompanyLogo } from './CompanyLogo.tsx';
 import { useBrand } from '../../context/BrandContext.tsx';
+import { isStandaloneApp, isIOSDevice } from '../../lib/pwa.ts';
 
 export const InstallPwaPrompt: React.FC = () => {
   const { shortName, appTitle } = useBrand();
@@ -13,9 +14,7 @@ export const InstallPwaPrompt: React.FC = () => {
 
   useEffect(() => {
     // Check if already installed / standalone mode
-    const isStandaloneMode =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
+    const isStandaloneMode = isStandaloneApp();
     setIsStandalone(isStandaloneMode);
 
     if (isStandaloneMode) {
@@ -23,8 +22,7 @@ export const InstallPwaPrompt: React.FC = () => {
     }
 
     // Detect iOS
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    const isIosDevice = isIOSDevice();
     setIsIOS(isIosDevice);
 
     // Check if user dismissed prompt recently (last 3 days)

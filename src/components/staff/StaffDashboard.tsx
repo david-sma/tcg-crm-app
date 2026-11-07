@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext.tsx';
-import { useNotifications } from '../../context/NotificationContext.tsx';
 import { apiFetch } from '../../lib/api.ts';
 import {
   getCurrentMonday,
@@ -15,7 +14,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  Bell,
   Camera,
   CheckCircle,
   FileCheck,
@@ -38,14 +36,10 @@ interface StaffDashboardProps {
 
 export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) => {
   const { user } = useAuth();
-  const { isPushSupported, pushSubscribed, requestPushPermission } = useNotifications();
 
   const currentMonday = getCurrentMonday();
   const activeWeekMonday = getDefaultActiveMonday();
   const followingMonday = getOffsetMonday(activeWeekMonday, 1);
-
-  const isDenied =
-    typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'denied';
 
   const [currentRoster, setCurrentRoster] = useState<any>(null);
   const [nextAvailability, setNextAvailability] = useState<any>(null);
@@ -170,27 +164,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
           Attendance and timesheet portal.
         </p>
       </div>
-
-      {/* Push notification banner */}
-      {isPushSupported && !pushSubscribed && !isDenied && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between gap-3 text-xs text-blue-900">
-          <div className="flex items-center gap-2.5">
-            <Bell className="w-5 h-5 text-blue-600 shrink-0" />
-            <div>
-              <strong className="font-semibold block">Enable Web Notifications</strong>
-              Get instant alerts when rosters are published or timesheets are approved.
-            </div>
-          </div>
-          <button
-            id="enable-web-notifications-btn"
-            type="button"
-            onClick={requestPushPermission}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shrink-0 transition-colors shadow-xs"
-          >
-            Enable
-          </button>
-        </div>
-      )}
 
       {/* TODAY'S SHIFT & LIVE ATTENDANCE TRACKER */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
