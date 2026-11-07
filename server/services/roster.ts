@@ -7,7 +7,6 @@ import {
   rosterVersionShifts,
   staffRosterSnapshots,
   staffRosterResponses,
-  notifications,
 } from '../db/schema.ts';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -16,7 +15,7 @@ import {
   getAvailabilityIntervalsForWeek,
   checkShiftAvailabilityContainment,
 } from './availability.ts';
-import { sendPushNotificationToUser } from './notification.ts';
+import { createInAppNotification } from './notification.ts';
 import { logAuditEvent } from './audit.ts';
 import type { DayOfWeekIndex, DraftShift } from '../../src/types/index.ts';
 import { WORKER_ROLES } from '../../src/config/roles.ts';
@@ -359,17 +358,16 @@ export async function publishRosterWeek(params: {
 
       staffToNotify.push({ user_id: staff.id, title, body });
 
-      // Create persistent in-app notification
-      await db.insert(notifications).values({
-        id: crypto.randomUUID(),
-        user_id: staff.id,
+      // Create persistent in-app notification (pushes to the Roster tab for allow-listed types)
+      await createInAppNotification({
+        userId: staff.id,
         type: isRevision ? 'ROSTER_REVISED' : 'ROSTER_PUBLISHED',
         title,
         body,
-        related_entity_type: 'roster_version',
-        related_entity_id: versionId,
-        is_read: false,
-        created_at: nowIso,
+        relatedEntityType: 'roster_version',
+        relatedEntityId: versionId,
+        pushUrl: '/?module=staff-ops&tab=roster',
+        pushTag: `roster-${week.week_start_date}`,
       });
     }
   }
@@ -401,20 +399,7 @@ export async function publishRosterWeek(params: {
     ip_address: ipAddress,
   });
 
-  // 12. Non-blocking asynchronous Web Push notifications
-  setImmediate(async () => {
-    for (const item of staffToNotify) {
-      try {
-        await sendPushNotificationToUser(item.user_id, {
-          title: item.title,
-          body: item.body,
-          url: '/staff/roster',
-        });
-      } catch (err) {
-        console.error(`Push notification failed for user ${item.user_id}:`, err);
-      }
-    }
-  });
+  // 12. Web Push is sent per-staff via createInAppNotification above (allow-listed ROSTER_* types)
 
   return {
     versionId,
