@@ -357,18 +357,6 @@ export async function publishRosterWeek(params: {
         : `Your roster has been published with No shifts assigned for the week starting ${week.week_start_date}.`;
 
       staffToNotify.push({ user_id: staff.id, title, body });
-
-      // Create persistent in-app notification (pushes to the Roster tab for allow-listed types)
-      await createInAppNotification({
-        userId: staff.id,
-        type: isRevision ? 'ROSTER_REVISED' : 'ROSTER_PUBLISHED',
-        title,
-        body,
-        relatedEntityType: 'roster_version',
-        relatedEntityId: versionId,
-        pushUrl: '/?module=staff-ops&tab=roster',
-        pushTag: `roster-${week.week_start_date}`,
-      });
     }
   }
 
@@ -399,7 +387,26 @@ export async function publishRosterWeek(params: {
     ip_address: ipAddress,
   });
 
-  // 12. Web Push is sent per-staff via createInAppNotification above (allow-listed ROSTER_* types)
+  // 12. Notify staff only now that the publish has fully completed — a failed
+  // publish must never alert staff about a roster that did not go out.
+  for (const item of staffToNotify) {
+    try {
+      // In-app notification + Web Push (allow-listed ROSTER_* types) to the Roster tab
+      await createInAppNotification({
+        userId: item.user_id,
+        type: isRevision ? 'ROSTER_REVISED' : 'ROSTER_PUBLISHED',
+        title: item.title,
+        body: item.body,
+        relatedEntityType: 'roster_version',
+        relatedEntityId: versionId,
+        pushUrl: '/?module=staff-ops&tab=roster',
+        pushTag: `roster-${week.week_start_date}`,
+      });
+    } catch (err) {
+      // The publish itself already succeeded; one notification failure must not fail the rest
+      console.error(`Publish notification failed for user ${item.user_id}:`, err);
+    }
+  }
 
   return {
     versionId,
