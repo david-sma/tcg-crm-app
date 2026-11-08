@@ -35,6 +35,7 @@ export type InAppNotificationType =
   | 'TIMESHEET_SUBMITTED'
   | 'TIMESHEET_APPROVED'
   | 'JOB_ASSIGNED'
+  | 'JOB_NEEDS_PRICING'
   | 'JOB_STATUS_CHANGED'
   | 'JOB_READY_FOR_HANDOFF'
   | 'JOB_STARTED'
@@ -44,9 +45,15 @@ export type InAppNotificationType =
 
 /**
  * Allow-list of notification types that also trigger an OS-level push.
- * Everything else is in-app only. Roster publishes/revisions only — no per-type settings UI.
+ * Everything else is in-app only. Roster publishes/revisions and the manager-only
+ * job pricing alert — no per-type settings UI. JOB_NEEDS_PRICING is only ever
+ * sent to managers, so the type-based allow-list stays safe.
  */
-export const PUSH_ENABLED_TYPES: InAppNotificationType[] = ['ROSTER_PUBLISHED', 'ROSTER_REVISED'];
+export const PUSH_ENABLED_TYPES: InAppNotificationType[] = [
+  'ROSTER_PUBLISHED',
+  'ROSTER_REVISED',
+  'JOB_NEEDS_PRICING',
+];
 
 export async function pushForType(
   type: InAppNotificationType,

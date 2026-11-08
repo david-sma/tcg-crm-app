@@ -37,6 +37,9 @@ export class JobTransitionError extends Error {
   }
 }
 
+// Intentional: no transition depends on `agreed_price` — pricing runs in parallel
+// (manager-only) and must never gate confirming, scheduling, allocating staff,
+// starting or completing a job. Keep it that way.
 const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
   new: ['awaiting_info', 'ready', 'cancelled'],
   awaiting_info: ['ready', 'cancelled'],
@@ -342,6 +345,12 @@ export async function notifyRoles(
   title: string,
   body: string,
   relatedEntityId?: string,
+  opts?: {
+    /** Skip this user (e.g. the actor who triggered the notification). */
+    excludeUserId?: string;
+    pushUrl?: string;
+    pushTag?: string;
+  },
 ): Promise<void> {
   try {
     const recipients = await db
@@ -350,6 +359,7 @@ export async function notifyRoles(
       .where(and(inArray(users.role, roles), eq(users.is_active, true)));
 
     for (const recipient of recipients) {
+      if (opts?.excludeUserId && recipient.id === opts.excludeUserId) continue;
       try {
         await createInAppNotification({
           userId: recipient.id,
@@ -358,6 +368,8 @@ export async function notifyRoles(
           body,
           relatedEntityType: 'job',
           relatedEntityId,
+          pushUrl: opts?.pushUrl,
+          pushTag: opts?.pushTag,
         });
       } catch (err) {
         console.error('Failed to notify user:', err);
@@ -374,8 +386,14 @@ export async function notifyManagers(
   title: string,
   body: string,
   relatedEntityId?: string,
+  opts?: {
+    /** Skip this user (e.g. the actor who triggered the notification). */
+    excludeUserId?: string;
+    pushUrl?: string;
+    pushTag?: string;
+  },
 ): Promise<void> {
-  await notifyRoles(['manager'], type, title, body, relatedEntityId);
+  await notifyRoles(['manager'], type, title, body, relatedEntityId, opts);
 }
 
 /** Notify a single user without letting failures bubble up. */

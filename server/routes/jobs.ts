@@ -342,6 +342,26 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
       title: title.value,
     });
 
+    // Pricing runs in parallel: alert managers right away when a job arrives
+    // without a price. Never let notification failures break job creation.
+    if (!price.value) {
+      try {
+        await notifyManagers(
+          'JOB_NEEDS_PRICING',
+          `New job to price: ${title.value}`,
+          `${jobOrderNumber} at ${address.value} needs pricing. The team can keep working on it`,
+          id,
+          {
+            excludeUserId: req.user!.id,
+            pushUrl: '/?module=jobs-dispatches&tab=jobs-board',
+            pushTag: `job-pricing-${id}`,
+          },
+        );
+      } catch (err) {
+        console.error('Failed to send needs-pricing notifications:', err);
+      }
+    }
+
     const created = await getJobById(id);
     const job = await formatJob(created!, {
       includeAssignments: true,
@@ -833,6 +853,19 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
       patch.agreed_price = value.value ?? null;
     }
 
+    // Price changes get their own audit event (the audit log is manager-only,
+    // so price values in metadata are acceptable).
+    let priceChange: { from: string | null; to: string | null } | null = null;
+    if (hasField(patch, 'agreed_price')) {
+      const to = (patch.agreed_price as string | null) ?? null;
+      const from = job.agreed_price ?? null;
+      if (to !== from) {
+        priceChange = { from, to };
+      } else {
+        delete patch.agreed_price;
+      }
+    }
+
     if (hasField(body, 'services_text')) {
       const value = readOptionalText(body, 'services_text');
       if (value.error) return res.status(400).json({ error: value.error });
@@ -844,15 +877,26 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
             : null;
     }
 
-    const changedFields = Object.keys(patch);
-    if (changedFields.length === 0) {
+    const changedFields = Object.keys(patch).filter((key) => key !== 'agreed_price');
+    if (changedFields.length === 0 && !priceChange) {
       return res.status(400).json({ error: 'No updatable fields provided' });
     }
 
     patch.updated_at = new Date().toISOString();
     await db.update(jobs).set(patch).where(eq(jobs.id, job.id));
 
-    await auditJob(req, 'job_updated', job.id, { fields: changedFields });
+    if (priceChange) {
+      const action = !priceChange.from ? 'set' : !priceChange.to ? 'cleared' : 'changed';
+      await auditJob(req, 'job_price_updated', job.id, {
+        action,
+        from: priceChange.from,
+        to: priceChange.to,
+      });
+    }
+
+    if (changedFields.length > 0) {
+      await auditJob(req, 'job_updated', job.id, { fields: changedFields });
+    }
 
     const updated = await getJobById(job.id);
     const formatted = await formatJob(updated!, {
