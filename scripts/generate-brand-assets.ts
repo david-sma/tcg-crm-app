@@ -47,7 +47,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Notification', body: '', url: '/' };
+  let payload = { title: 'Notification', body: '', url: '/', tag: undefined };
   try {
     if (event.data) {
       payload = { ...payload, ...event.data.json() };
@@ -61,6 +61,8 @@ self.addEventListener('push', (event) => {
       icon: '/app-icon-192.png',
       badge: '/app-icon-192.png',
       data: { url: payload.url || '/' },
+      tag: payload.tag || undefined,
+      renotify: Boolean(payload.tag),
     })
   );
 });
@@ -72,10 +74,16 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
-          client.navigate(targetUrl);
-          return client.focus();
+          if (typeof client.navigate !== 'function') {
+            return self.clients.openWindow(targetUrl);
+          }
+          return client
+            .navigate(targetUrl)
+            .then(() => client.focus())
+            .catch(() => self.clients.openWindow(targetUrl));
         }
       }
+      // No existing window: openWindow launches the app
       return self.clients.openWindow(targetUrl);
     })
   );
@@ -168,8 +176,8 @@ async function main() {
   if (icons.some((i) => i.src === '/app-icon-192.png')) {
     precache.push('/app-icon-192.png', '/app-icon-512.png');
   }
-  fs.writeFileSync(path.join(PUBLIC_DIR, 'sw.js'), buildServiceWorker(`${slug}-portal-v1`, precache));
-  console.log(`brand-assets: wrote public/sw.js (cache ${slug}-portal-v1)`);
+  fs.writeFileSync(path.join(PUBLIC_DIR, 'sw.js'), buildServiceWorker(`${slug}-portal-v2`, precache));
+  console.log(`brand-assets: wrote public/sw.js (cache ${slug}-portal-v2)`);
 }
 
 main().catch((err) => {
