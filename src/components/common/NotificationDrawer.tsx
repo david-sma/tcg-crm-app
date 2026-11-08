@@ -41,6 +41,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
     // Job notifications: office roles work the Jobs module, field staff their own list.
     if (
       type === 'JOB_ASSIGNED' ||
+      type === 'JOB_NEEDS_PRICING' ||
       type === 'JOB_STATUS_CHANGED' ||
       type === 'JOB_READY_FOR_HANDOFF' ||
       type === 'JOB_STARTED' ||
@@ -100,6 +101,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
       case 'SHIFT_EVENT':
         return <ClipboardList className="w-4 h-4 text-purple-600 shrink-0" />;
       case 'JOB_ASSIGNED':
+      case 'JOB_NEEDS_PRICING':
       case 'JOB_STATUS_CHANGED':
       case 'JOB_READY_FOR_HANDOFF':
       case 'JOB_STARTED':

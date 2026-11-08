@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
 import type { Job, JobStatus } from '../../../types/index.ts';
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '../../../config/jobs.ts';
+import { useAuth } from '../../../context/AuthContext.tsx';
 import { NewJobFormModal } from './NewJobFormModal.tsx';
 import { IntakeTargetChip } from './TargetChip.tsx';
 import { Plus, Search, AlertTriangle, CheckCircle2, X, Loader2, Briefcase, ChevronDown, ChevronRight } from 'lucide-react';
@@ -83,11 +84,13 @@ interface JobsBoardViewProps {
 }
 
 export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refreshKey = 0 }) => {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'active' | JobStatus>('active');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'needs_pricing' | JobStatus>('active');
   const [newJobOpen, setNewJobOpen] = useState(false);
   const [doneExpanded, setDoneExpanded] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -116,6 +119,10 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
     loadJobs();
   }, [loadJobs, refreshKey]);
 
+  // Managers only: jobs without a price (that aren't cancelled) need pricing.
+  // Non-managers never receive agreed_price, so this is gated on the role.
+  const needsPricing = (job: Job): boolean => isManager && job.status !== 'cancelled' && !job.agreed_price;
+
   const searchedJobs = jobs.filter((job) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -128,12 +135,14 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
   const activeCount = searchedJobs.filter(
     (job) => job.status !== 'completed' && job.status !== 'cancelled',
   ).length;
+  const needsPricingCount = searchedJobs.filter(needsPricing).length;
 
-  const filteredJobs = searchedJobs.filter((job) =>
-    statusFilter === 'active'
+  const filteredJobs = searchedJobs.filter((job) => {
+    if (statusFilter === 'needs_pricing') return needsPricing(job);
+    return statusFilter === 'active'
       ? job.status !== 'completed' && job.status !== 'cancelled'
-      : job.status === statusFilter,
-  );
+      : job.status === statusFilter;
+  });
 
   // Morning-triage order: running late first, then pipeline order, then scheduled date.
   const sortedJobs = [...filteredJobs].sort((a, b) => {
@@ -201,6 +210,14 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
           />
         ) : null}
         {(job.status === 'new' || job.status === 'awaiting_info') && <IntakeTargetChip job={job} />}
+        {needsPricing(job) && (
+          <span
+            title="No price set — pricing is handled by the manager in parallel"
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200"
+          >
+            Needs pricing
+          </span>
+        )}
         <JobStatusChip status={job.status} />
       </div>
     );
@@ -268,6 +285,19 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
         >
           Active · <span className="font-extrabold">{activeCount}</span>
         </button>
+        {isManager && (
+          <button
+            type="button"
+            onClick={() => setStatusFilter('needs_pricing')}
+            className={`px-3 py-1.5 text-[11px] font-semibold rounded-full border transition-colors cursor-pointer ${
+              statusFilter === 'needs_pricing'
+                ? 'bg-amber-500 text-white border-amber-500'
+                : 'bg-amber-100 text-amber-800 border-amber-200 hover:shadow-xs'
+            }`}
+          >
+            Needs pricing · <span className="font-extrabold">{needsPricingCount}</span>
+          </button>
+        )}
         {JOB_STATUSES.map((status) => (
           <button
             key={status}
@@ -358,6 +388,14 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
                       {(job.status === 'new' || job.status === 'awaiting_info') && (
                         <span className="mr-1">
                           <IntakeTargetChip job={job} />
+                        </span>
+                      )}
+                      {needsPricing(job) && (
+                        <span
+                          title="No price set — pricing is handled by the manager in parallel"
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200 mr-1"
+                        >
+                          Needs pricing
                         </span>
                       )}
                       <JobStatusChip status={job.status} />
