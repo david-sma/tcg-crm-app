@@ -5,6 +5,7 @@ import { useBrand } from './context/BrandContext.tsx';
 import { LoginForm } from './components/auth/LoginForm.tsx';
 import { Header } from './components/common/Header.tsx';
 import { InstallPwaPrompt } from './components/common/InstallPwaPrompt.tsx';
+import { PushNotificationPrompt } from './components/common/PushNotificationPrompt.tsx';
 import { CRM_MODULES } from './config/modules.ts';
 import { ModuleRoadmapView } from './components/common/ModuleRoadmapModal.tsx';
 
@@ -45,38 +46,9 @@ function MainLayout() {
   const [activeModuleId, setActiveModuleId] = useState<string>('staff-ops');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
-  // Reset tab to dashboard whenever user or user role changes.
-  // ?module=jobs-dispatches deep link (push notification clicks) restores the jobs module.
-  useEffect(() => {
-    if (user?.id) {
-      const deepLinked = new URLSearchParams(window.location.search).get('module');
-      const startModule = deepLinked === 'jobs-dispatches' && user.role !== 'staff' ? 'jobs-dispatches' : 'staff-ops';
-      setActiveTab('dashboard');
-      setActiveModuleId(startModule);
-      if (startModule === 'jobs-dispatches') setActiveTab('jobs-board');
-    }
-  }, [user?.id, user?.role]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-slate-500">
-          <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-          <span className="text-xs font-medium text-slate-600">
-            Loading {companyName} Portal...
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <LoginForm />;
-  }
-
-  const isManager = user.role === 'manager';
-  const isOfficeRole = user.role === 'manager' || user.role === 'customer_service' || user.role === 'service_team';
-  const isServiceTeam = user.role === 'manager' || user.role === 'service_team';
+  const isManager = user?.role === 'manager';
+  const isOfficeRole = user?.role === 'manager' || user?.role === 'customer_service' || user?.role === 'service_team';
+  const isServiceTeam = user?.role === 'manager' || user?.role === 'service_team';
 
   const managerNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -113,6 +85,45 @@ function MainLayout() {
         ]
       : []),
   ];
+
+  // Reset tab to dashboard whenever user or user role changes.
+  // ?module=...&tab=... deep links (push notification clicks) restore the target module/tab.
+  useEffect(() => {
+    if (user?.id) {
+      const params = new URLSearchParams(window.location.search);
+      const deepLinkedModule = params.get('module');
+      const deepLinkedTab = params.get('tab');
+
+      const startModule = deepLinkedModule === 'jobs-dispatches' && user.role !== 'staff' ? 'jobs-dispatches' : 'staff-ops';
+      const moduleNavItems =
+        startModule === 'jobs-dispatches' ? jobsNavItems : isManager ? managerNavItems : isOfficeRole ? officeNavItems : staffNavItems;
+      const moduleValidTabIds = moduleNavItems.map((n) => n.id);
+      const startTab = deepLinkedTab && moduleValidTabIds.includes(deepLinkedTab) ? deepLinkedTab : startModule === 'jobs-dispatches' ? 'jobs-board' : 'dashboard';
+
+      setActiveModuleId(startModule);
+      setActiveTab(startTab);
+      // Strip the query string so a refresh doesn't re-apply the deep link
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.role]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <div className="w-8 h-8 border-3 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          <span className="text-xs font-medium text-slate-600">
+            Loading {companyName} Portal...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginForm />;
+  }
 
   const navItems = isManager ? managerNavItems : isOfficeRole ? officeNavItems : staffNavItems;
   const barNavItems = activeModuleId === 'jobs-dispatches' ? jobsNavItems : navItems;
@@ -250,6 +261,7 @@ function MainLayout() {
       {/* Main Content View */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24 sm:pb-8">
         <InstallPwaPrompt />
+        <PushNotificationPrompt />
         {renderContent()}
       </main>
 
