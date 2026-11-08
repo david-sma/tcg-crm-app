@@ -55,7 +55,6 @@ interface JobDraft {
   address: string;
   location_notes: string;
   access_notes: string;
-  agreed_price: string;
 }
 
 const draftFromJob = (job: Job): JobDraft => ({
@@ -71,7 +70,6 @@ const draftFromJob = (job: Job): JobDraft => ({
   address: job.address || '',
   location_notes: job.location_notes || '',
   access_notes: job.access_notes || '',
-  agreed_price: job.agreed_price || '',
 });
 
 const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
@@ -114,6 +112,9 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [removingAssignmentId, setRemovingAssignmentId] = useState<string | null>(null);
   const [clearingLate, setClearingLate] = useState(false);
+  const [priceDraft, setPriceDraft] = useState('');
+  const [savingPrice, setSavingPrice] = useState(false);
+  const [priceError, setPriceError] = useState('');
 
   const loadJob = useCallback(async () => {
     if (!jobId) return;
@@ -121,8 +122,10 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
       setLoading(true);
       setError('');
       setActionError('');
+      setPriceError('');
       const res = await apiFetch<{ job: Job }>(`/api/jobs/${jobId}`);
       setJob(res.job);
+      setPriceDraft(res.job.agreed_price || '');
     } catch (err: any) {
       setError(err?.message || 'Failed to load job');
     } finally {
@@ -243,10 +246,10 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
           address: draft.address.trim(),
           location_notes: draft.location_notes.trim() || null,
           access_notes: draft.access_notes.trim() || null,
-          ...(isManager ? { agreed_price: draft.agreed_price.trim() || null } : {}),
         }),
       });
       setJob(res.job);
+      setPriceDraft(res.job.agreed_price || '');
       setEditing(false);
       setDraft(null);
       onChanged();
@@ -259,6 +262,26 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
 
   const setDraftField = (field: keyof JobDraft, value: string) => {
     setDraft((current) => (current ? { ...current, [field]: value } : current));
+  };
+
+  // Pricing is saved independently of "Edit job" and never changes job status.
+  const savePrice = async () => {
+    if (!job) return;
+    try {
+      setSavingPrice(true);
+      setPriceError('');
+      const res = await apiFetch<{ job: Job }>(`/api/jobs/${job.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ agreed_price: priceDraft.trim() || null }),
+      });
+      setJob(res.job);
+      setPriceDraft(res.job.agreed_price || '');
+      onChanged();
+    } catch (err: any) {
+      setPriceError(err?.message || 'Failed to save price');
+    } finally {
+      setSavingPrice(false);
+    }
   };
 
   const phaseMedia = (phase: JobMediaPhase): JobMedia[] =>
@@ -275,7 +298,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
     );
   };
 
-  const busy = mutating !== null || savingEdit || removingAssignmentId !== null || clearingLate;
+  const busy = mutating !== null || savingEdit || removingAssignmentId !== null || clearingLate || savingPrice;
   const status = job?.status;
   const canCancel = !!job && status !== 'completed' && status !== 'cancelled' && canProcess;
   const canIntake = canProcess || user?.role === 'customer_service';
@@ -544,22 +567,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       />
                     </div>
                   </div>
-
-                  <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3">
-                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Commercial</h3>
-                    {isManager && (
-                      <div>
-                        <label className={labelClass} htmlFor="edit-job-agreed-price">Pricing</label>
-                        <input
-                          id="edit-job-agreed-price"
-                          type="text"
-                          value={draft.agreed_price}
-                          onChange={(e) => setDraftField('agreed_price', e.target.value)}
-                          className={inputClass}
-                        />
-                      </div>
-                    )}
-                  </div>
                 </>
               ) : (
                 job && (
@@ -635,16 +642,63 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         )}
                       </Row>
                     </Section>
-
-                    {isManager && (
-                      <Section title="Commercial" icon={<DollarSign className="w-4 h-4 text-indigo-600" />}>
-                        <Row label="Pricing">
-                          {job.agreed_price ? <span className="font-semibold">{job.agreed_price}</span> : <EmptyValue />}
-                        </Row>
-                      </Section>
-                    )}
                   </>
                 )
+              )}
+
+              {job && isManager && (
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-indigo-600" />
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Pricing</h3>
+                    {!job.agreed_price && job.status !== 'cancelled' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200">
+                        Needs pricing
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Managers only — handled in parallel. Pricing never blocks confirming, scheduling or the crew.
+                  </p>
+                  <div>
+                    <label className={labelClass} htmlFor="job-agreed-price">Agreed price</label>
+                    <input
+                      id="job-agreed-price"
+                      type="text"
+                      value={priceDraft}
+                      onChange={(e) => setPriceDraft(e.target.value)}
+                      placeholder="e.g. $450 incl. GST"
+                      className={inputClass}
+                    />
+                  </div>
+                  {priceError && (
+                    <p className="text-[11px] text-rose-600">{priceError}</p>
+                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    {priceDraft.trim() !== (job.agreed_price || '').trim() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPriceDraft(job.agreed_price || '');
+                          setPriceError('');
+                        }}
+                        disabled={savingPrice}
+                        className="py-2 px-3.5 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Reset
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={savePrice}
+                      disabled={savingPrice || priceDraft.trim() === (job.agreed_price || '').trim()}
+                      className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      {savingPrice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      {savingPrice ? 'Saving…' : 'Save price'}
+                    </button>
+                  </div>
+                </div>
               )}
 
               {job && !editing && (
@@ -967,15 +1021,22 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       </button>
                     )}
                     {canProcess && (
-                      <button
-                        type="button"
-                        onClick={() => changeStatus('deal_confirmed')}
-                        disabled={busy}
-                        className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-                      >
-                        {mutating === 'deal_confirmed' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        Mark deal confirmed
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => changeStatus('deal_confirmed')}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                        >
+                          {mutating === 'deal_confirmed' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                          Mark deal confirmed
+                        </button>
+                        {!isManager && (
+                          <p className="w-full text-[11px] text-slate-500">
+                            Pricing is handled separately by the manager. You don&apos;t need to wait for it.
+                          </p>
+                        )}
+                      </>
                     )}
                   </>
                 )}
