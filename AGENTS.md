@@ -39,6 +39,15 @@ Mobile-first workforce roster/timesheet PWA. Express + Vite/React 19 single proc
 - Auth: session token accepted as cookie `roster_session_token`, `Authorization: Bearer` / `x-auth-token`, or `?token=`. Bumping `users.password_version` invalidates all sessions. Manager routers use `requireRole('manager')` (`server/middleware/auth.ts`).
 - Timesheet photos are stored as `s3://` references in Supabase S3 and served through authenticated `/api/timesheets/photo/...` and `/api/timesheets/event-photo/...` routes; the backend streams from the private bucket.
 
+## Push notifications
+
+- Env vars (both Railway services have them): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` — the subject must be a real `mailto:` or `https:` contact, not a placeholder. Missing keys/subject warn once at boot and push is disabled (in-app notifications keep working).
+- Supported targets only: Chrome on Android (app installed via Chrome) and iPhone Home Screen app (iOS 16.4+). Other browsers get an install hint instead of a permission prompt.
+- Which notification types also push is the allow-list `PUSH_ENABLED_TYPES` in `server/services/notification.ts` (currently `ROSTER_PUBLISHED`/`ROSTER_REVISED` only — job/timesheet/availability types are in-app only). All pushes go through `pushForType()`; the low-level sender is `sendPushNotificationToUser()` (also used by manager-only `POST /api/notifications/test`).
+- The service worker is generated: `public/sw.js` comes from `scripts/generate-brand-assets.ts` (`npm run brand-assets`). Never edit `sw.js` by hand; change the generator (cache name is `${slug}-portal-v2`).
+- Client push state (`src/context/NotificationContext.tsx`) is derived from a real `PushManager` subscription and self-heals on every signed-in load: stale/lost subscriptions are re-created and re-registered (which also re-binds a shared phone to the last user to log in). `src/components/common/PushNotificationPrompt.tsx` is the single enable prompt for all roles.
+- If a phone stops getting alerts: open the installed app once (this re-syncs the subscription). If still broken, uninstall and reinstall from Chrome (Android) / re-add via Home Screen (iPhone).
+
 ## Gotchas
 
 - Business timezone comes from customer settings (default `Pacific/Auckland`); weeks start Monday. `getDefaultActiveWeek()` returns NEXT week's Monday on Sundays from 15:00 local (`server/services/timezone.ts`) — intentional.
