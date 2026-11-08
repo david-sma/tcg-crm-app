@@ -47,10 +47,8 @@ jobsRouter.use(requireAuth);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const VALID_JOB_STATUSES = new Set<string>([
-  'new',
   'awaiting_info',
   'ready',
-  'deal_confirmed',
   'scheduled',
   'in_progress',
   'completed',
@@ -69,14 +67,11 @@ const VALID_MEDIA_TYPES = new Set<string>(['photo', 'video']);
 const STATUS_ENDPOINT_VALUES = new Set<string>([
   'awaiting_info',
   'ready',
-  'deal_confirmed',
   'cancelled',
 ]);
 const CANCELLABLE_STATUSES = new Set<string>([
-  'new',
   'awaiting_info',
   'ready',
-  'deal_confirmed',
   'scheduled',
   'in_progress',
 ]);
@@ -318,7 +313,7 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
       id,
       job_order_number: jobOrderNumber,
       title: title.value,
-      status: 'new',
+      status: 'awaiting_info',
       job_type: (jobType.value as string) ?? '',
       services: JSON.stringify(services.value ?? []),
       lead_source: leadSource.value ?? 'manual',
@@ -912,7 +907,7 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
 });
 
 // POST /api/jobs/:id/status - Pipeline status transitions
-// Intake roles move jobs to awaiting_info/ready; only processing roles confirm or cancel.
+// Intake roles move jobs between awaiting_info/ready; only processing roles cancel.
 jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: Response) => {
   try {
     const job = await loadJobOr404(req, res);
@@ -928,8 +923,8 @@ jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Requ
       });
     }
 
-    if ((status === 'deal_confirmed' || status === 'cancelled') && !PROCESSING_ROLES.includes(req.user!.role)) {
-      return res.status(403).json({ error: 'Only the service team can confirm deals or cancel jobs' });
+    if (status === 'cancelled' && !PROCESSING_ROLES.includes(req.user!.role)) {
+      return res.status(403).json({ error: 'Only the service team can cancel jobs' });
     }
 
     const fromStatus = job.status as JobStatus;
@@ -1092,8 +1087,8 @@ jobsRouter.post('/:id/schedule', requireAnyRole(...PROCESSING_ROLES), async (req
     }
 
     const currentStatus = job.status as JobStatus;
-    if (currentStatus !== 'deal_confirmed' && currentStatus !== 'scheduled') {
-      return res.status(400).json({ error: 'Confirm the deal before scheduling' });
+    if (currentStatus !== 'ready' && currentStatus !== 'scheduled') {
+      return res.status(400).json({ error: 'Move the job to the Process Queue before scheduling' });
     }
 
     // Exactly one team lead per job (information stays with one person on site).

@@ -31,10 +31,8 @@ export const CALENDAR_SLOT_MINUTES = 30;
 export const CALENDAR_PX_PER_HOUR = 64;
 
 export const JOB_STATUSES = [
-  'new',
   'awaiting_info',
   'ready',
-  'deal_confirmed',
   'scheduled',
   'in_progress',
   'completed',
@@ -42,10 +40,12 @@ export const JOB_STATUSES = [
 ] as const;
 
 export const JOB_STATUS_LABELS: Record<string, string> = {
+  // Legacy values ('new', 'deal_confirmed') are kept for status history and
+  // audit display only — they are no longer valid job statuses.
   new: 'New',
-  awaiting_info: 'Awaiting Info',
-  ready: 'Ready for Processing',
   deal_confirmed: 'Deal Confirmed',
+  awaiting_info: 'Awaiting Info',
+  ready: 'Process Queue',
   scheduled: 'Scheduled',
   in_progress: 'In Progress',
   completed: 'Completed',

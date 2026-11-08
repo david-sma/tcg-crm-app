@@ -279,7 +279,7 @@ export const jobs = pgTable('jobs', {
   id: text('id').primaryKey(),
   job_order_number: text('job_order_number').notNull().unique(), // JO-YYYY-####
   title: text('title').notNull(),
-  status: text('status').notNull().default('new'), // 'new' | 'awaiting_info' | 'ready' | 'deal_confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  status: text('status').notNull().default('awaiting_info'), // 'awaiting_info' | 'ready' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' (legacy: 'new' | 'deal_confirmed')
   job_type: text('job_type').notNull().default(''), // primary category id from JOB_TYPE_OPTIONS
   services: text('services').notNull().default('[]'), // legacy JSON array of service catalog ids (superseded by services_text)
   services_text: text('services_text'), // free-text services required / job scope

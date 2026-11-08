@@ -41,10 +41,8 @@ export class JobTransitionError extends Error {
 // (manager-only) and must never gate confirming, scheduling, allocating staff,
 // starting or completing a job. Keep it that way.
 const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
-  new: ['awaiting_info', 'ready', 'cancelled'],
   awaiting_info: ['ready', 'cancelled'],
-  ready: ['deal_confirmed', 'awaiting_info', 'cancelled'],
-  deal_confirmed: ['scheduled', 'ready', 'cancelled'],
+  ready: ['scheduled', 'awaiting_info', 'cancelled'],
   scheduled: ['in_progress', 'cancelled'],
   in_progress: ['completed', 'cancelled'],
   completed: [],

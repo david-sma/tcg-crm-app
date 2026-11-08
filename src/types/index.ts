@@ -253,10 +253,8 @@ export interface DayTimesheetRow {
 }
 
 export type JobStatus =
-  | 'new'
   | 'awaiting_info'
   | 'ready'
-  | 'deal_confirmed'
   | 'scheduled'
   | 'in_progress'
   | 'completed'

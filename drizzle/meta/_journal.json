@@ -78,6 +78,20 @@
       "when": 1793852583168,
       "tag": "0010_password_clock_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794177037572,
+      "tag": "0011_stiff_firebird",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794177045183,
+      "tag": "0012_job_status_workflow_backfill",
+      "breakpoints": true
     }
   ]
 }
