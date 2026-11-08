@@ -13,7 +13,8 @@ interface NotificationContextType {
   refreshNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  pushStatus: PushStatus;
+  /** null while the subscription check is still running — render nothing until resolved. */
+  pushStatus: PushStatus | null;
   enablePush: () => Promise<void>;
 }
 
@@ -123,7 +124,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [pushStatus, setPushStatus] = useState<PushStatus>('off');
+  const [pushStatus, setPushStatus] = useState<PushStatus | null>(null);
 
   // Self-healing push sync on every signed-in load and after login
   useEffect(() => {

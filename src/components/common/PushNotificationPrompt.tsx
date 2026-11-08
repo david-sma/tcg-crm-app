@@ -40,10 +40,10 @@ export const PushNotificationPrompt: React.FC = () => {
     }
   };
 
-  const showEnablePrompt = pushStatus !== 'on';
+  const showEnablePrompt = pushStatus !== null && pushStatus !== 'on';
   const showTestPrompt = isManager && (pushStatus === 'off' || pushStatus === 'on');
 
-  if (pushStatus === 'unsupported' || (!showEnablePrompt && !showTestPrompt)) {
+  if (pushStatus === null || pushStatus === 'unsupported' || (!showEnablePrompt && !showTestPrompt)) {
     return null;
   }
 
