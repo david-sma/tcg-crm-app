@@ -117,11 +117,11 @@ export const ProcessQueueView: React.FC<ProcessQueueViewProps> = ({ onOpenJob, r
               <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                 To process <span className="text-slate-400">({toProcess.length})</span>
               </h2>
-              <span className="text-[11px] text-slate-400">New job to process — confirm, schedule and allocate the crew (target: 24h)</span>
+              <span className="text-[11px] text-slate-400">New job to process — schedule and allocate the crew (target: 24h)</span>
             </div>
             {toProcess.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-500">
-                Nothing waiting — jobs marked ready by customer service will appear here.
+                Nothing waiting — jobs sent here by customer service will appear here.
               </div>
             ) : (
               <div className="space-y-3">

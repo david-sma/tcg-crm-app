@@ -150,7 +150,7 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
               <CalendarClock className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">Schedule job</h2>
+              <h2 className="text-base font-semibold text-white">Schedule &amp; allocate staff</h2>
               <p className="text-xs text-white/80 font-mono">{job.job_order_number}</p>
             </div>
           </div>
@@ -302,7 +302,7 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
             className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
           >
             {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-            {submitting ? 'Scheduling…' : 'Schedule job'}
+            {submitting ? 'Scheduling…' : 'Schedule & allocate staff'}
           </button>
         </div>
       </div>

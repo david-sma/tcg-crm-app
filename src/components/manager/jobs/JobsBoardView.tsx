@@ -2,17 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
 import type { Job, JobStatus } from '../../../types/index.ts';
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '../../../config/jobs.ts';
-import { useAuth } from '../../../context/AuthContext.tsx';
 import { NewJobFormModal } from './NewJobFormModal.tsx';
 import { IntakeTargetChip } from './TargetChip.tsx';
 import { Plus, Search, AlertTriangle, CheckCircle2, X, Loader2, Briefcase, ChevronDown, ChevronRight } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 
 export const JOB_STATUS_DOT: Record<string, string> = {
-  new: 'bg-slate-400',
   awaiting_info: 'bg-amber-400',
   ready: 'bg-teal-400',
-  deal_confirmed: 'bg-sky-400',
   scheduled: 'bg-indigo-400',
   in_progress: 'bg-blue-500',
   completed: 'bg-emerald-400',
@@ -20,10 +17,8 @@ export const JOB_STATUS_DOT: Record<string, string> = {
 };
 
 export const JOB_STATUS_SOLID: Record<string, string> = {
-  new: 'bg-slate-500 text-white border-slate-500',
   awaiting_info: 'bg-amber-500 text-white border-amber-500',
   ready: 'bg-teal-500 text-white border-teal-500',
-  deal_confirmed: 'bg-sky-500 text-white border-sky-500',
   scheduled: 'bg-indigo-500 text-white border-indigo-500',
   in_progress: 'bg-blue-600 text-white border-blue-600',
   completed: 'bg-emerald-500 text-white border-emerald-500',
@@ -31,10 +26,8 @@ export const JOB_STATUS_SOLID: Record<string, string> = {
 };
 
 export const JOB_STATUS_CHIP: Record<string, string> = {
-  new: 'bg-slate-100 text-slate-700 border-slate-200',
   awaiting_info: 'bg-amber-100 text-amber-800 border-amber-200',
   ready: 'bg-teal-100 text-teal-800 border-teal-200',
-  deal_confirmed: 'bg-sky-100 text-sky-800 border-sky-200',
   scheduled: 'bg-indigo-100 text-indigo-800 border-indigo-200',
   in_progress: 'bg-blue-100 text-blue-800 border-blue-200',
   completed: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -43,7 +36,7 @@ export const JOB_STATUS_CHIP: Record<string, string> = {
 
 export const JobStatusChip: React.FC<{ status: JobStatus | string; className?: string }> = ({ status, className = '' }) => (
   <span
-    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${JOB_STATUS_CHIP[status] || JOB_STATUS_CHIP.new} ${className}`}
+    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${JOB_STATUS_CHIP[status] || 'bg-slate-100 text-slate-700 border-slate-200'} ${className}`}
   >
     {JOB_STATUS_LABELS[status] || status}
   </span>
@@ -68,14 +61,12 @@ export const formatJobTimeWindow = (job: Job): string => {
 };
 
 const STATUS_ORDER: Record<string, number> = {
-  new: 0,
-  awaiting_info: 1,
-  ready: 2,
-  deal_confirmed: 3,
-  scheduled: 4,
-  in_progress: 5,
-  completed: 6,
-  cancelled: 7,
+  awaiting_info: 0,
+  ready: 1,
+  scheduled: 2,
+  in_progress: 3,
+  completed: 4,
+  cancelled: 5,
 };
 
 interface JobsBoardViewProps {
@@ -84,13 +75,11 @@ interface JobsBoardViewProps {
 }
 
 export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refreshKey = 0 }) => {
-  const { user } = useAuth();
-  const isManager = user?.role === 'manager';
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'active' | 'needs_pricing' | JobStatus>('active');
+  const [statusFilter, setStatusFilter] = useState<'active' | JobStatus>('active');
   const [newJobOpen, setNewJobOpen] = useState(false);
   const [doneExpanded, setDoneExpanded] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -119,10 +108,6 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
     loadJobs();
   }, [loadJobs, refreshKey]);
 
-  // Managers only: jobs without a price (that aren't cancelled) need pricing.
-  // Non-managers never receive agreed_price, so this is gated on the role.
-  const needsPricing = (job: Job): boolean => isManager && job.status !== 'cancelled' && !job.agreed_price;
-
   const searchedJobs = jobs.filter((job) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -135,14 +120,12 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
   const activeCount = searchedJobs.filter(
     (job) => job.status !== 'completed' && job.status !== 'cancelled',
   ).length;
-  const needsPricingCount = searchedJobs.filter(needsPricing).length;
 
-  const filteredJobs = searchedJobs.filter((job) => {
-    if (statusFilter === 'needs_pricing') return needsPricing(job);
-    return statusFilter === 'active'
+  const filteredJobs = searchedJobs.filter((job) =>
+    statusFilter === 'active'
       ? job.status !== 'completed' && job.status !== 'cancelled'
-      : job.status === statusFilter;
-  });
+      : job.status === statusFilter,
+  );
 
   // Morning-triage order: running late first, then pipeline order, then scheduled date.
   const sortedJobs = [...filteredJobs].sort((a, b) => {
@@ -159,12 +142,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
   });
 
   const needsAttentionJobs = sortedJobs.filter(
-    (job) =>
-      job.running_late ||
-      job.status === 'new' ||
-      job.status === 'awaiting_info' ||
-      job.status === 'ready' ||
-      (job.status === 'deal_confirmed' && !job.scheduled_date),
+    (job) => job.running_late || job.status === 'awaiting_info' || job.status === 'ready',
   );
   const needsAttentionIds = new Set(needsAttentionJobs.map((job) => job.id));
   const scheduledJobs = sortedJobs.filter(
@@ -209,15 +187,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
             className="w-2 h-2 rounded-full bg-amber-400 shrink-0"
           />
         ) : null}
-        {(job.status === 'new' || job.status === 'awaiting_info') && <IntakeTargetChip job={job} />}
-        {needsPricing(job) && (
-          <span
-            title="No price set — pricing is handled by the manager in parallel"
-            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200"
-          >
-            Needs pricing
-          </span>
-        )}
+        {job.status === 'awaiting_info' && <IntakeTargetChip job={job} />}
         <JobStatusChip status={job.status} />
       </div>
     );
@@ -285,19 +255,6 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
         >
           Active · <span className="font-extrabold">{activeCount}</span>
         </button>
-        {isManager && (
-          <button
-            type="button"
-            onClick={() => setStatusFilter('needs_pricing')}
-            className={`px-3 py-1.5 text-[11px] font-semibold rounded-full border transition-colors cursor-pointer ${
-              statusFilter === 'needs_pricing'
-                ? 'bg-amber-500 text-white border-amber-500'
-                : 'bg-amber-100 text-amber-800 border-amber-200 hover:shadow-xs'
-            }`}
-          >
-            Needs pricing · <span className="font-extrabold">{needsPricingCount}</span>
-          </button>
-        )}
         {JOB_STATUSES.map((status) => (
           <button
             key={status}
@@ -385,17 +342,9 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
                           Late
                         </span>
                       ) : null}
-                      {(job.status === 'new' || job.status === 'awaiting_info') && (
+                      {job.status === 'awaiting_info' && (
                         <span className="mr-1">
                           <IntakeTargetChip job={job} />
-                        </span>
-                      )}
-                      {needsPricing(job) && (
-                        <span
-                          title="No price set — pricing is handled by the manager in parallel"
-                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200 mr-1"
-                        >
-                          Needs pricing
                         </span>
                       )}
                       <JobStatusChip status={job.status} />

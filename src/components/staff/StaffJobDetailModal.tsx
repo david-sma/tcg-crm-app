@@ -21,10 +21,8 @@ import { useAuth } from '../../context/AuthContext.tsx';
 import { JobMediaUploader } from '../common/JobMediaUploader.tsx';
 
 const STATUS_CHIP_CLASS: Record<string, string> = {
-  new: 'bg-slate-100 text-slate-600',
   awaiting_info: 'bg-amber-100 text-amber-700',
   ready: 'bg-teal-100 text-teal-700',
-  deal_confirmed: 'bg-sky-100 text-sky-700',
   scheduled: 'bg-indigo-100 text-indigo-700',
   in_progress: 'bg-blue-100 text-blue-700',
   completed: 'bg-emerald-100 text-emerald-700',

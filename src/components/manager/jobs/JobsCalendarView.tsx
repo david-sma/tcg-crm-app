@@ -154,7 +154,7 @@ export const JobsCalendarView: React.FC<JobsCalendarViewProps> = ({ onOpenJob, r
 
   const loadSchedulable = useCallback(async () => {
     try {
-      const res = await apiFetch<{ jobs: Job[] }>('/api/jobs?status=ready,deal_confirmed');
+      const res = await apiFetch<{ jobs: Job[] }>('/api/jobs?status=ready');
       setSchedulable((res.jobs || []).filter((job) => !job.scheduled_date));
     } catch {
       setSchedulable([]);
@@ -454,7 +454,7 @@ export const JobsCalendarView: React.FC<JobsCalendarViewProps> = ({ onOpenJob, r
             <div className="p-5 space-y-2 max-h-[50vh] overflow-y-auto">
               {schedulable.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-6">
-                  No jobs waiting to be scheduled. Confirm a deal first.
+                  No jobs waiting to be scheduled. Jobs appear here once they reach the Process Queue.
                 </p>
               ) : (
                 schedulable.map((job) => {

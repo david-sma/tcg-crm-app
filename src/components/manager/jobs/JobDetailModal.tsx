@@ -314,7 +314,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-semibold text-white/80">{job?.job_order_number}</span>
-              <JobStatusChip status={job?.status ?? 'new'} className="!bg-white/20 !text-white !border-white/30" />
+              <JobStatusChip status={job?.status ?? 'awaiting_info'} className="!bg-white/20 !text-white !border-white/30" />
             </div>
             <h2 className="text-lg font-semibold text-white truncate mt-1">{job?.title}</h2>
             <p className="text-xs text-white/80 mt-0.5">
@@ -651,11 +651,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-indigo-600" />
                     <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Pricing</h3>
-                    {!job.agreed_price && job.status !== 'cancelled' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200">
-                        Needs pricing
-                      </span>
-                    )}
                   </div>
                   <p className="text-[11px] text-slate-500">
                     Managers only — handled in parallel. Pricing never blocks confirming, scheduling or the crew.
@@ -967,33 +962,10 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                   {status === 'ready' && (
                     <span className="inline-flex items-center gap-1 text-teal-700 font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Ready for processing
+                      In the Process Queue — schedule and allocate the crew
                     </span>
                   )}
                 </div>
-
-                {status === 'new' && canIntake && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => changeStatus('awaiting_info')}
-                      disabled={busy}
-                      className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      {mutating === 'awaiting_info' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
-                      Mark awaiting info
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => changeStatus('ready')}
-                      disabled={busy}
-                      className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      {mutating === 'ready' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
-                      Mark ready for processing
-                    </button>
-                  </>
-                )}
 
                 {status === 'awaiting_info' && canIntake && (
                   <button
@@ -1003,7 +975,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                     className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
                   >
                     {mutating === 'ready' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
-                    Mark ready for processing
+                    Send to Process Queue
                   </button>
                 )}
 
@@ -1024,12 +996,12 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       <>
                         <button
                           type="button"
-                          onClick={() => changeStatus('deal_confirmed')}
+                          onClick={() => setScheduleOpen(true)}
                           disabled={busy}
                           className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                         >
-                          {mutating === 'deal_confirmed' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                          Mark deal confirmed
+                          <CalendarClock className="w-3.5 h-3.5" />
+                          Schedule &amp; allocate staff
                         </button>
                         {!isManager && (
                           <p className="w-full text-[11px] text-slate-500">
@@ -1038,29 +1010,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                         )}
                       </>
                     )}
-                  </>
-                )}
-
-                {status === 'deal_confirmed' && canProcess && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => changeStatus('ready')}
-                      disabled={busy}
-                      className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      {mutating === 'ready' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                      Back to ready
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setScheduleOpen(true)}
-                      disabled={busy}
-                      className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      <CalendarClock className="w-3.5 h-3.5" />
-                      Schedule job
-                    </button>
                   </>
                 )}
 
