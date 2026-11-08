@@ -46,6 +46,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      // Best-effort: unbind this device's push subscription while the session is
+      // still valid, then drop the browser-side subscription. Never blocks logout.
+      try {
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+          const reg = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+          ]);
+          const sub = reg ? await reg.pushManager.getSubscription() : null;
+          if (sub) {
+            try {
+              await apiFetch('/api/notifications/push-subscription', {
+                method: 'DELETE',
+                body: JSON.stringify({ endpoint: sub.endpoint }),
+              });
+            } catch (deleteErr) {
+              console.warn('Push subscription cleanup during logout failed:', deleteErr);
+            }
+            try {
+              await sub.unsubscribe();
+            } catch (unsubErr) {
+              console.warn('Push unsubscribe during logout failed:', unsubErr);
+            }
+          }
+        }
+      } catch (pushErr) {
+        console.warn('Push cleanup during logout failed:', pushErr);
+      }
       await apiFetch('/api/auth/logout', { method: 'POST' });
     } finally {
       if (typeof window !== 'undefined') {
