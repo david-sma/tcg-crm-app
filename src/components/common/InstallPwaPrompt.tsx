@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, X, Share, PlusSquare, Check } from 'lucide-react';
 import { CompanyLogo } from './CompanyLogo.tsx';
 import { useBrand } from '../../context/BrandContext.tsx';
-import { isStandaloneApp, isIOSDevice } from '../../lib/pwa.ts';
+import { isStandaloneApp, isIOSDevice, isDismissed, dismiss } from '../../lib/pwa.ts';
 
 export const InstallPwaPrompt: React.FC = () => {
   const { shortName, appTitle } = useBrand();
@@ -26,12 +26,8 @@ export const InstallPwaPrompt: React.FC = () => {
     setIsIOS(isIosDevice);
 
     // Check if user dismissed prompt recently (last 3 days)
-    const dismissedAt = localStorage.getItem('portal_pwa_install_dismissed');
-    if (dismissedAt) {
-      const daysSince = (Date.now() - parseInt(dismissedAt, 10)) / (1000 * 60 * 60 * 24);
-      if (daysSince < 3) {
-        return;
-      }
+    if (isDismissed('portal_pwa_install_dismissed', 3)) {
+      return;
     }
 
     // Native Chrome / Android beforeinstallprompt event
@@ -79,7 +75,7 @@ export const InstallPwaPrompt: React.FC = () => {
   const handleDismiss = () => {
     setShowPrompt(false);
     setShowIOSGuide(false);
-    localStorage.setItem('portal_pwa_install_dismissed', Date.now().toString());
+    dismiss('portal_pwa_install_dismissed');
   };
 
   if (isStandalone || !showPrompt) {

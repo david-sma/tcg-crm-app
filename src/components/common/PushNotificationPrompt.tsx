@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Bell, Send } from 'lucide-react';
+import { Bell, Send, X } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { apiFetch } from '../../lib/api.ts';
-import { isIOSDevice } from '../../lib/pwa.ts';
+import { isIOSDevice, isSupportedPhone, isDismissed, dismiss } from '../../lib/pwa.ts';
+
+const ENABLE_BANNER_DISMISS_KEY = 'portal_push_prompt_dismissed';
+const TEST_BANNER_DISMISS_KEY = 'portal_push_test_dismissed';
 
 export const PushNotificationPrompt: React.FC = () => {
   const { pushStatus, enablePush } = useNotifications();
@@ -14,6 +17,8 @@ export const PushNotificationPrompt: React.FC = () => {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ sent: number; failed: number } | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [enableBannerDismissed, setEnableBannerDismissed] = useState(() => isDismissed(ENABLE_BANNER_DISMISS_KEY));
+  const [testBannerDismissed, setTestBannerDismissed] = useState(() => isDismissed(TEST_BANNER_DISMISS_KEY));
 
   const handleEnable = async () => {
     setEnabling(true);
@@ -40,8 +45,22 @@ export const PushNotificationPrompt: React.FC = () => {
     }
   };
 
-  const showEnablePrompt = pushStatus !== null && pushStatus !== 'on';
-  const showTestPrompt = isManager && (pushStatus === 'off' || pushStatus === 'on');
+  const handleDismissEnableBanner = () => {
+    dismiss(ENABLE_BANNER_DISMISS_KEY);
+    setEnableBannerDismissed(true);
+  };
+
+  const handleDismissTestBanner = () => {
+    dismiss(TEST_BANNER_DISMISS_KEY);
+    setTestBannerDismissed(true);
+  };
+
+  // On desktop, install is InstallPwaPrompt's job — the push prompt stays out of the way.
+  const showEnablePrompt =
+    !enableBannerDismissed &&
+    ((pushStatus === 'off' || pushStatus === 'denied') ||
+      (pushStatus === 'needs-install' && isSupportedPhone()));
+  const showTestPrompt = !testBannerDismissed && isManager && (pushStatus === 'off' || pushStatus === 'on');
 
   if (pushStatus === null || pushStatus === 'unsupported' || (!showEnablePrompt && !showTestPrompt)) {
     return null;
@@ -91,17 +110,29 @@ export const PushNotificationPrompt: React.FC = () => {
             )}
           </div>
 
-          {pushStatus === 'off' && (
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
-              id="enable-web-notifications-btn"
+              id="push-notification-banner-dismiss"
               type="button"
-              onClick={handleEnable}
-              disabled={enabling}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shrink-0 transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
+              onClick={handleDismissEnableBanner}
+              className="p-1.5 rounded-lg text-blue-400 hover:text-blue-700 hover:bg-blue-100 transition-colors"
+              title="Dismiss"
             >
-              {enabling ? 'Enabling…' : 'Enable'}
+              <X className="w-4 h-4" />
             </button>
-          )}
+
+            {pushStatus === 'off' && (
+              <button
+                id="enable-web-notifications-btn"
+                type="button"
+                onClick={handleEnable}
+                disabled={enabling}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shrink-0 transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
+              >
+                {enabling ? 'Enabling…' : 'Enable'}
+              </button>
+            )}
+          </div>
         </aside>
       )}
 
@@ -119,15 +150,26 @@ export const PushNotificationPrompt: React.FC = () => {
               {testSummary || 'Push a test alert to the devices signed in to your account.'}
             </div>
           </div>
-          <button
-            id="send-test-notification-btn"
-            type="button"
-            onClick={handleTest}
-            disabled={testing}
-            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-xl shrink-0 transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
-          >
-            {testing ? 'Sending…' : 'Send test'}
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button
+              id="push-test-banner-dismiss"
+              type="button"
+              onClick={handleDismissTestBanner}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <button
+              id="send-test-notification-btn"
+              type="button"
+              onClick={handleTest}
+              disabled={testing}
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-xl shrink-0 transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
+            >
+              {testing ? 'Sending…' : 'Send test'}
+            </button>
+          </div>
         </aside>
       )}
     </div>
