@@ -24,7 +24,7 @@ import {
   type JobRowWithCreator,
 } from './jobs.ts';
 import { logAuditEvent } from './audit.ts';
-import { formatUtcToBusinessTz, getNowInBusinessTz } from './timezone.ts';
+import { formatUtcToBusinessTz } from './timezone.ts';
 
 export type JobSeriesRow = typeof jobSeries.$inferSelect;
 
@@ -33,9 +33,13 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const VALID_FREQUENCIES = new Set(['daily', 'weekly', 'fortnightly']);
 
-/** Business-local today (YYYY-MM-DD). */
-export function businessToday(): string {
-  return formatUtcToBusinessTz(getNowInBusinessTz(), 'yyyy-MM-dd');
+/**
+ * Business-local today (YYYY-MM-DD). Pass `now` to evaluate a fixed instant (tests).
+ * Note: pass the raw instant — getNowInBusinessTz() is already shifted and would
+ * be converted twice here.
+ */
+export function businessToday(now: Date = new Date()): string {
+  return formatUtcToBusinessTz(now, 'yyyy-MM-dd');
 }
 
 function isValidDateString(value: string): boolean {
