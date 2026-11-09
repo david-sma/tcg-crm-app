@@ -283,6 +283,16 @@ function patternOf(series: JobSeriesRow): { frequency: string; days_of_week: num
 }
 
 /**
+ * The fortnightly parity anchor: the Monday of visit 1's week (which is by
+ * definition an "on" week). Generation and reconcile MUST share this — if they
+ * disagree about which weeks are on, every edit deletes and recreates visits.
+ */
+export async function seriesAnchorMonday(series: JobSeriesRow): Promise<string> {
+  const v1Date = await visit1Date(series);
+  return mondayOfDateString(v1Date ?? series.start_date);
+}
+
+/**
  * Create every missing matching visit for one series up to today + 13 days.
  * Insert-or-ignore semantics: a date is never created twice (enforced both by
  * a pre-check and by the unique index on (series_id, occurrence_date)).
@@ -299,7 +309,7 @@ export async function generateVisitsForSeries(series: JobSeriesRow, today: strin
 
   const v1Date = await visit1Date(series);
   if (!v1Date) return;
-  const anchorMonday = mondayOfDateString(v1Date);
+  const anchorMonday = await seriesAnchorMonday(series);
 
   const rangeStart = [today, addDaysToDateString(v1Date, 1)].sort().pop()!; // max
   const rangeEnd = [addDaysToDateString(today, 13), series.end_date ?? '9999-12-31'].sort()[0]; // min
@@ -497,8 +507,6 @@ export async function reconcileSeriesVisits(series: JobSeriesRow, today: string)
   try {
     const pattern = patternOf(series);
     const newFirst = firstOccurrenceDate(series);
-    const anchorDate = newFirst ?? (await visit1Date(series));
-    const anchorMonday = anchorDate ? mondayOfDateString(anchorDate) : mondayOfDateString(today);
 
     // Visit 1: refresh while unscheduled; never delete.
     if (series.first_job_id && newFirst) {
@@ -522,6 +530,9 @@ export async function reconcileSeriesVisits(series: JobSeriesRow, today: string)
           .where(eq(jobs.id, first.id));
       }
     }
+
+    // After the possible visit-1 move, so generation and reconcile share one anchor.
+    const anchorMonday = await seriesAnchorMonday(series);
 
     const future = await db
       .select()
