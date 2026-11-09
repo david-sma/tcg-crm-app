@@ -2,18 +2,20 @@ import React, { useState } from 'react';
 import { JobsBoardView } from './JobsBoardView.tsx';
 import { JobsCalendarView } from './JobsCalendarView.tsx';
 import { ProcessQueueView } from './ProcessQueueView.tsx';
+import { RecurringSeriesView } from './RecurringSeriesView.tsx';
 import { JobDetailModal } from './JobDetailModal.tsx';
 import { Briefcase } from 'lucide-react';
 
-export type JobsTab = 'board' | 'queue' | 'calendar';
+export type JobsTab = 'board' | 'queue' | 'calendar' | 'recurring';
 
 interface JobsModuleProps {
   activeTab: JobsTab;
   onNavigate?: (tab: string) => void;
 }
 
-export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab }) => {
+export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab, onNavigate }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [seriesToOpen, setSeriesToOpen] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
@@ -36,6 +38,13 @@ export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab }) => {
         <JobsBoardView onOpenJob={(id) => setSelectedJobId(id)} refreshKey={refreshKey} />
       ) : activeTab === 'queue' ? (
         <ProcessQueueView onOpenJob={(id) => setSelectedJobId(id)} refreshKey={refreshKey} />
+      ) : activeTab === 'recurring' ? (
+        <RecurringSeriesView
+          refreshKey={refreshKey}
+          initialSeriesId={seriesToOpen}
+          onInitialSeriesHandled={() => setSeriesToOpen(null)}
+          onOpenJob={(id) => setSelectedJobId(id)}
+        />
       ) : (
         <JobsCalendarView onOpenJob={(id) => setSelectedJobId(id)} refreshKey={refreshKey} />
       )}
@@ -46,6 +55,11 @@ export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab }) => {
           jobId={selectedJobId}
           onClose={() => setSelectedJobId(null)}
           onChanged={() => setRefreshKey((k) => k + 1)}
+          onOpenSeries={(seriesId) => {
+            setSelectedJobId(null);
+            setSeriesToOpen(seriesId);
+            onNavigate?.('jobs-recurring');
+          }}
         />
       )}
     </div>

@@ -38,6 +38,7 @@ import {
   Briefcase,
   LayoutGrid,
   CalendarDays,
+  Repeat,
 } from 'lucide-react';
 
 function MainLayout() {
@@ -83,6 +84,9 @@ function MainLayout() {
           { id: 'jobs-queue', label: 'Process Queue', icon: ClipboardList },
           { id: 'jobs-calendar', label: 'Calendar', icon: CalendarDays },
         ]
+      : []),
+    ...(isManager || user?.role === 'customer_service'
+      ? [{ id: 'jobs-recurring', label: 'Recurring', icon: Repeat }]
       : []),
   ];
 
@@ -155,7 +159,14 @@ function MainLayout() {
 
   const renderContent = () => {
     if (activeModuleId === 'jobs-dispatches' && isOfficeRole) {
-      const jobsTab = currentTab === 'jobs-calendar' ? 'calendar' : currentTab === 'jobs-queue' ? 'queue' : 'board';
+      const jobsTab =
+        currentTab === 'jobs-calendar'
+          ? 'calendar'
+          : currentTab === 'jobs-queue'
+            ? 'queue'
+            : currentTab === 'jobs-recurring'
+              ? 'recurring'
+              : 'board';
       return <JobsModule activeTab={jobsTab} onNavigate={handleNavigateToTab} />;
     }
 
