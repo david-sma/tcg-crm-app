@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
-import type { Job, LeadSource } from '../../../types/index.ts';
+import type { Job, JobSeriesFrequency, LeadSource } from '../../../types/index.ts';
 import {
   JOB_TYPE_OPTIONS,
   LEAD_SOURCE_OPTIONS,
 } from '../../../config/jobServices.ts';
+import {
+  describeRecurrence,
+  RECURRENCE_FREQUENCIES,
+  RECURRENCE_FREQUENCY_LABELS,
+  WEEKDAYS_ISO,
+  WEEKDAY_LABELS,
+} from '../../../config/jobs.ts';
 import { JobMediaUploader } from '../../common/JobMediaUploader.tsx';
 import { useAuth } from '../../../context/AuthContext.tsx';
-import { X, FilePlus2, CheckCircle2, Camera, Loader2, ImagePlus } from 'lucide-react';
+import { X, FilePlus2, CheckCircle2, Camera, Loader2, ImagePlus, Repeat } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface NewJobFormModalProps {
   isOpen: boolean;
@@ -19,6 +27,7 @@ interface FormErrors {
   title?: string;
   customer_name?: string;
   address?: string;
+  recurrence?: string;
 }
 
 const EMPTY_FORM = {
@@ -37,10 +46,23 @@ const EMPTY_FORM = {
   agreed_price: '',
 };
 
+const EMPTY_RECURRENCE = {
+  frequency: 'weekly' as JobSeriesFrequency,
+  days_of_week: [] as number[],
+  start_date: format(new Date(), 'yyyy-MM-dd'),
+  start_time: '09:00',
+  finish_time: '11:00',
+  end_mode: 'never' as 'never' | 'on',
+  end_date: '',
+};
+
 export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClose, onCreated }) => {
   const { user } = useAuth();
   const isManager = user?.role === 'manager';
+  const canRepeat = isManager || user?.role === 'customer_service';
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [repeatOn, setRepeatOn] = useState(false);
+  const [recurrence, setRecurrence] = useState({ ...EMPTY_RECURRENCE });
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -50,6 +72,8 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
   useEffect(() => {
     if (isOpen) {
       setForm({ ...EMPTY_FORM });
+      setRepeatOn(false);
+      setRecurrence({ ...EMPTY_RECURRENCE });
       setErrors({});
       setSubmitError('');
       setSubmitting(false);
@@ -64,11 +88,29 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const toggleWeekday = (day: number) => {
+    setRecurrence((current) => ({
+      ...current,
+      days_of_week: current.days_of_week.includes(day)
+        ? current.days_of_week.filter((d) => d !== day)
+        : [...current.days_of_week, day].sort((a, b) => a - b),
+    }));
+  };
+
   const validate = (): boolean => {
     const next: FormErrors = {};
     if (!form.title.trim()) next.title = 'Job name is required.';
     if (!form.customer_name.trim()) next.customer_name = 'Customer name is required.';
     if (!form.address.trim()) next.address = 'Address is required.';
+    if (repeatOn) {
+      if (recurrence.frequency !== 'daily' && recurrence.days_of_week.length === 0) {
+        next.recurrence = 'Pick at least one weekday for weekly or fortnightly repeats.';
+      } else if (recurrence.finish_time <= recurrence.start_time) {
+        next.recurrence = 'The finish time must be after the start time.';
+      } else if (recurrence.end_mode === 'on' && recurrence.end_date && recurrence.end_date < recurrence.start_date) {
+        next.recurrence = 'The end date must not be before the start date.';
+      }
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -97,6 +139,18 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
           location_notes: form.location_notes.trim() || null,
           access_notes: form.access_notes.trim() || null,
           ...(isManager ? { agreed_price: form.agreed_price.trim() || null } : {}),
+          ...(repeatOn
+            ? {
+                recurrence: {
+                  frequency: recurrence.frequency,
+                  days_of_week: recurrence.days_of_week,
+                  start_date: recurrence.start_date,
+                  start_time: recurrence.start_time,
+                  finish_time: recurrence.finish_time,
+                  ...(recurrence.end_mode === 'on' && recurrence.end_date ? { end_date: recurrence.end_date } : {}),
+                },
+              }
+            : {}),
         }),
       });
       setCreatedJob(res.job);
@@ -346,6 +400,158 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
                 />
               </div>
             </div>
+
+            {canRepeat && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Repeat className="w-4 h-4 text-indigo-600" />
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Repeat</h3>
+                  </div>
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <span className="text-xs font-semibold text-slate-600">Repeat this job</span>
+                    <input
+                      id="new-job-repeat"
+                      type="checkbox"
+                      checked={repeatOn}
+                      onChange={(e) => setRepeatOn(e.target.checked)}
+                      className="w-9 h-5 rounded-full appearance-none bg-slate-300 checked:bg-indigo-600 relative transition-colors cursor-pointer before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
+                    />
+                  </label>
+                </div>
+
+                {repeatOn && (
+                  <div className="p-4 bg-indigo-50/60 border border-indigo-200 rounded-2xl space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelClass} htmlFor="new-job-repeat-frequency">Repeats</label>
+                        <select
+                          id="new-job-repeat-frequency"
+                          value={recurrence.frequency}
+                          onChange={(e) =>
+                            setRecurrence((c) => ({ ...c, frequency: e.target.value as JobSeriesFrequency }))
+                          }
+                          className={inputClass()}
+                        >
+                          {RECURRENCE_FREQUENCIES.map((freq) => (
+                            <option key={freq} value={freq}>{RECURRENCE_FREQUENCY_LABELS[freq]}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelClass} htmlFor="new-job-repeat-start">Starts</label>
+                        <input
+                          id="new-job-repeat-start"
+                          type="date"
+                          value={recurrence.start_date}
+                          min={format(new Date(), 'yyyy-MM-dd')}
+                          onChange={(e) => setRecurrence((c) => ({ ...c, start_date: e.target.value }))}
+                          className={inputClass()}
+                        />
+                      </div>
+                    </div>
+
+                    {recurrence.frequency !== 'daily' && (
+                      <div>
+                        <span className={labelClass}>On these days</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {WEEKDAYS_ISO.map((day, index) => {
+                            const selected = recurrence.days_of_week.includes(day);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => toggleWeekday(day)}
+                                className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                                  selected
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                {WEEKDAY_LABELS[index]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelClass} htmlFor="new-job-repeat-start-time">Start time</label>
+                        <input
+                          id="new-job-repeat-start-time"
+                          type="time"
+                          value={recurrence.start_time}
+                          onChange={(e) => setRecurrence((c) => ({ ...c, start_time: e.target.value }))}
+                          className={inputClass()}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass} htmlFor="new-job-repeat-finish-time">Finish time</label>
+                        <input
+                          id="new-job-repeat-finish-time"
+                          type="time"
+                          value={recurrence.finish_time}
+                          onChange={(e) => setRecurrence((c) => ({ ...c, finish_time: e.target.value }))}
+                          className={inputClass()}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className={labelClass}>Ends</span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="new-job-repeat-ends"
+                            checked={recurrence.end_mode === 'never'}
+                            onChange={() => setRecurrence((c) => ({ ...c, end_mode: 'never' }))}
+                            className="accent-indigo-600"
+                          />
+                          Never
+                        </label>
+                        <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="new-job-repeat-ends"
+                            checked={recurrence.end_mode === 'on'}
+                            onChange={() => setRecurrence((c) => ({ ...c, end_mode: 'on' }))}
+                            className="accent-indigo-600"
+                          />
+                          On date
+                        </label>
+                        {recurrence.end_mode === 'on' && (
+                          <input
+                            id="new-job-repeat-end-date"
+                            type="date"
+                            value={recurrence.end_date}
+                            min={recurrence.start_date}
+                            onChange={(e) => setRecurrence((c) => ({ ...c, end_date: e.target.value }))}
+                            className={inputClass()}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-indigo-800 font-medium">
+                      {describeRecurrence({
+                        frequency: recurrence.frequency,
+                        days_of_week: recurrence.days_of_week,
+                        start_time: recurrence.start_time,
+                        finish_time: recurrence.finish_time,
+                        end_date: recurrence.end_mode === 'on' && recurrence.end_date ? recurrence.end_date : null,
+                      })}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      The first visit follows the normal flow. Once it reaches the Process Queue, the next 14 days of visits are created there automatically.
+                    </p>
+                    {errors.recurrence && <p className="text-[11px] text-rose-600">{errors.recurrence}</p>}
+                  </div>
+                )}
+              </div>
+            )}
           </form>
         ) : (
           <div className="flex-1 overflow-y-auto p-5 space-y-5">

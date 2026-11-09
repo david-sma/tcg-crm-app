@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
 import type { Job } from '../../../types/index.ts';
 import { PROCESS_TARGET_HOURS } from '../../../config/jobs.ts';
-import { JobStatusChip, formatJobTimeWindow } from './JobsBoardView.tsx';
+import { JobStatusChip, RecurringBadge, formatJobTimeWindow } from './JobsBoardView.tsx';
 import { TargetChip } from './TargetChip.tsx';
 import { AlertTriangle, CheckCircle2, MapPin, RefreshCw } from 'lucide-react';
 
@@ -42,6 +42,7 @@ const Row: React.FC<{ job: Job; onOpen: (id: string) => void; soft: number; hard
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           <TargetChip sinceIso={since} softHours={soft} hardHours={hard} label={targetLabel} />
+          {job.series_id ? <RecurringBadge /> : null}
           <JobStatusChip status={job.status} />
         </div>
       </div>

@@ -4,7 +4,7 @@ import type { Job, JobStatus } from '../../../types/index.ts';
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '../../../config/jobs.ts';
 import { NewJobFormModal } from './NewJobFormModal.tsx';
 import { IntakeTargetChip } from './TargetChip.tsx';
-import { Plus, Search, AlertTriangle, CheckCircle2, X, Loader2, Briefcase, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Search, AlertTriangle, CheckCircle2, X, Loader2, Briefcase, ChevronDown, ChevronRight, Repeat } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 
 export const JOB_STATUS_DOT: Record<string, string> = {
@@ -39,6 +39,16 @@ export const JobStatusChip: React.FC<{ status: JobStatus | string; className?: s
     className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${JOB_STATUS_CHIP[status] || 'bg-slate-100 text-slate-700 border-slate-200'} ${className}`}
   >
     {JOB_STATUS_LABELS[status] || status}
+  </span>
+);
+
+export const RecurringBadge: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <span
+    title="Part of a recurring series"
+    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-indigo-100 text-indigo-800 border-indigo-200 ${className}`}
+  >
+    <Repeat className="w-3 h-3" />
+    Recurring
   </span>
 );
 
@@ -188,6 +198,7 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
           />
         ) : null}
         {job.status === 'awaiting_info' && <IntakeTargetChip job={job} />}
+        {job.series_id ? <RecurringBadge /> : null}
         <JobStatusChip status={job.status} />
       </div>
     );
@@ -347,6 +358,11 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
                           <IntakeTargetChip job={job} />
                         </span>
                       )}
+                      {job.series_id ? (
+                        <span className="mr-1">
+                          <RecurringBadge />
+                        </span>
+                      ) : null}
                       <JobStatusChip status={job.status} />
                     </td>
                   </tr>

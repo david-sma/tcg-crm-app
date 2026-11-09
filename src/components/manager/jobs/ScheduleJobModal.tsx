@@ -11,8 +11,8 @@ interface ScheduleJobModalProps {
   job: Job;
   onClose: () => void;
   onScheduled: (job: Job) => void;
-  /** Prefill from a calendar slot click (used when the job has no schedule yet). */
-  prefill?: { date: string; startTime: string } | null;
+  /** Prefill from a calendar slot click or a recurring visit's usual time. */
+  prefill?: { date: string; startTime: string; finishTime?: string } | null;
 }
 
 const addHoursToTime = (time: string, hours: number): string => {
@@ -43,7 +43,9 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
   const initialStart = job.scheduled_start_time || prefill?.startTime || '09:00';
   const [scheduledDate, setScheduledDate] = useState(job.scheduled_date || prefill?.date || todayLocalDate());
   const [startTime, setStartTime] = useState(initialStart);
-  const [finishTime, setFinishTime] = useState(job.scheduled_finish_time || addHoursToTime(initialStart, 3));
+  const [finishTime, setFinishTime] = useState(
+    job.scheduled_finish_time || prefill?.finishTime || addHoursToTime(initialStart, 3),
+  );
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
     (job.assignments || []).map((a) => a.user_id),
   );
@@ -79,7 +81,7 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
       const start = job.scheduled_start_time || prefill?.startTime || '09:00';
       setScheduledDate(job.scheduled_date || prefill?.date || todayLocalDate());
       setStartTime(start);
-      setFinishTime(job.scheduled_finish_time || addHoursToTime(start, 3));
+      setFinishTime(job.scheduled_finish_time || prefill?.finishTime || addHoursToTime(start, 3));
       const existing = job.assignments || [];
       setSelectedUserIds(existing.map((a) => a.user_id));
       setLeadUserId(existing.find((a) => a.is_lead)?.user_id || existing[0]?.user_id);
@@ -87,7 +89,7 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
       setSubmitting(false);
       loadContext();
     }
-  }, [isOpen, job.id, prefill?.date, prefill?.startTime]);
+  }, [isOpen, job.id, prefill?.date, prefill?.startTime, prefill?.finishTime]);
 
   if (!isOpen) return null;
 

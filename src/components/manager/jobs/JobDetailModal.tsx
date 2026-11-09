@@ -8,10 +8,11 @@ import {
   getLeadSourceLabel,
 } from '../../../config/jobServices.ts';
 import { formatDateTimeLocal } from '../../../lib/dateUtils.ts';
+import { describeRecurrence } from '../../../config/jobs.ts';
 import { useAuth } from '../../../context/AuthContext.tsx';
 import { JobMediaUploader } from '../../common/JobMediaUploader.tsx';
 import { ScheduleJobModal } from './ScheduleJobModal.tsx';
-import { JobStatusChip, formatJobTimeWindow } from './JobsBoardView.tsx';
+import { JobStatusChip, RecurringBadge, formatJobTimeWindow } from './JobsBoardView.tsx';
 import {
   X,
   Loader2,
@@ -19,6 +20,7 @@ import {
   Pencil,
   Save,
   Ban,
+  Repeat,
   ArrowRight,
   RotateCcw,
   CalendarClock,
@@ -40,6 +42,8 @@ interface JobDetailModalProps {
   jobId: string | null;
   onClose: () => void;
   onChanged: () => void;
+  /** Open the Recurring tab editor for this job's series (manager/customer service). */
+  onOpenSeries?: (seriesId: string) => void;
 }
 
 interface JobDraft {
@@ -95,7 +99,7 @@ const EmptyValue: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   <span className="text-slate-400 italic">{children || '—'}</span>
 );
 
-export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, onClose, onChanged }) => {
+export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, onClose, onChanged, onOpenSeries }) => {
   const { user } = useAuth();
   const isManager = user?.role === 'manager';
   const canProcess = user?.role === 'manager' || user?.role === 'service_team';
@@ -109,6 +113,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
   const [savingEdit, setSavingEdit] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [cancelScope, setCancelScope] = useState<'this' | 'future'>('this');
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [removingAssignmentId, setRemovingAssignmentId] = useState<string | null>(null);
   const [clearingLate, setClearingLate] = useState(false);
@@ -147,18 +152,23 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
 
   if (!isOpen || !jobId) return null;
 
-  const changeStatus = async (status: JobStatus, reason?: string) => {
+  const changeStatus = async (status: JobStatus, reason?: string, scope: 'this' | 'future' = 'this') => {
     if (!job) return;
     try {
       setMutating(status);
       setActionError('');
       const res = await apiFetch<{ job: Job }>(`/api/jobs/${job.id}/status`, {
         method: 'POST',
-        body: JSON.stringify(reason ? { status, reason } : { status }),
+        body: JSON.stringify({
+          status,
+          ...(reason ? { reason } : {}),
+          ...(scope === 'future' ? { scope } : {}),
+        }),
       });
       setJob(res.job);
       setConfirmingCancel(false);
       setCancelReason('');
+      setCancelScope('this');
       onChanged();
     } catch (err: any) {
       setActionError(err?.message || 'Failed to update job status');
@@ -315,6 +325,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-semibold text-white/80">{job?.job_order_number}</span>
               <JobStatusChip status={job?.status ?? 'awaiting_info'} className="!bg-white/20 !text-white !border-white/30" />
+              {job?.series_id ? <RecurringBadge className="!bg-white/20 !text-white !border-white/30" /> : null}
             </div>
             <h2 className="text-lg font-semibold text-white truncate mt-1">{job?.title}</h2>
             <p className="text-xs text-white/80 mt-0.5">
@@ -705,6 +716,30 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                       <EmptyValue>Not scheduled</EmptyValue>
                     )}
                   </Row>
+                  {job.series_id && job.occurrence_date && (
+                    <Row label="Visit date">
+                      <span className="font-medium">{job.occurrence_date}</span>
+                    </Row>
+                  )}
+                  {job.series && (
+                    <Row label="Repeats">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Repeat className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                        <span className="font-medium">{describeRecurrence(job.series)}</span>
+                        {onOpenSeries &&
+                          job.series_id &&
+                          (user?.role === 'manager' || user?.role === 'customer_service') && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenSeries(job.series_id!)}
+                              className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 underline underline-offset-2 cursor-pointer"
+                            >
+                              Manage series
+                            </button>
+                          )}
+                      </div>
+                    </Row>
+                  )}
                   <Row label="Crew">
                     {(job.assignments?.length ?? 0) > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
@@ -906,12 +941,43 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                   placeholder="Why is this job being cancelled?"
                   className={inputClass}
                 />
+                {job?.series_id && isManager && (
+                  <div className="space-y-1.5 p-3 bg-rose-50/60 border border-rose-200 rounded-xl">
+                    <span className={labelClass}>Scope</span>
+                    <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cancel-scope"
+                        checked={cancelScope === 'this'}
+                        onChange={() => setCancelScope('this')}
+                        className="mt-0.5 accent-rose-600"
+                      />
+                      <span>
+                        <span className="font-semibold">This visit only</span> — the recurring series keeps going.
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cancel-scope"
+                        checked={cancelScope === 'future'}
+                        onChange={() => setCancelScope('future')}
+                        className="mt-0.5 accent-rose-600"
+                      />
+                      <span>
+                        <span className="font-semibold">This and all future visits</span> — ends the series; future visits
+                        are removed or cancelled and the crew notified.
+                      </span>
+                    </label>
+                  </div>
+                )}
                 <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       setConfirmingCancel(false);
                       setCancelReason('');
+                      setCancelScope('this');
                     }}
                     className="py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors cursor-pointer"
                   >
@@ -919,7 +985,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                   </button>
                   <button
                     type="button"
-                    onClick={() => changeStatus('cancelled', cancelReason.trim())}
+                    onClick={() => changeStatus('cancelled', cancelReason.trim(), cancelScope)}
                     disabled={mutating === 'cancelled' || !cancelReason.trim()}
                     className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
                   >
@@ -1051,6 +1117,15 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
             setJob(updated);
             onChanged();
           }}
+          prefill={
+            job.occurrence_date
+              ? {
+                  date: job.occurrence_date,
+                  startTime: job.series?.start_time || '',
+                  finishTime: job.series?.finish_time || '',
+                }
+              : undefined
+          }
         />
       )}
     </div>
