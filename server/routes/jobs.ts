@@ -8,6 +8,7 @@ import { logAuditEvent } from '../services/audit.ts';
 import {
   addDaysToDateString,
   assertJobTransition,
+  cancelJobWithReason,
   formatJob,
   formatJobMedia,
   getJobAssignment,
@@ -20,8 +21,19 @@ import {
   notifyRoles,
   notifyUserSafe,
   nextJobOrderNumber,
+  type ActorInfo,
   type JobRowWithCreator,
 } from '../services/jobs.ts';
+import {
+  activateSeries,
+  attachFirstJob,
+  businessToday,
+  createSeriesRow,
+  endSeries,
+  firstOccurrenceDate,
+  getSeriesById,
+  parseRecurrence,
+} from '../services/jobSeries.ts';
 import { kickMediaQueue } from '../services/mediaQueue.ts';
 import {
   buildStorageRef,
@@ -38,7 +50,7 @@ import {
   JOB_VIDEO_MIME_TYPES,
 } from '../../src/config/jobs.ts';
 import { getCurrentWeekMonday } from '../services/timezone.ts';
-import type { JobStatus, LeadSource } from '../../src/types/index.ts';
+import type { JobSeriesRecurrence, JobStatus, LeadSource } from '../../src/types/index.ts';
 
 export const jobsRouter = Router();
 
@@ -275,6 +287,20 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     const leadSource = readLeadSource(body.lead_source);
     if (leadSource.error) return res.status(400).json({ error: leadSource.error });
 
+    // Optional recurrence (manager + customer_service only).
+    let recurrence: JobSeriesRecurrence | null = null;
+    if (body.recurrence !== undefined && body.recurrence !== null) {
+      if (req.user!.role !== 'manager' && req.user!.role !== 'customer_service') {
+        return res.status(403).json({ error: 'Only managers and customer service can create recurring jobs' });
+      }
+      const parsed = parseRecurrence(body.recurrence);
+      if (parsed.error) return res.status(400).json({ error: parsed.error });
+      recurrence = parsed.value!;
+      if (recurrence.start_date < businessToday()) {
+        return res.status(400).json({ error: 'recurrence.start_date cannot be in the past' });
+      }
+    }
+
     const optionalText: Record<string, string | null | undefined> = {};
     for (const key of [
       'customer_phone',
@@ -309,6 +335,34 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     const nowIso = new Date().toISOString();
     const jobOrderNumber = await nextJobOrderNumber();
 
+    // Recurring: create the series (pending) first, then visit 1 as a normal
+    // awaiting_info job, then link first_job_id. Visit 1 alerts are unchanged.
+    let seriesId: string | null = null;
+    let occurrenceDate: string | null = null;
+    if (recurrence) {
+      const series = await createSeriesRow({
+        recurrence,
+        template: {
+          title: title.value,
+          job_type: (jobType.value as string) ?? '',
+          services_text: servicesTextValue,
+          lead_source: leadSource.value ?? 'manual',
+          customer_name: customerName.value,
+          customer_phone: optionalText.customer_phone ?? null,
+          customer_email: optionalText.customer_email ?? null,
+          site_contact_name: optionalText.site_contact_name ?? null,
+          site_contact_phone: optionalText.site_contact_phone ?? null,
+          address: address.value,
+          location_notes: optionalText.location_notes ?? null,
+          access_notes: optionalText.access_notes ?? null,
+          agreed_price: price.value ?? null,
+        },
+        createdByUserId: req.user!.id,
+      });
+      seriesId = series.id;
+      occurrenceDate = firstOccurrenceDate(recurrence)!;
+    }
+
     await db.insert(jobs).values({
       id,
       job_order_number: jobOrderNumber,
@@ -327,10 +381,14 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
       access_notes: optionalText.access_notes ?? null,
       agreed_price: price.value ?? null,
       services_text: servicesTextValue,
+      series_id: seriesId,
+      occurrence_date: occurrenceDate,
       created_by_user_id: req.user!.id,
       created_at: nowIso,
       updated_at: nowIso,
     });
+
+    if (seriesId) await attachFirstJob(seriesId, id);
 
     await auditJob(req, 'job_created', id, {
       job_order_number: jobOrderNumber,
@@ -361,6 +419,7 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     const job = await formatJob(created!, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
     });
 
@@ -771,6 +830,7 @@ jobsRouter.get('/:id', async (req: Request, res: Response) => {
     const formatted = await formatJob(job, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
       viewerIsLead: Boolean(assignment?.is_lead),
     });
@@ -897,6 +957,7 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
     const formatted = await formatJob(updated!, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
     });
 
@@ -916,11 +977,17 @@ jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Requ
     const body: Body = req.body || {};
     const status = typeof body.status === 'string' ? body.status : '';
     const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    // Cancel scope for recurring visits: 'this' (default) or 'future' (managers only).
+    const scope: 'this' | 'future' = body.scope === 'future' ? 'future' : 'this';
 
     if (!STATUS_ENDPOINT_VALUES.has(status)) {
       return res.status(400).json({
         error: `status must be one of: ${[...STATUS_ENDPOINT_VALUES].join(', ')}`,
       });
+    }
+
+    if (scope === 'future' && req.user!.role !== 'manager') {
+      return res.status(403).json({ error: 'Only managers can cancel all future visits' });
     }
 
     if (status === 'cancelled' && !PROCESSING_ROLES.includes(req.user!.role)) {
@@ -938,31 +1005,31 @@ jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Requ
         return res.status(400).json({ error: 'A cancellation reason is required' });
       }
 
-      await db
-        .update(jobs)
-        .set({
-          status: 'cancelled',
-          cancelled_reason: reason,
-          cancelled_at: nowIso,
-          updated_at: nowIso,
-        })
-        .where(eq(jobs.id, job.id));
+      const actor: ActorInfo = {
+        userId: req.user!.id,
+        name: req.user!.name,
+        role: req.user!.role,
+        ipAddress: req.ip ?? null,
+      };
+      await cancelJobWithReason(job, reason, actor);
 
-      await auditJob(req, 'job_status_changed', job.id, {
-        from: fromStatus,
-        to: 'cancelled',
-        reason,
-      });
-
-      const assigned = await listJobAssignmentRows(job.id);
-      for (const assignment of assigned) {
-        await notifyUserSafe({
-          userId: assignment.user_id,
-          type: 'JOB_STATUS_CHANGED',
-          title: `Job cancelled: ${job.title}`,
-          body: `Job ${job.job_order_number} at ${job.address} was cancelled. Reason: ${reason}`,
-          relatedEntityId: job.id,
-        });
+      // Recurring visits: ending the series is destructive, so it happens only
+      // for "this and all future visits" (managers) — or when visit 1 of a
+      // still-pending series is cancelled, which voids the series entirely.
+      if (job.series_id) {
+        const series = await getSeriesById(job.series_id);
+        if (series && series.status !== 'ended') {
+          const isVisit1 = series.first_job_id === job.id;
+          const voidsPendingSeries = isVisit1 && series.status === 'pending';
+          if (scope === 'future' || voidsPendingSeries) {
+            await endSeries({
+              seriesId: series.id,
+              reason: voidsPendingSeries ? `First visit cancelled: ${reason}` : reason,
+              actor,
+              afterDate: job.occurrence_date ?? businessToday(),
+            });
+          }
+        }
       }
     } else {
       assertJobTransition(fromStatus, status as JobStatus);
@@ -988,9 +1055,19 @@ jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Requ
           ['service_team', 'manager'],
           'JOB_READY_FOR_HANDOFF',
           `New job to process: ${job.title}`,
-          `${job.job_order_number} is ready for processing — confirm, schedule and allocate the crew (target: within 24 hours).`,
+          `${job.job_order_number} is ready for processing — schedule and allocate the crew (target: within 24 hours).`,
           job.id,
         );
+
+        // Recurring activation: visit 1's details are complete now, so copy
+        // them into the series template and generate the next 14 days.
+        if (job.series_id) {
+          const series = await getSeriesById(job.series_id);
+          if (series && series.status === 'pending') {
+            const refreshed = await getJobById(job.id);
+            if (refreshed) await activateSeries(series, refreshed);
+          }
+        }
       }
     }
 
@@ -998,6 +1075,7 @@ jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Requ
     const formatted = await formatJob(updated!, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
     });
 
@@ -1175,6 +1253,7 @@ jobsRouter.post('/:id/schedule', requireAnyRole(...PROCESSING_ROLES), async (req
     const formatted = await formatJob(updated!, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
     });
 
@@ -1216,6 +1295,7 @@ jobsRouter.delete(
       const formatted = await formatJob(job, {
         includeAssignments: true,
         includeMedia: true,
+        includeSeries: true,
         viewer: req.user,
       });
 
@@ -1270,6 +1350,7 @@ jobsRouter.post(
       const formatted = await formatJob(job, {
         includeAssignments: true,
         includeMedia: true,
+      includeSeries: true,
         viewer: req.user,
       });
 
@@ -1347,6 +1428,7 @@ jobsRouter.post('/:id/start', async (req: Request, res: Response) => {
     const formatted = await formatJob(updated!, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
     });
 
@@ -1445,6 +1527,7 @@ jobsRouter.post('/:id/complete', async (req: Request, res: Response) => {
     const formatted = await formatJob(updated!, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
     });
 
@@ -1504,6 +1587,7 @@ jobsRouter.post('/:id/running-late', async (req: Request, res: Response) => {
     const formatted = await formatJob(updated!, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
     });
 
@@ -1531,6 +1615,7 @@ jobsRouter.post('/:id/clear-late', requireRole('manager'), async (req: Request, 
     const formatted = await formatJob(updated!, {
       includeAssignments: true,
       includeMedia: true,
+      includeSeries: true,
       viewer: req.user,
     });
 

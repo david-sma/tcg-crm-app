@@ -18,8 +18,11 @@ import { notificationsRouter } from './server/routes/notifications.ts';
 import { auditRouter } from './server/routes/audit.ts';
 import { timesheetsRouter } from './server/routes/timesheets.ts';
 import { jobsRouter } from './server/routes/jobs.ts';
+import { jobSeriesRouter } from './server/routes/jobSeries.ts';
 import { getStorageClient } from './server/services/storage.ts';
 import { startMediaQueue } from './server/services/mediaQueue.ts';
+import { startJobSeriesGenerator } from './server/services/jobSeries.ts';
+import { JOB_SERIES_INTERVAL_MS } from './src/config/jobs.ts';
 
 async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
@@ -44,6 +47,7 @@ async function startServer() {
   }
 
   startMediaQueue();
+  startJobSeriesGenerator(JOB_SERIES_INTERVAL_MS);
 
   app.use(express.json({ limit: '25mb' }));
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));
@@ -61,6 +65,7 @@ async function startServer() {
   app.use('/api/audit', auditRouter);
   app.use('/api/timesheets', timesheetsRouter);
   app.use('/api/jobs', jobsRouter);
+  app.use('/api/job-series', jobSeriesRouter);
 
   // Vite integration: development middleware vs production static files
   if (process.env.NODE_ENV !== 'production') {

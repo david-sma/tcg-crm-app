@@ -5,6 +5,7 @@ import {
   jobMedia,
   jobOrderCounters,
   jobs,
+  jobSeries,
   users,
 } from '../db/schema.ts';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -15,10 +16,13 @@ import type {
   JobMediaPhase,
   JobMediaStatus,
   JobMediaType,
+  JobSeriesFrequency,
+  JobSeriesStatus,
   JobStatus,
   LeadSource,
 } from '../../src/types/index.ts';
 import { createInAppNotification } from './notification.ts';
+import { logAuditEvent } from './audit.ts';
 
 export type JobRow = typeof jobs.$inferSelect;
 export type JobAssignmentRow = typeof jobAssignments.$inferSelect;
@@ -206,6 +210,7 @@ function parseServices(raw: string | null): string[] {
 export interface FormatJobOptions {
   includeAssignments?: boolean;
   includeMedia?: boolean;
+  includeSeries?: boolean;
   viewer?: { id: string; role: string } | null;
   forStaff?: boolean;
   onlyAssignmentsForUserId?: string;
@@ -273,6 +278,8 @@ export async function formatJob(
     running_late: Boolean(row.running_late),
     late_note: row.late_note ?? null,
     faults_damages_checked: Boolean(row.faults_damages_checked),
+    series_id: row.series_id,
+    occurrence_date: row.occurrence_date,
     created_at: row.created_at,
     updated_at: row.updated_at,
   } as Job;
@@ -316,7 +323,35 @@ export async function formatJob(
     job.media = mediaRows.map((mediaRow) => formatJobMedia(mediaRow, mediaRow.created_by_name));
   }
 
+  // Pattern summary for office roles (single-job payloads). Never includes price.
+  if (opts.includeSeries && row.series_id && isOfficeRole) {
+    const seriesRows = await db.select().from(jobSeries).where(eq(jobSeries.id, row.series_id)).limit(1);
+    const s = seriesRows[0];
+    if (s) {
+      job.series = {
+        id: s.id,
+        status: s.status as JobSeriesStatus,
+        frequency: s.frequency as JobSeriesFrequency,
+        days_of_week: parseWeekdays(s.days_of_week),
+        start_date: s.start_date,
+        end_date: s.end_date,
+        start_time: s.start_time,
+        finish_time: s.finish_time,
+      };
+    }
+  }
+
   return job;
+}
+
+/** Parse the JSON weekday array (ISO 1=Mon..7=Sun) defensively. */
+export function parseWeekdays(raw: string): number[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((n) => Number.isInteger(n) && n >= 1 && n <= 7) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Monday (YYYY-MM-DD) of the week containing dateStr. Week starts Monday. */
@@ -413,6 +448,58 @@ export async function notifyUserSafe(params: {
     });
   } catch (err) {
     console.error('Failed to notify user:', err);
+  }
+}
+
+/** Who performed an action: a real user (routes) or the system (recurring generation). */
+export interface ActorInfo {
+  userId: string | null;
+  name: string | null;
+  role: string | null;
+  ipAddress?: string | null;
+}
+
+/**
+ * Cancel a job with a reason: updates the row, writes the audit entry and
+ * notifies assigned staff. Shared by POST /api/jobs/:id/status and series
+ * ending so both paths behave identically. Never throws.
+ */
+export async function cancelJobWithReason(
+  job: JobRowWithCreator,
+  reason: string,
+  actor: ActorInfo,
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  await db
+    .update(jobs)
+    .set({
+      status: 'cancelled',
+      cancelled_reason: reason,
+      cancelled_at: nowIso,
+      updated_at: nowIso,
+    })
+    .where(eq(jobs.id, job.id));
+
+  await logAuditEvent({
+    actor_user_id: actor.userId,
+    actor_name: actor.name,
+    actor_role: actor.role,
+    event_type: 'job_status_changed',
+    entity_type: 'job',
+    entity_id: job.id,
+    metadata: { from: job.status, to: 'cancelled', reason },
+    ip_address: actor.ipAddress ?? null,
+  });
+
+  const assigned = await listJobAssignmentRows(job.id);
+  for (const assignment of assigned) {
+    await notifyUserSafe({
+      userId: assignment.user_id,
+      type: 'JOB_STATUS_CHANGED',
+      title: `Job cancelled: ${job.title}`,
+      body: `Job ${job.job_order_number} at ${job.address} was cancelled. Reason: ${reason}`,
+      relatedEntityId: job.id,
+    });
   }
 }
 
