@@ -10,6 +10,7 @@ import {
 } from '../../../config/jobs.ts';
 import { JOB_TYPE_OPTIONS, LEAD_SOURCE_OPTIONS } from '../../../config/jobServices.ts';
 import { useAuth } from '../../../context/AuthContext.tsx';
+import { centsToInput, isValidAmountInput } from '../../../lib/money.ts';
 import { JobStatusChip } from './JobsBoardView.tsx';
 import { formatDateLabel } from './RecurringSeriesView.tsx';
 import { AlertTriangle, Ban, CalendarClock, Loader2, Repeat, Save, X } from 'lucide-react';
@@ -27,15 +28,13 @@ interface Draft {
   job_type: string;
   services_text: string;
   lead_source: string;
-  customer_name: string;
-  customer_phone: string;
-  customer_email: string;
   site_contact_name: string;
   site_contact_phone: string;
   address: string;
   location_notes: string;
   access_notes: string;
-  agreed_price: string;
+  price_amount: string;
+  price_note: string;
   frequency: JobSeriesFrequency;
   days_of_week: number[];
   start_time: string;
@@ -50,15 +49,13 @@ function draftFromSeries(series: JobSeries): Draft {
     job_type: series.job_type || JOB_TYPE_OPTIONS[0]?.id || 'other',
     services_text: series.services_text || '',
     lead_source: series.lead_source || 'manual',
-    customer_name: series.customer_name,
-    customer_phone: series.customer_phone || '',
-    customer_email: series.customer_email || '',
     site_contact_name: series.site_contact_name || '',
     site_contact_phone: series.site_contact_phone || '',
     address: series.address,
     location_notes: series.location_notes || '',
     access_notes: series.access_notes || '',
-    agreed_price: series.agreed_price || '',
+    price_amount: centsToInput(series.price_cents),
+    price_note: series.price_note || '',
     frequency: series.frequency,
     days_of_week: [...series.days_of_week],
     start_time: series.start_time,
@@ -126,8 +123,12 @@ export const SeriesDetailModal: React.FC<SeriesDetailModalProps> = ({
 
   const save = async () => {
     if (!draft || !series) return;
-    if (!draft.title.trim() || !draft.customer_name.trim() || !draft.address.trim()) {
-      setFormError('Job name, customer name and address are required.');
+    if (!draft.title.trim() || !draft.address.trim()) {
+      setFormError('Job name and address are required.');
+      return;
+    }
+    if (isManager && !isValidAmountInput(draft.price_amount)) {
+      setFormError('Enter the price as an amount like 450 or 450.50.');
       return;
     }
     if (draft.frequency !== 'daily' && draft.days_of_week.length === 0) {
@@ -152,15 +153,14 @@ export const SeriesDetailModal: React.FC<SeriesDetailModalProps> = ({
           job_type: draft.job_type,
           services_text: draft.services_text.trim() || null,
           lead_source: draft.lead_source,
-          customer_name: draft.customer_name.trim(),
-          customer_phone: draft.customer_phone.trim() || null,
-          customer_email: draft.customer_email.trim() || null,
           site_contact_name: draft.site_contact_name.trim() || null,
           site_contact_phone: draft.site_contact_phone.trim() || null,
           address: draft.address.trim(),
           location_notes: draft.location_notes.trim() || null,
           access_notes: draft.access_notes.trim() || null,
-          ...(isManager ? { agreed_price: draft.agreed_price.trim() || null } : {}),
+          ...(isManager
+            ? { price_amount: draft.price_amount.trim() || null, price_note: draft.price_note.trim() || null }
+            : {}),
           frequency: draft.frequency,
           days_of_week: draft.days_of_week,
           start_time: draft.start_time,
@@ -408,15 +408,14 @@ export const SeriesDetailModal: React.FC<SeriesDetailModalProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className={labelClass} htmlFor="series-customer-name">Customer name</label>
-                  <input
-                    id="series-customer-name"
-                    type="text"
-                    value={draft.customer_name}
-                    disabled={series.status === 'ended'}
-                    onChange={(e) => setField('customer_name', e.target.value)}
-                    className={inputClass}
-                  />
+                  <span className={labelClass}>Customer</span>
+                  <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
+                    <div className="font-semibold text-slate-900 truncate">{series.customer_name}</div>
+                    <div className="text-[11px] text-slate-500 truncate">
+                      {[series.customer_phone, series.customer_email].filter(Boolean).join(' · ') || 'No contact details'}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Edited on the customer profile.</div>
+                  </div>
                 </div>
                 <div>
                   <label className={labelClass} htmlFor="series-address">Address</label>
@@ -426,28 +425,6 @@ export const SeriesDetailModal: React.FC<SeriesDetailModalProps> = ({
                     value={draft.address}
                     disabled={series.status === 'ended'}
                     onChange={(e) => setField('address', e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="series-customer-phone">Customer phone</label>
-                  <input
-                    id="series-customer-phone"
-                    type="tel"
-                    value={draft.customer_phone}
-                    disabled={series.status === 'ended'}
-                    onChange={(e) => setField('customer_phone', e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="series-customer-email">Customer email</label>
-                  <input
-                    id="series-customer-email"
-                    type="email"
-                    value={draft.customer_email}
-                    disabled={series.status === 'ended'}
-                    onChange={(e) => setField('customer_email', e.target.value)}
                     className={inputClass}
                   />
                 </div>
@@ -538,16 +515,33 @@ export const SeriesDetailModal: React.FC<SeriesDetailModalProps> = ({
 
               {isManager && (
                 <div>
-                  <label className={labelClass} htmlFor="series-agreed-price">Pricing</label>
-                  <input
-                    id="series-agreed-price"
-                    type="text"
-                    value={draft.agreed_price}
-                    disabled={series.status === 'ended'}
-                    onChange={(e) => setField('agreed_price', e.target.value)}
-                    placeholder="e.g. $450 incl. GST"
-                    className={inputClass}
-                  />
+                  <span className={labelClass}>Pricing</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-3">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                      <input
+                        id="series-price-amount"
+                        type="text"
+                        inputMode="decimal"
+                        aria-label="Amount (NZD)"
+                        value={draft.price_amount}
+                        disabled={series.status === 'ended'}
+                        onChange={(e) => setField('price_amount', e.target.value)}
+                        placeholder="450.00"
+                        className={`${inputClass} pl-7`}
+                      />
+                    </div>
+                    <input
+                      id="series-price-note"
+                      type="text"
+                      aria-label="Pricing note"
+                      value={draft.price_note}
+                      disabled={series.status === 'ended'}
+                      onChange={(e) => setField('price_note', e.target.value)}
+                      placeholder="Note (optional), e.g. incl. GST"
+                      className={inputClass}
+                    />
+                  </div>
                   <p className="text-[11px] text-slate-400 mt-1">
                     Managers only — copied to future unscheduled visits. Pricing never blocks scheduling.
                   </p>

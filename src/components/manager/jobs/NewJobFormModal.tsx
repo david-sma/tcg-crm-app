@@ -13,6 +13,8 @@ import {
   WEEKDAY_LABELS,
 } from '../../../config/jobs.ts';
 import { JobMediaUploader } from '../../common/JobMediaUploader.tsx';
+import { CustomerPicker, type CustomerSelection } from '../../customers/CustomerPicker.tsx';
+import { isValidAmountInput } from '../../../lib/money.ts';
 import { useAuth } from '../../../context/AuthContext.tsx';
 import { X, FilePlus2, CheckCircle2, Camera, Loader2, ImagePlus, Repeat } from 'lucide-react';
 import { format } from 'date-fns';
@@ -25,7 +27,8 @@ interface NewJobFormModalProps {
 
 interface FormErrors {
   title?: string;
-  customer_name?: string;
+  customer?: string;
+  price?: string;
   address?: string;
   recurrence?: string;
 }
@@ -35,26 +38,25 @@ const EMPTY_FORM = {
   job_type: JOB_TYPE_OPTIONS[0]?.id || 'other',
   services_text: '',
   lead_source: 'manual' as LeadSource,
-  customer_name: '',
-  customer_phone: '',
-  customer_email: '',
   site_contact_name: '',
   site_contact_phone: '',
   address: '',
   location_notes: '',
   access_notes: '',
-  agreed_price: '',
+  price_amount: '',
+  price_note: '',
 };
 
-const EMPTY_RECURRENCE = {
+const emptyRecurrence = () => ({
   frequency: 'weekly' as JobSeriesFrequency,
   days_of_week: [] as number[],
+  // Computed when the form opens, so a long-open app never defaults to a past date.
   start_date: format(new Date(), 'yyyy-MM-dd'),
   start_time: '09:00',
   finish_time: '11:00',
   end_mode: 'never' as 'never' | 'on',
   end_date: '',
-};
+});
 
 export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClose, onCreated }) => {
   const { user } = useAuth();
@@ -62,7 +64,8 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
   const canRepeat = isManager || user?.role === 'customer_service';
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [repeatOn, setRepeatOn] = useState(false);
-  const [recurrence, setRecurrence] = useState({ ...EMPTY_RECURRENCE });
+  const [recurrence, setRecurrence] = useState(emptyRecurrence);
+  const [customer, setCustomer] = useState<CustomerSelection>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -73,7 +76,8 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
     if (isOpen) {
       setForm({ ...EMPTY_FORM });
       setRepeatOn(false);
-      setRecurrence({ ...EMPTY_RECURRENCE });
+      setRecurrence(emptyRecurrence());
+      setCustomer(null);
       setErrors({});
       setSubmitError('');
       setSubmitting(false);
@@ -100,7 +104,9 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
   const validate = (): boolean => {
     const next: FormErrors = {};
     if (!form.title.trim()) next.title = 'Job name is required.';
-    if (!form.customer_name.trim()) next.customer_name = 'Customer name is required.';
+    if (!customer) next.customer = 'Pick a customer or add a new one.';
+    else if (customer.mode === 'new' && !customer.draft.name.trim()) next.customer = 'Customer name is required.';
+    if (isManager && !isValidAmountInput(form.price_amount)) next.price = 'Enter an amount like 450 or 450.50.';
     if (!form.address.trim()) next.address = 'Address is required.';
     if (repeatOn) {
       if (recurrence.frequency !== 'daily' && recurrence.days_of_week.length === 0) {
@@ -130,15 +136,26 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
           services: [],
           services_text: form.services_text.trim() || undefined,
           lead_source: form.lead_source,
-          customer_name: form.customer_name.trim(),
-          customer_phone: form.customer_phone.trim() || null,
-          customer_email: form.customer_email.trim() || null,
+          ...(customer?.mode === 'existing'
+            ? { customer_id: customer.customer.id }
+            : customer?.mode === 'new'
+              ? {
+                  customer: {
+                    name: customer.draft.name.trim(),
+                    customer_type: customer.draft.customer_type,
+                    phone: customer.draft.phone.trim() || null,
+                    email: customer.draft.email.trim() || null,
+                  },
+                }
+              : {}),
           site_contact_name: form.site_contact_name.trim() || null,
           site_contact_phone: form.site_contact_phone.trim() || null,
           address: form.address.trim(),
           location_notes: form.location_notes.trim() || null,
           access_notes: form.access_notes.trim() || null,
-          ...(isManager ? { agreed_price: form.agreed_price.trim() || null } : {}),
+          ...(isManager
+            ? { price_amount: form.price_amount.trim() || null, price_note: form.price_note.trim() || null }
+            : {}),
           ...(repeatOn
             ? {
                 recurrence: {
@@ -223,17 +240,32 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
 
               {isManager && (
                 <div>
-                  <label className={labelClass} htmlFor="new-job-agreed-price">
-                    Pricing
-                  </label>
-                  <input
-                    id="new-job-agreed-price"
-                    type="text"
-                    value={form.agreed_price}
-                    onChange={(e) => setField('agreed_price', e.target.value)}
-                    placeholder="e.g. $450 incl. GST"
-                    className={inputClass()}
-                  />
+                  <span className={labelClass}>Pricing</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-3">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                      <input
+                        id="new-job-price-amount"
+                        type="text"
+                        inputMode="decimal"
+                        aria-label="Amount (NZD)"
+                        value={form.price_amount}
+                        onChange={(e) => setField('price_amount', e.target.value)}
+                        placeholder="450.00"
+                        className={`${inputClass(!!errors.price)} pl-7`}
+                      />
+                    </div>
+                    <input
+                      id="new-job-price-note"
+                      type="text"
+                      aria-label="Pricing note"
+                      value={form.price_note}
+                      onChange={(e) => setField('price_note', e.target.value)}
+                      placeholder="Note (optional), e.g. incl. GST"
+                      className={inputClass()}
+                    />
+                  </div>
+                  {errors.price && <p className="text-[11px] text-rose-600 mt-1">{errors.price}</p>}
                   <p className="text-[11px] text-slate-400 mt-1">Managers only — other roles cannot see this.</p>
                 </div>
               )}
@@ -305,44 +337,21 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
 
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Customer</h3>
-              <div>
-                <label className={labelClass} htmlFor="new-job-customer-name">
-                  Customer name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  id="new-job-customer-name"
-                  type="text"
-                  value={form.customer_name}
-                  onChange={(e) => setField('customer_name', e.target.value)}
-                  className={inputClass(!!errors.customer_name)}
-                />
-                {errors.customer_name && <p className="text-[11px] text-rose-600 mt-1">{errors.customer_name}</p>}
-              </div>
+              <CustomerPicker
+                value={customer}
+                onChange={(next) => {
+                  setCustomer(next);
+                  if (next) setErrors((current) => ({ ...current, customer: undefined }));
+                  // Prefill the job address from the customer's main address.
+                  if (next?.mode === 'existing' && next.customer.address && !form.address.trim()) {
+                    setField('address', next.customer.address);
+                  }
+                }}
+                error={errors.customer}
+                inputClass={inputClass}
+                labelClass={labelClass}
+              />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass} htmlFor="new-job-customer-phone">
-                    Customer phone
-                  </label>
-                  <input
-                    id="new-job-customer-phone"
-                    type="tel"
-                    value={form.customer_phone}
-                    onChange={(e) => setField('customer_phone', e.target.value)}
-                    className={inputClass()}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="new-job-customer-email">
-                    Customer email
-                  </label>
-                  <input
-                    id="new-job-customer-email"
-                    type="email"
-                    value={form.customer_email}
-                    onChange={(e) => setField('customer_email', e.target.value)}
-                    className={inputClass()}
-                  />
-                </div>
                 <div>
                   <label className={labelClass} htmlFor="new-job-site-contact-name">
                     Site contact name

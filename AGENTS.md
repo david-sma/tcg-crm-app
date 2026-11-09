@@ -29,7 +29,7 @@ Mobile-first workforce roster/timesheet PWA. Express + Vite/React 19 single proc
 
 ## Architecture
 
-- Entry `server.ts`: mounts routers under `/api/auth|staff|availability|rosters|personal-roster|notifications|audit|timesheets|jobs|job-series|settings`; `/api/health` and `/api/settings` are registered before auth. `bootstrapInitialData()` seeds `company_settings` + team from `customer/` on first boot (team only when `users` is empty).
+- Entry `server.ts`: mounts routers under `/api/auth|staff|availability|rosters|personal-roster|notifications|audit|timesheets|jobs|job-series|customers|settings`; `/api/health` and `/api/settings` are registered before auth. `bootstrapInitialData()` seeds `company_settings` + team from `customer/` on first boot (team only when `users` is empty).
 - Customer config: `customer/brand.ts` + `customer/seed.ts` (zod-validated via `src/config/customerSchema.ts`), logo artwork in `customer/logo.svg` + `customer/app-icon.svg`. Frontend reads settings via `BrandContext` (`useBrand()`); server logic via `getAppSettings()` (`src/config/appSettings.ts`). Brand colors are Tailwind v4 `@theme` tokens (`--color-brand*` in `src/index.css`), overridden at runtime from settings.
 - Settings precedence: `customer/` is the source of truth, but the `company_settings` DB row (single row `id='default'`, served publicly by `GET /api/settings`) wins at runtime — editing `customer/brand.ts` does NOT change an already-seeded deployment (re-seed: `DELETE FROM company_settings WHERE id='default'` + restart). Static PWA pieces (page title, manifest, icons) are generated at build time and need `npm run build`, not a DB reset.
 - `src/` = React SPA (`App.tsx` switches views by role + module); `server/routes` + `server/services` = API/domain logic.
@@ -47,6 +47,10 @@ Mobile-first workforce roster/timesheet PWA. Express + Vite/React 19 single proc
 - The service worker is generated: `public/sw.js` comes from `scripts/generate-brand-assets.ts` (`npm run brand-assets`). Never edit `sw.js` by hand; change the generator (cache name is `${slug}-portal-v2`).
 - Client push state (`src/context/NotificationContext.tsx`) is derived from a real `PushManager` subscription and self-heals on every signed-in load: stale/lost subscriptions are re-created and re-registered (which also re-binds a shared phone to the last user to log in). `src/components/common/PushNotificationPrompt.tsx` is the single enable prompt for all roles.
 - If a phone stops getting alerts: open the installed app once (this re-syncs the subscription). If still broken, uninstall and reinstall from Chrome (Android) / re-add via Home Screen (iPhone).
+
+- Customers (`customers` table, `/api/customers`, `src/components/customers/`): the single source of truth for customer contact details. `jobs`/`job_series` keep `customer_name/phone/email` as a mirror (synced by `syncCustomerMirrors()` on customer edit) and link via `customer_id`; job and series edits never change contact details. Visible to office roles; create/edit/archive is manager + customer service; customers are archived, never deleted.
+- Pricing is `price_cents` (integer, NZD cents) + optional `agreed_price` text used as the pricing note (API: `price_amount` in, `price_cents`/`price_note` out). Manager-only everywhere, including customer profile totals.
+- Entity profiles share `src/components/common/profile/ProfileLayout.tsx` (header, stat tiles, sections) so Staff and Fleet profiles match Customers.
 
 ## Gotchas
 

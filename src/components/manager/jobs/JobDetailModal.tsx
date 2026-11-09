@@ -8,6 +8,7 @@ import {
   getLeadSourceLabel,
 } from '../../../config/jobServices.ts';
 import { formatDateTimeLocal } from '../../../lib/dateUtils.ts';
+import { amountInputToCents, centsToInput, formatCents, isValidAmountInput } from '../../../lib/money.ts';
 import { describeRecurrence } from '../../../config/jobs.ts';
 import { useAuth } from '../../../context/AuthContext.tsx';
 import { JobMediaUploader } from '../../common/JobMediaUploader.tsx';
@@ -44,6 +45,8 @@ interface JobDetailModalProps {
   onChanged: () => void;
   /** Open the Recurring tab editor for this job's series (manager/customer service). */
   onOpenSeries?: (seriesId: string) => void;
+  /** Open the linked customer's profile (Customers module). */
+  onOpenCustomer?: (customerId: string) => void;
 }
 
 interface JobDraft {
@@ -51,9 +54,6 @@ interface JobDraft {
   job_type: string;
   services_text: string;
   lead_source: LeadSource;
-  customer_name: string;
-  customer_phone: string;
-  customer_email: string;
   site_contact_name: string;
   site_contact_phone: string;
   address: string;
@@ -66,9 +66,6 @@ const draftFromJob = (job: Job): JobDraft => ({
   job_type: job.job_type || '',
   services_text: job.services_text || '',
   lead_source: job.lead_source || 'manual',
-  customer_name: job.customer_name || '',
-  customer_phone: job.customer_phone || '',
-  customer_email: job.customer_email || '',
   site_contact_name: job.site_contact_name || '',
   site_contact_phone: job.site_contact_phone || '',
   address: job.address || '',
@@ -99,7 +96,14 @@ const EmptyValue: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
   <span className="text-slate-400 italic">{children || '—'}</span>
 );
 
-export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, onClose, onChanged, onOpenSeries }) => {
+export const JobDetailModal: React.FC<JobDetailModalProps> = ({
+  isOpen,
+  jobId,
+  onClose,
+  onChanged,
+  onOpenSeries,
+  onOpenCustomer,
+}) => {
   const { user } = useAuth();
   const isManager = user?.role === 'manager';
   const canProcess = user?.role === 'manager' || user?.role === 'service_team';
@@ -118,6 +122,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
   const [removingAssignmentId, setRemovingAssignmentId] = useState<string | null>(null);
   const [clearingLate, setClearingLate] = useState(false);
   const [priceDraft, setPriceDraft] = useState('');
+  const [priceNoteDraft, setPriceNoteDraft] = useState('');
   const [savingPrice, setSavingPrice] = useState(false);
   const [priceError, setPriceError] = useState('');
 
@@ -130,7 +135,8 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
       setPriceError('');
       const res = await apiFetch<{ job: Job }>(`/api/jobs/${jobId}`);
       setJob(res.job);
-      setPriceDraft(res.job.agreed_price || '');
+      setPriceDraft(centsToInput(res.job.price_cents));
+      setPriceNoteDraft(res.job.price_note || '');
     } catch (err: any) {
       setError(err?.message || 'Failed to load job');
     } finally {
@@ -248,9 +254,6 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
           services: [],
           services_text: draft.services_text.trim() || null,
           lead_source: draft.lead_source,
-          customer_name: draft.customer_name.trim(),
-          customer_phone: draft.customer_phone.trim() || null,
-          customer_email: draft.customer_email.trim() || null,
           site_contact_name: draft.site_contact_name.trim() || null,
           site_contact_phone: draft.site_contact_phone.trim() || null,
           address: draft.address.trim(),
@@ -259,7 +262,8 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
         }),
       });
       setJob(res.job);
-      setPriceDraft(res.job.agreed_price || '');
+      setPriceDraft(centsToInput(res.job.price_cents));
+      setPriceNoteDraft(res.job.price_note || '');
       setEditing(false);
       setDraft(null);
       onChanged();
@@ -277,15 +281,23 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
   // Pricing is saved independently of "Edit job" and never changes job status.
   const savePrice = async () => {
     if (!job) return;
+    if (!isValidAmountInput(priceDraft)) {
+      setPriceError('Enter an amount like 450 or 450.50');
+      return;
+    }
     try {
       setSavingPrice(true);
       setPriceError('');
       const res = await apiFetch<{ job: Job }>(`/api/jobs/${job.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ agreed_price: priceDraft.trim() || null }),
+        body: JSON.stringify({
+          price_amount: priceDraft.trim() || null,
+          price_note: priceNoteDraft.trim() || null,
+        }),
       });
       setJob(res.job);
-      setPriceDraft(res.job.agreed_price || '');
+      setPriceDraft(centsToInput(res.job.price_cents));
+      setPriceNoteDraft(res.job.price_note || '');
       onChanged();
     } catch (err: any) {
       setPriceError(err?.message || 'Failed to save price');
@@ -500,37 +512,11 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
 
                   <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3">
                     <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Customer</h3>
-                    <div>
-                      <label className={labelClass} htmlFor="edit-job-customer-name">Customer name</label>
-                      <input
-                        id="edit-job-customer-name"
-                        type="text"
-                        value={draft.customer_name}
-                        onChange={(e) => setDraftField('customer_name', e.target.value)}
-                        className={inputClass}
-                      />
-                    </div>
+                    <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                      <span className="font-semibold text-slate-700">{job.customer_name || 'No customer'}</span>
+                      {' · '}Customer contact details are edited on the customer profile.
+                    </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className={labelClass} htmlFor="edit-job-customer-phone">Phone</label>
-                        <input
-                          id="edit-job-customer-phone"
-                          type="tel"
-                          value={draft.customer_phone}
-                          onChange={(e) => setDraftField('customer_phone', e.target.value)}
-                          className={inputClass}
-                        />
-                      </div>
-                      <div>
-                        <label className={labelClass} htmlFor="edit-job-customer-email">Email</label>
-                        <input
-                          id="edit-job-customer-email"
-                          type="email"
-                          value={draft.customer_email}
-                          onChange={(e) => setDraftField('customer_email', e.target.value)}
-                          className={inputClass}
-                        />
-                      </div>
                       <div>
                         <label className={labelClass} htmlFor="edit-job-site-contact-name">Site contact name</label>
                         <input
@@ -606,7 +592,25 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                     </Section>
 
                     <Section title="Customer" icon={<UserIcon className="w-4 h-4 text-indigo-600" />}>
-                      <Row label="Name">{job.customer_name || <EmptyValue />}</Row>
+                      <Row label="Name">
+                        {job.customer_name ? (
+                          <span className="inline-flex flex-wrap items-center gap-2">
+                            <span className="font-medium">{job.customer_name}</span>
+                            {job.customer_id && onOpenCustomer && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenCustomer(job.customer_id!)}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                              >
+                                Open profile
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </span>
+                        ) : (
+                          <EmptyValue />
+                        )}
+                      </Row>
                       <Row label="Phone">
                         {job.customer_phone ? (
                           <a href={`tel:${job.customer_phone}`} className="text-indigo-600 hover:underline inline-flex items-center gap-1">
@@ -666,44 +670,75 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                   <p className="text-[11px] text-slate-500">
                     Managers only — handled in parallel. Pricing never blocks confirming, scheduling or the crew.
                   </p>
-                  <div>
-                    <label className={labelClass} htmlFor="job-agreed-price">Agreed price</label>
-                    <input
-                      id="job-agreed-price"
-                      type="text"
-                      value={priceDraft}
-                      onChange={(e) => setPriceDraft(e.target.value)}
-                      placeholder="e.g. $450 incl. GST"
-                      className={inputClass}
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-3">
+                    <div>
+                      <label className={labelClass} htmlFor="job-price-amount">Amount (NZD)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                        <input
+                          id="job-price-amount"
+                          type="text"
+                          inputMode="decimal"
+                          value={priceDraft}
+                          onChange={(e) => setPriceDraft(e.target.value)}
+                          placeholder="450.00"
+                          className={`${inputClass} pl-7`}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelClass} htmlFor="job-price-note">Note (optional)</label>
+                      <input
+                        id="job-price-note"
+                        type="text"
+                        value={priceNoteDraft}
+                        onChange={(e) => setPriceNoteDraft(e.target.value)}
+                        placeholder="e.g. incl. GST, quote #123"
+                        className={inputClass}
+                      />
+                    </div>
                   </div>
                   {priceError && (
                     <p className="text-[11px] text-rose-600">{priceError}</p>
                   )}
-                  <div className="flex items-center justify-end gap-2">
-                    {priceDraft.trim() !== (job.agreed_price || '').trim() && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPriceDraft(job.agreed_price || '');
-                          setPriceError('');
-                        }}
-                        disabled={savingPrice}
-                        className="py-2 px-3.5 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        Reset
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={savePrice}
-                      disabled={savingPrice || priceDraft.trim() === (job.agreed_price || '').trim()}
-                      className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      {savingPrice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                      {savingPrice ? 'Saving…' : 'Save price'}
-                    </button>
-                  </div>
+                  {(() => {
+                    const dirty =
+                      amountInputToCents(priceDraft) !== (job.price_cents ?? null) ||
+                      !isValidAmountInput(priceDraft) ||
+                      priceNoteDraft.trim() !== (job.price_note || '').trim();
+                    return (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-slate-500">
+                          Saved: <span className="font-semibold text-slate-700">{formatCents(job.price_cents, 'not priced')}</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {dirty && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPriceDraft(centsToInput(job.price_cents));
+                                setPriceNoteDraft(job.price_note || '');
+                                setPriceError('');
+                              }}
+                              disabled={savingPrice}
+                              className="py-2 px-3.5 rounded-xl border border-slate-300 text-slate-700 font-medium text-xs hover:bg-white transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              Reset
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={savePrice}
+                            disabled={savingPrice || !dirty}
+                            className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                          >
+                            {savingPrice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            {savingPrice ? 'Saving…' : 'Save price'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1009,7 +1044,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({ isOpen, jobId, o
                 <button
                   type="button"
                   onClick={saveEdit}
-                  disabled={savingEdit || !draft?.title.trim() || !draft?.customer_name.trim() || !draft?.address.trim()}
+                  disabled={savingEdit || !draft?.title.trim() || !draft?.address.trim()}
                   className="inline-flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-medium text-xs transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}

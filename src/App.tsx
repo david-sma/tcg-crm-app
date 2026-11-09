@@ -25,6 +25,7 @@ import { StaffManagement } from './components/manager/StaffManagement.tsx';
 import { ManagerResponseTracker } from './components/manager/ManagerResponseTracker.tsx';
 import { ManagerAuditLog } from './components/manager/ManagerAuditLog.tsx';
 import { JobsModule } from './components/manager/jobs/JobsModule.tsx';
+import { CustomersModule } from './components/customers/CustomersModule.tsx';
 
 import {
   LayoutDashboard,
@@ -46,6 +47,10 @@ function MainLayout() {
   const { companyName } = useBrand();
   const [activeModuleId, setActiveModuleId] = useState<string>('staff-ops');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // Cross-module navigation targets (consumed once by the receiving module).
+  const [customerToOpen, setCustomerToOpen] = useState<string | null>(null);
+  const [seriesToOpen, setSeriesToOpen] = useState<string | null>(null);
+  const [staffDirectorySearch, setStaffDirectorySearch] = useState<string | null>(null);
 
   const isManager = user?.role === 'manager';
   const isOfficeRole = user?.role === 'manager' || user?.role === 'customer_service' || user?.role === 'service_team';
@@ -151,8 +156,28 @@ function MainLayout() {
       setActiveModuleId('jobs-dispatches');
       return;
     }
-    setActiveModuleId('staff-ops');
+    // Jobs module tabs (e.g. jobs-recurring) live in the jobs module.
+    setActiveModuleId(tab.startsWith('jobs-') ? 'jobs-dispatches' : 'staff-ops');
     setActiveTab(tab);
+  };
+
+  const openCustomer = (customerId: string) => {
+    setCustomerToOpen(customerId);
+    setActiveModuleId('customers');
+  };
+
+  const openSeries = (seriesId: string) => {
+    setSeriesToOpen(seriesId);
+    setActiveModuleId('jobs-dispatches');
+    setActiveTab('jobs-recurring');
+  };
+
+  // Staff profiles are not built yet: staff names open the Staff Directory
+  // (managers only) filtered to that person.
+  const openStaffInDirectory = (staffName: string) => {
+    setStaffDirectorySearch(staffName);
+    setActiveModuleId('staff-ops');
+    setActiveTab('staff');
   };
 
   const currentModule = CRM_MODULES.find((m) => m.id === activeModuleId) || CRM_MODULES[0];
@@ -167,7 +192,26 @@ function MainLayout() {
             : currentTab === 'jobs-recurring'
               ? 'recurring'
               : 'board';
-      return <JobsModule activeTab={jobsTab} onNavigate={handleNavigateToTab} />;
+      return (
+        <JobsModule
+          activeTab={jobsTab}
+          onNavigate={handleNavigateToTab}
+          onOpenCustomer={openCustomer}
+          externalSeriesId={seriesToOpen}
+          onExternalSeriesHandled={() => setSeriesToOpen(null)}
+        />
+      );
+    }
+
+    if (activeModuleId === 'customers' && isOfficeRole) {
+      return (
+        <CustomersModule
+          initialCustomerId={customerToOpen}
+          onInitialCustomerHandled={() => setCustomerToOpen(null)}
+          onOpenStaff={isManager ? openStaffInDirectory : undefined}
+          onOpenSeries={openSeries}
+        />
+      );
     }
 
     // If user is visiting an upcoming CRM module
@@ -189,7 +233,12 @@ function MainLayout() {
         case 'availability':
           return <ManagerAvailabilityOverview />;
         case 'staff':
-          return <StaffManagement />;
+          return (
+            <StaffManagement
+              initialSearch={staffDirectorySearch}
+              onInitialSearchHandled={() => setStaffDirectorySearch(null)}
+            />
+          );
         case 'responses':
           return <ManagerResponseTracker />;
         case 'audit':

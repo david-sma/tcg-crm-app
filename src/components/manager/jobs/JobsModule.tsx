@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { JobsBoardView } from './JobsBoardView.tsx';
 import { JobsCalendarView } from './JobsCalendarView.tsx';
 import { ProcessQueueView } from './ProcessQueueView.tsx';
@@ -11,12 +11,30 @@ export type JobsTab = 'board' | 'queue' | 'calendar' | 'recurring';
 interface JobsModuleProps {
   activeTab: JobsTab;
   onNavigate?: (tab: string) => void;
+  /** Open a customer's profile (Customers module). */
+  onOpenCustomer?: (customerId: string) => void;
+  /** Series to open on arrival from another module (e.g. a customer profile). */
+  externalSeriesId?: string | null;
+  onExternalSeriesHandled?: () => void;
 }
 
-export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab, onNavigate }) => {
+export const JobsModule: React.FC<JobsModuleProps> = ({
+  activeTab,
+  onNavigate,
+  onOpenCustomer,
+  externalSeriesId,
+  onExternalSeriesHandled,
+}) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [seriesToOpen, setSeriesToOpen] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (externalSeriesId) {
+      setSeriesToOpen(externalSeriesId);
+      onExternalSeriesHandled?.();
+    }
+  }, [externalSeriesId, onExternalSeriesHandled]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -60,6 +78,14 @@ export const JobsModule: React.FC<JobsModuleProps> = ({ activeTab, onNavigate })
             setSeriesToOpen(seriesId);
             onNavigate?.('jobs-recurring');
           }}
+          onOpenCustomer={
+            onOpenCustomer
+              ? (customerId) => {
+                  setSelectedJobId(null);
+                  onOpenCustomer(customerId);
+                }
+              : undefined
+          }
         />
       )}
     </div>

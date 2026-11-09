@@ -33,7 +33,13 @@ const ROLE_TONES: Record<string, { avatar: string; badge: string }> = {
   staff: { avatar: 'bg-slate-100 text-slate-800 border-slate-200', badge: 'bg-slate-100 text-slate-700 border-slate-300' },
 };
 
-export const StaffManagement: React.FC = () => {
+interface StaffManagementProps {
+  /** Pre-fill the search (e.g. a staff name clicked on a customer profile). */
+  initialSearch?: string | null;
+  onInitialSearchHandled?: () => void;
+}
+
+export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch, onInitialSearchHandled }) => {
   const { phone } = useBrand();
   const [staffList, setStaffList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +47,16 @@ export const StaffManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [dueOnly, setDueOnly] = useState(false);
+
+  useEffect(() => {
+    if (initialSearch) {
+      setSearchQuery(initialSearch);
+      setStatusFilter('all');
+      setRoleFilter('all');
+      setDueOnly(false);
+      onInitialSearchHandled?.();
+    }
+  }, [initialSearch, onInitialSearchHandled]);
 
   // Create Staff Modal State
   const [createModalOpen, setCreateModalOpen] = useState(false);
