@@ -344,8 +344,9 @@ export async function generateVisitsForSeries(series: JobSeriesRow, today: strin
     if (existing.has(date)) continue;
 
     const jobId = newId();
+    let inserted: { id: string }[] = [];
     try {
-      await db
+      inserted = await db
         .insert(jobs)
         .values({
           id: jobId,
@@ -372,12 +373,19 @@ export async function generateVisitsForSeries(series: JobSeriesRow, today: strin
           created_at: nowIso,
           updated_at: nowIso,
         })
-        .onConflictDoNothing();
+        // Only the series/date pair is ignored (its unique index exists for
+        // this); any other conflict — e.g. a job-number collision — is a real
+        // error and must not be silently swallowed.
+        .onConflictDoNothing({ target: [jobs.series_id, jobs.occurrence_date] })
+        .returning({ id: jobs.id });
     } catch (err) {
       // A single bad visit must never stop the rest of the series.
       console.error(`Recurring generation failed for series ${series.id} on ${date}:`, err);
       continue;
     }
+    // Audit only when a row was actually inserted: a racing generator may have
+    // taken the date and left no row behind this id.
+    if (inserted.length === 0) continue;
 
     await logAuditEvent({
       actor_user_id: null,
