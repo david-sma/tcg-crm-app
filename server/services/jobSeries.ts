@@ -10,7 +10,7 @@
 import { and, eq, gte, inArray, gt } from 'drizzle-orm';
 import { db } from '../db/index.ts';
 import { jobSeries, jobs } from '../db/schema.ts';
-import type { JobSeriesRecurrence } from '../../src/types/index.ts';
+import type { JobSeries, JobSeriesRecurrence, LeadSource } from '../../src/types/index.ts';
 import {
   addDaysToDateString,
   cancelJobWithReason,
@@ -192,7 +192,9 @@ export interface SeriesTemplateFields {
   address: string;
   location_notes: string | null;
   access_notes: string | null;
-  agreed_price: string | null;
+  agreed_price: string | null; // pricing note (manager-only)
+  price_cents: number | null; // agreed amount (manager-only)
+  customer_id: string | null;
 }
 
 export function templateFromJobRow(job: {
@@ -209,6 +211,8 @@ export function templateFromJobRow(job: {
   location_notes: string | null;
   access_notes: string | null;
   agreed_price: string | null;
+  price_cents: number | null;
+  customer_id: string | null;
 }): SeriesTemplateFields {
   return {
     title: job.title,
@@ -224,6 +228,8 @@ export function templateFromJobRow(job: {
     location_notes: job.location_notes,
     access_notes: job.access_notes,
     agreed_price: job.agreed_price,
+    price_cents: job.price_cents,
+    customer_id: job.customer_id,
   };
 }
 
@@ -242,6 +248,8 @@ function templateToColumns(template: SeriesTemplateFields) {
     location_notes: template.location_notes,
     access_notes: template.access_notes,
     agreed_price: template.agreed_price,
+    price_cents: template.price_cents,
+    customer_id: template.customer_id,
   };
 }
 
@@ -335,6 +343,8 @@ export async function generateVisitsForSeries(series: JobSeriesRow, today: strin
     location_notes: series.location_notes,
     access_notes: series.access_notes,
     agreed_price: series.agreed_price,
+    price_cents: series.price_cents,
+    customer_id: series.customer_id,
   };
 
   let lastMatching: string | null = null;
@@ -366,6 +376,8 @@ export async function generateVisitsForSeries(series: JobSeriesRow, today: strin
           location_notes: template.location_notes,
           access_notes: template.access_notes,
           agreed_price: template.agreed_price,
+          price_cents: template.price_cents,
+          customer_id: template.customer_id,
           ready_at: nowIso,
           series_id: series.id,
           occurrence_date: date,
@@ -635,4 +647,41 @@ export function startJobSeriesGenerator(intervalMs: number): void {
   };
   void run();
   setInterval(run, intervalMs);
+}
+
+/** Serialize a series row; pricing only ever reaches managers. */
+export function formatSeries(row: JobSeriesRow, isManager: boolean, nextVisitDate: string | null = null): JobSeries {
+  return {
+    id: row.id,
+    status: row.status as JobSeries['status'],
+    frequency: row.frequency as JobSeries['frequency'],
+    days_of_week: parseWeekdays(row.days_of_week),
+    start_date: row.start_date,
+    end_date: row.end_date,
+    start_time: row.start_time,
+    finish_time: row.finish_time,
+    title: row.title,
+    job_type: row.job_type,
+    services_text: row.services_text,
+    lead_source: row.lead_source as LeadSource,
+    customer_name: row.customer_name,
+    customer_phone: row.customer_phone,
+    customer_email: row.customer_email,
+    site_contact_name: row.site_contact_name,
+    site_contact_phone: row.site_contact_phone,
+    address: row.address,
+    location_notes: row.location_notes,
+    access_notes: row.access_notes,
+    customer_id: row.customer_id,
+    ...(isManager ? { price_cents: row.price_cents, price_note: row.agreed_price } : {}),
+    first_job_id: row.first_job_id,
+    generated_through: row.generated_through,
+    ended_at: row.ended_at,
+    ended_by_user_id: row.ended_by_user_id,
+    end_reason: row.end_reason,
+    created_by_user_id: row.created_by_user_id,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    next_visit_date: nextVisitDate,
+  };
 }

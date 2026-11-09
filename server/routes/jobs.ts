@@ -34,6 +34,13 @@ import {
   getSeriesById,
   parseRecurrence,
 } from '../services/jobSeries.ts';
+import {
+  customerMirror,
+  getCustomerById,
+  parsePriceAmount,
+  parsePriceNote,
+  resolveCustomerForNewJob,
+} from '../services/customers.ts';
 import { kickMediaQueue } from '../services/mediaQueue.ts';
 import {
   buildStorageRef,
@@ -139,14 +146,6 @@ function readServices(raw: unknown): { value?: string[]; error?: string } {
     values.push(entry.trim());
   }
   return { value: values };
-}
-
-function readPrice(raw: unknown): { value?: string | null; error?: string } {
-  if (raw === undefined) return { value: undefined };
-  if (raw === null) return { value: null };
-  if (typeof raw === 'string') return { value: raw.trim() };
-  if (typeof raw === 'number' && Number.isFinite(raw)) return { value: String(raw) };
-  return { error: 'agreed_price must be a string' };
 }
 
 function readLeadSource(raw: unknown): { value?: LeadSource; error?: string } {
@@ -272,9 +271,6 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     const title = readRequiredText(body, 'title');
     if (title.error) return res.status(400).json({ error: title.error });
 
-    const customerName = readRequiredText(body, 'customer_name');
-    if (customerName.error) return res.status(400).json({ error: 'customer_name is required' });
-
     const address = readRequiredText(body, 'address');
     if (address.error) return res.status(400).json({ error: 'address is required' });
 
@@ -303,8 +299,6 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
 
     const optionalText: Record<string, string | null | undefined> = {};
     for (const key of [
-      'customer_phone',
-      'customer_email',
       'site_contact_name',
       'site_contact_phone',
       'location_notes',
@@ -316,11 +310,13 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     }
 
     // Pricing is manager-only; other roles never see it, so their values are ignored.
-    const price =
-      req.user!.role === 'manager'
-        ? readPrice(body.agreed_price)
-        : { value: null as string | null };
-    if (price.error) return res.status(400).json({ error: price.error });
+    const isManager = req.user!.role === 'manager';
+    const priceAmount = isManager ? parsePriceAmount(body.price_amount) : { value: null as number | null };
+    if (priceAmount.error) return res.status(400).json({ error: priceAmount.error });
+    const priceNote = isManager ? parsePriceNote(body.price_note) : { value: null as string | null };
+    if (priceNote.error) return res.status(400).json({ error: priceNote.error });
+    const priceCents = priceAmount.value ?? null;
+    const priceNoteValue = priceNote.value ?? null;
 
     const servicesText = readOptionalText(body, 'services_text');
     if (servicesText.error) return res.status(400).json({ error: servicesText.error });
@@ -330,6 +326,15 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
         : servicesText.value.trim().length > 0
           ? servicesText.value.trim()
           : null;
+
+    // Customer record (the single source of truth for contact details):
+    // picked from the form, or created/reused from the typed details.
+    const resolved = await resolveCustomerForNewJob(body, req.user!.id);
+    if (resolved.error || !resolved.customer) {
+      return res.status(resolved.status ?? 400).json({ error: resolved.error || 'Customer is required' });
+    }
+    const customer = resolved.customer;
+    const mirror = customerMirror(customer);
 
     const id = newId();
     const nowIso = new Date().toISOString();
@@ -347,15 +352,17 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
           job_type: (jobType.value as string) ?? '',
           services_text: servicesTextValue,
           lead_source: leadSource.value ?? 'manual',
-          customer_name: customerName.value,
-          customer_phone: optionalText.customer_phone ?? null,
-          customer_email: optionalText.customer_email ?? null,
+          customer_id: customer.id,
+          customer_name: mirror.customer_name,
+          customer_phone: mirror.customer_phone,
+          customer_email: mirror.customer_email,
           site_contact_name: optionalText.site_contact_name ?? null,
           site_contact_phone: optionalText.site_contact_phone ?? null,
           address: address.value,
           location_notes: optionalText.location_notes ?? null,
           access_notes: optionalText.access_notes ?? null,
-          agreed_price: price.value ?? null,
+          agreed_price: priceNoteValue,
+          price_cents: priceCents,
         },
         createdByUserId: req.user!.id,
       });
@@ -371,15 +378,14 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
       job_type: (jobType.value as string) ?? '',
       services: JSON.stringify(services.value ?? []),
       lead_source: leadSource.value ?? 'manual',
-      customer_name: customerName.value,
-      customer_phone: optionalText.customer_phone ?? null,
-      customer_email: optionalText.customer_email ?? null,
+      ...mirror,
       site_contact_name: optionalText.site_contact_name ?? null,
       site_contact_phone: optionalText.site_contact_phone ?? null,
       address: address.value,
       location_notes: optionalText.location_notes ?? null,
       access_notes: optionalText.access_notes ?? null,
-      agreed_price: price.value ?? null,
+      agreed_price: priceNoteValue,
+      price_cents: priceCents,
       services_text: servicesTextValue,
       series_id: seriesId,
       occurrence_date: occurrenceDate,
@@ -393,11 +399,24 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     await auditJob(req, 'job_created', id, {
       job_order_number: jobOrderNumber,
       title: title.value,
+      customer_id: customer.id,
     });
+    if (resolved.created) {
+      await logAuditEvent({
+        actor_user_id: req.user!.id,
+        actor_name: req.user!.name,
+        actor_role: req.user!.role,
+        event_type: 'customer_created',
+        entity_type: 'customer',
+        entity_id: customer.id,
+        metadata: { name: customer.name, source: 'new_job', job_id: id },
+        ip_address: req.ip,
+      });
+    }
 
     // Pricing runs in parallel: alert managers right away when a job arrives
     // without a price. Never let notification failures break job creation.
-    if (!price.value) {
+    if (priceCents === null) {
       try {
         await notifyManagers(
           'JOB_NEEDS_PRICING',
@@ -856,10 +875,22 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
       patch.title = value.value;
     }
 
-    if (hasField(body, 'customer_name')) {
-      const value = readRequiredText(body, 'customer_name');
-      if (value.error) return res.status(400).json({ error: 'customer_name cannot be empty' });
-      patch.customer_name = value.value;
+    // Customer contact details are owned by the customer profile and are not
+    // editable here (customer_name/phone/email are ignored). Office intake
+    // roles may re-link the job to a different customer if the wrong one was
+    // picked; the contact mirror follows the new customer.
+    if (hasField(body, 'customer_id')) {
+      if (req.user!.role !== 'manager' && req.user!.role !== 'customer_service') {
+        return res.status(403).json({ error: 'Only managers and customer service can change the customer' });
+      }
+      const nextId = typeof body.customer_id === 'string' ? body.customer_id.trim() : '';
+      if (!nextId) return res.status(400).json({ error: 'customer_id is required' });
+      if (nextId !== job.customer_id) {
+        const nextCustomer = await getCustomerById(nextId);
+        if (!nextCustomer) return res.status(400).json({ error: 'Customer not found' });
+        if (nextCustomer.archived_at) return res.status(400).json({ error: 'This customer is archived' });
+        Object.assign(patch, customerMirror(nextCustomer));
+      }
     }
 
     if (hasField(body, 'address')) {
@@ -887,8 +918,6 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
     }
 
     for (const key of [
-      'customer_phone',
-      'customer_email',
       'site_contact_name',
       'site_contact_phone',
       'location_notes',
@@ -902,22 +931,30 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
     }
 
     // Pricing is manager-only; other roles never see it, so their values are ignored.
-    if (hasField(body, 'agreed_price') && req.user!.role === 'manager') {
-      const value = readPrice(body.agreed_price);
-      if (value.error) return res.status(400).json({ error: value.error });
-      patch.agreed_price = value.value ?? null;
-    }
-
     // Price changes get their own audit event (the audit log is manager-only,
     // so price values in metadata are acceptable).
-    let priceChange: { from: string | null; to: string | null } | null = null;
-    if (hasField(patch, 'agreed_price')) {
-      const to = (patch.agreed_price as string | null) ?? null;
-      const from = job.agreed_price ?? null;
-      if (to !== from) {
-        priceChange = { from, to };
-      } else {
-        delete patch.agreed_price;
+    let priceChange: {
+      from_cents: number | null;
+      to_cents: number | null;
+      from_note: string | null;
+      to_note: string | null;
+    } | null = null;
+    if (req.user!.role === 'manager' && (hasField(body, 'price_amount') || hasField(body, 'price_note'))) {
+      const amount = parsePriceAmount(body.price_amount);
+      if (amount.error) return res.status(400).json({ error: amount.error });
+      const note = parsePriceNote(body.price_note);
+      if (note.error) return res.status(400).json({ error: note.error });
+      const toCents = amount.value === undefined ? (job.price_cents ?? null) : amount.value;
+      const toNote = note.value === undefined ? (job.agreed_price ?? null) : note.value;
+      if (toCents !== (job.price_cents ?? null) || toNote !== (job.agreed_price ?? null)) {
+        priceChange = {
+          from_cents: job.price_cents ?? null,
+          to_cents: toCents,
+          from_note: job.agreed_price ?? null,
+          to_note: toNote,
+        };
+        patch.price_cents = toCents;
+        patch.agreed_price = toNote;
       }
     }
 
@@ -932,7 +969,7 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
             : null;
     }
 
-    const changedFields = Object.keys(patch).filter((key) => key !== 'agreed_price');
+    const changedFields = Object.keys(patch).filter((key) => key !== 'agreed_price' && key !== 'price_cents');
     if (changedFields.length === 0 && !priceChange) {
       return res.status(400).json({ error: 'No updatable fields provided' });
     }
@@ -941,12 +978,9 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
     await db.update(jobs).set(patch).where(eq(jobs.id, job.id));
 
     if (priceChange) {
-      const action = !priceChange.from ? 'set' : !priceChange.to ? 'cleared' : 'changed';
-      await auditJob(req, 'job_price_updated', job.id, {
-        action,
-        from: priceChange.from,
-        to: priceChange.to,
-      });
+      const action =
+        priceChange.from_cents === null ? 'set' : priceChange.to_cents === null ? 'cleared' : 'changed';
+      await auditJob(req, 'job_price_updated', job.id, { action, ...priceChange });
     }
 
     if (changedFields.length > 0) {

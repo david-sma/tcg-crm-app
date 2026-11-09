@@ -12,12 +12,14 @@ import {
 import {
   businessToday,
   endSeries,
+  formatSeries,
   getSeriesById,
   parseRecurrence,
   reconcileSeriesVisits,
   type JobSeriesRow,
 } from '../services/jobSeries.ts';
-import type { JobSeries, JobSeriesRecurrence, LeadSource } from '../../src/types/index.ts';
+import { parsePriceAmount, parsePriceNote } from '../services/customers.ts';
+import type { JobSeriesRecurrence } from '../../src/types/index.ts';
 
 export const jobSeriesRouter = Router();
 
@@ -50,42 +52,6 @@ async function auditSeries(
     metadata: metadata ?? null,
     ip_address: req.ip,
   });
-}
-
-/** Serialize a series row; pricing only ever reaches managers. */
-function formatSeries(row: JobSeriesRow, isManager: boolean, nextVisitDate: string | null = null): JobSeries {
-  return {
-    id: row.id,
-    status: row.status as JobSeries['status'],
-    frequency: row.frequency as JobSeries['frequency'],
-    days_of_week: parseWeekdays(row.days_of_week),
-    start_date: row.start_date,
-    end_date: row.end_date,
-    start_time: row.start_time,
-    finish_time: row.finish_time,
-    title: row.title,
-    job_type: row.job_type,
-    services_text: row.services_text,
-    lead_source: row.lead_source as LeadSource,
-    customer_name: row.customer_name,
-    customer_phone: row.customer_phone,
-    customer_email: row.customer_email,
-    site_contact_name: row.site_contact_name,
-    site_contact_phone: row.site_contact_phone,
-    address: row.address,
-    location_notes: row.location_notes,
-    access_notes: row.access_notes,
-    ...(isManager ? { agreed_price: row.agreed_price } : {}),
-    first_job_id: row.first_job_id,
-    generated_through: row.generated_through,
-    ended_at: row.ended_at,
-    ended_by_user_id: row.ended_by_user_id,
-    end_reason: row.end_reason,
-    created_by_user_id: row.created_by_user_id,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    next_visit_date: nextVisitDate,
-  };
 }
 
 /** Next upcoming (not completed/cancelled) visit date per series. */
@@ -207,8 +173,12 @@ jobSeriesRouter.put('/:id', async (req: Request, res: Response) => {
       location_notes: series.location_notes,
       access_notes: series.access_notes,
       agreed_price: series.agreed_price,
+      price_cents: series.price_cents,
+      customer_id: series.customer_id,
     };
-    for (const key of ['title', 'job_type', 'lead_source', 'customer_name', 'address'] as const) {
+    // Customer contact details are owned by the customer profile:
+    // customer_name/phone/email are not editable here and are ignored.
+    for (const key of ['title', 'job_type', 'lead_source', 'address'] as const) {
       if (body[key] === undefined) continue;
       const value = typeof body[key] === 'string' ? body[key].trim() : '';
       if (value.length === 0) return res.status(400).json({ error: `${key} is required` });
@@ -219,8 +189,6 @@ jobSeriesRouter.put('/:id', async (req: Request, res: Response) => {
     }
     for (const key of [
       'services_text',
-      'customer_phone',
-      'customer_email',
       'site_contact_name',
       'site_contact_phone',
       'location_notes',
@@ -230,9 +198,13 @@ jobSeriesRouter.put('/:id', async (req: Request, res: Response) => {
       nextTemplate[key] = typeof body[key] === 'string' ? (body[key].trim() || null) : null;
     }
     // Pricing is manager-only; other roles' values are ignored.
-    if (isManager && body.agreed_price !== undefined) {
-      nextTemplate.agreed_price =
-        typeof body.agreed_price === 'string' ? body.agreed_price.trim() || null : null;
+    if (isManager) {
+      const amount = parsePriceAmount(body.price_amount);
+      if (amount.error) return res.status(400).json({ error: amount.error });
+      const note = parsePriceNote(body.price_note);
+      if (note.error) return res.status(400).json({ error: note.error });
+      if (amount.value !== undefined) nextTemplate.price_cents = amount.value;
+      if (note.value !== undefined) nextTemplate.agreed_price = note.value;
     }
 
     const nowIso = new Date().toISOString();

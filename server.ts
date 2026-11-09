@@ -19,6 +19,7 @@ import { auditRouter } from './server/routes/audit.ts';
 import { timesheetsRouter } from './server/routes/timesheets.ts';
 import { jobsRouter } from './server/routes/jobs.ts';
 import { jobSeriesRouter } from './server/routes/jobSeries.ts';
+import { customersRouter } from './server/routes/customers.ts';
 import { getStorageClient } from './server/services/storage.ts';
 import { startMediaQueue } from './server/services/mediaQueue.ts';
 import { startJobSeriesGenerator } from './server/services/jobSeries.ts';
@@ -66,6 +67,7 @@ async function startServer() {
   app.use('/api/timesheets', timesheetsRouter);
   app.use('/api/jobs', jobsRouter);
   app.use('/api/job-series', jobSeriesRouter);
+  app.use('/api/customers', customersRouter);
 
   // Vite integration: development middleware vs production static files
   if (process.env.NODE_ENV !== 'production') {

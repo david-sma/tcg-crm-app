@@ -315,7 +315,9 @@ export interface Job {
   address: string;
   location_notes?: string | null;
   access_notes?: string | null;
-  agreed_price?: string | null; // omitted in non-manager payloads
+  customer_id?: string | null; // linked customer record (contact fields above mirror it)
+  price_cents?: number | null; // manager-only agreed amount in cents; omitted for other roles
+  price_note?: string | null; // manager-only free-text pricing note; omitted for other roles
   scheduled_date?: string | null;
   scheduled_start_time?: string | null;
   scheduled_finish_time?: string | null;
@@ -383,7 +385,9 @@ export interface JobSeries extends JobSeriesSummary {
   address: string;
   location_notes?: string | null;
   access_notes?: string | null;
-  agreed_price?: string | null; // omitted in non-manager payloads
+  customer_id?: string | null;
+  price_cents?: number | null; // manager-only; omitted for other roles
+  price_note?: string | null; // manager-only; omitted for other roles
   first_job_id?: string | null;
   generated_through?: string | null;
   ended_at?: string | null;
@@ -396,3 +400,44 @@ export interface JobSeries extends JobSeriesSummary {
   next_visit_date?: string | null;
 }
 
+
+export type CustomerType = 'residential' | 'commercial';
+
+export interface Customer {
+  id: string;
+  name: string;
+  customer_type: CustomerType;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+  archived_at: string | null;
+  created_by_user_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Customer row for the Customers list (aggregates computed server-side). */
+export interface CustomerListItem extends Customer {
+  job_count: number;
+  last_job_date: string | null; // most recent visit/created date (YYYY-MM-DD)
+  next_visit_date: string | null; // next upcoming visit (YYYY-MM-DD)
+  active_series_count: number;
+}
+
+export interface CustomerProfileStats {
+  total_jobs: number;
+  completed_jobs: number;
+  upcoming_jobs: number; // not completed/cancelled
+  cancelled_jobs: number;
+  active_series_count: number;
+  completed_value_cents?: number; // manager-only: sum of price_cents of completed jobs
+  upcoming_value_cents?: number; // manager-only: sum of price_cents of upcoming jobs
+}
+
+export interface CustomerProfile {
+  customer: Customer;
+  stats: CustomerProfileStats;
+  jobs: Job[];
+  series: JobSeries[];
+}

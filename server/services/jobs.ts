@@ -41,7 +41,7 @@ export class JobTransitionError extends Error {
   }
 }
 
-// Intentional: no transition depends on `agreed_price` — pricing runs in parallel
+// Intentional: no transition depends on `price_cents` — pricing runs in parallel
 // (manager-only) and must never gate confirming, scheduling, allocating staff,
 // starting or completing a job. Keep it that way.
 const JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
@@ -309,8 +309,10 @@ export async function formatJob(
     job.cancelled_at = row.cancelled_at;
     job.created_by_user_id = row.created_by_user_id;
     job.created_by_name = row.created_by_name;
+    job.customer_id = row.customer_id ?? null;
     if (seesPricing) {
-      job.agreed_price = row.agreed_price;
+      job.price_cents = row.price_cents ?? null;
+      job.price_note = row.agreed_price ?? null;
     }
   }
 
