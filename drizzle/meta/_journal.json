@@ -99,6 +99,20 @@
       "when": 1794190691656,
       "tag": "0013_far_sir_ram",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794247254175,
+      "tag": "0014_customers_and_price_amount",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794247254628,
+      "tag": "0015_customers_backfill",
+      "breakpoints": true
     }
   ]
 }

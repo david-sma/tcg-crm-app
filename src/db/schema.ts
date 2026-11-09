@@ -275,6 +275,28 @@ export const shiftEventReports = pgTable('shift_event_reports', {
   index('shift_events_timestamp_idx').on(table.timestamp),
 ]);
 
+/**
+ * Customers: the single source of truth for customer contact details. Jobs and
+ * recurring series keep customer_name/phone/email columns as a mirror (kept in
+ * sync on customer edit) so existing read paths keep working; only the customer
+ * profile may change them.
+ */
+export const customers = pgTable('customers', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  customer_type: text('customer_type').notNull().default('residential'), // 'residential' | 'commercial'
+  phone: text('phone'),
+  email: text('email'),
+  address: text('address'), // main address (prefills new jobs; each job keeps its own site address)
+  notes: text('notes'),
+  archived_at: text('archived_at'), // archived customers are hidden from pickers; never hard-deleted
+  created_by_user_id: text('created_by_user_id').references(() => users.id),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (table) => [
+  index('customers_name_idx').on(table.name),
+]);
+
 export const jobs = pgTable('jobs', {
   id: text('id').primaryKey(),
   job_order_number: text('job_order_number').notNull().unique(), // JO-YYYY-####
@@ -292,7 +314,9 @@ export const jobs = pgTable('jobs', {
   address: text('address').notNull().default(''),
   location_notes: text('location_notes'),
   access_notes: text('access_notes'), // access requirements
-  agreed_price: text('agreed_price'),
+  agreed_price: text('agreed_price'), // manager-only free-text pricing note (the amount itself is price_cents)
+  price_cents: integer('price_cents'), // manager-only agreed amount in cents (NZD); null = not priced yet
+  customer_id: text('customer_id').references(() => customers.id, { onDelete: 'set null' }), // customer record; contact fields above mirror it
   scheduled_date: text('scheduled_date'), // YYYY-MM-DD (job visit date, business-local)
   scheduled_start_time: text('scheduled_start_time'), // HH:mm business-local
   scheduled_finish_time: text('scheduled_finish_time'), // HH:mm business-local
@@ -320,6 +344,7 @@ export const jobs = pgTable('jobs', {
   index('jobs_status_idx').on(table.status),
   index('jobs_scheduled_date_idx').on(table.scheduled_date),
   index('jobs_series_idx').on(table.series_id),
+  index('jobs_customer_idx').on(table.customer_id),
   // A series can never have two visits on the same date (insert-or-ignore generation).
   uniqueIndex('jobs_series_occurrence_idx').on(table.series_id, table.occurrence_date),
 ]);
@@ -348,7 +373,9 @@ export const jobSeries = pgTable('job_series', {
   address: text('address').notNull().default(''),
   location_notes: text('location_notes'),
   access_notes: text('access_notes'),
-  agreed_price: text('agreed_price'),
+  agreed_price: text('agreed_price'), // pricing note (manager-only)
+  price_cents: integer('price_cents'), // agreed amount in cents (manager-only), copied to generated visits
+  customer_id: text('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   ended_at: text('ended_at'),
   ended_by_user_id: text('ended_by_user_id').references(() => users.id),
   end_reason: text('end_reason'),
