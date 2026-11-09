@@ -434,7 +434,12 @@ async function markSeriesEnded(
  * deleted, the rest are cancelled through the standard cancel logic (reason +
  * assigned staff notified). Used by "End series" (afterDate = today - 1) and by
  * cancel scope "this and all future visits" (afterDate = the visit's date).
- * Never throws.
+ *
+ * Cleanup runs BEFORE the series is marked ended, and failures are rethrown:
+ * a half-done run must leave the series active and retryable instead of
+ * claiming success with visits left in the Process Queue. Because 'ended' is
+ * only set after cleanup, the early return below also guarantees an ended
+ * series has no leftover visits.
  */
 export async function endSeries(params: {
   seriesId: string;
@@ -445,9 +450,6 @@ export async function endSeries(params: {
   try {
     const series = await getSeriesById(params.seriesId);
     if (!series || series.status === 'ended') return;
-
-    const nowIso = new Date().toISOString();
-    await markSeriesEnded(params.seriesId, params.reason, params.actor, nowIso);
 
     const future = await db
       .select()
@@ -488,8 +490,11 @@ export async function endSeries(params: {
         await cancelJobWithReason(job, params.reason, params.actor);
       }
     }
+
+    await markSeriesEnded(params.seriesId, params.reason, params.actor, new Date().toISOString());
   } catch (err) {
     console.error(`Failed to end series ${params.seriesId}:`, err);
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }
 
@@ -501,7 +506,8 @@ export async function endSeries(params: {
  * - visit 1 is never deleted; while unscheduled it gets details + a recomputed
  *   occurrence_date (first date matching the new pattern).
  * Scheduled/in-progress/completed/cancelled visits are never changed.
- * Then re-run generation for active series. Never throws.
+ * Then re-run generation for active series. Failures are rethrown so the edit
+ * endpoint can report them (retrying is safe: the steps above are idempotent).
  */
 export async function reconcileSeriesVisits(series: JobSeriesRow, today: string): Promise<void> {
   try {
@@ -590,6 +596,7 @@ export async function reconcileSeriesVisits(series: JobSeriesRow, today: string)
     await generateVisitsForSeries(series, today);
   } catch (err) {
     console.error(`Failed to reconcile series ${series.id}:`, err);
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }
 

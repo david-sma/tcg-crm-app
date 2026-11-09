@@ -1011,11 +1011,12 @@ jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Requ
         role: req.user!.role,
         ipAddress: req.ip ?? null,
       };
-      await cancelJobWithReason(job, reason, actor);
 
       // Recurring visits: ending the series is destructive, so it happens only
       // for "this and all future visits" (managers) — or when visit 1 of a
       // still-pending series is cancelled, which voids the series entirely.
+      // The series is ended first: if it fails, the error is reported and a
+      // retry works (this visit is cancelled last).
       if (job.series_id) {
         const series = await getSeriesById(job.series_id);
         if (series && series.status !== 'ended') {
@@ -1031,6 +1032,8 @@ jobsRouter.post('/:id/status', requireAnyRole(...OFFICE_ROLES), async (req: Requ
           }
         }
       }
+
+      await cancelJobWithReason(job, reason, actor);
     } else {
       assertJobTransition(fromStatus, status as JobStatus);
 
