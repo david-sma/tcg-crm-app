@@ -3,7 +3,10 @@ import type { Job } from '../../../types/index.ts';
 import {
   INTAKE_TARGET_HARD_HOURS,
   INTAKE_TARGET_SOFT_HOURS,
+  PROCESS_TARGET_HOURS,
 } from '../../../config/jobs.ts';
+import { getAppSettings } from '../../../config/appSettings.ts';
+import { fromZonedTime } from 'date-fns-tz';
 import { Clock } from 'lucide-react';
 
 type TargetState = 'ok' | 'soft' | 'hard';
@@ -53,3 +56,46 @@ export const IntakeTargetChip: React.FC<{ job: Job }> = ({ job }) => (
     label="Intake"
   />
 );
+
+/**
+ * Visit-due countdown chip for recurring visits: time left until the visit date.
+ * Grey when more than PROCESS_TARGET_HOURS before the visit, amber in the final
+ * window, red once the visit date has arrived and the visit is still unscheduled.
+ * (An age-based chip makes every system-created visit look overdue.)
+ */
+export const VisitDueChip: React.FC<{ occurrenceDate: string }> = ({ occurrenceDate }) => {
+  const dueMs = fromZonedTime(
+    `${occurrenceDate}T00:00:00`,
+    getAppSettings().timezone,
+  ).getTime();
+  const remainingMs = dueMs - Date.now();
+  const softMs = PROCESS_TARGET_HOURS * 36e5;
+
+  let tone: string;
+  let text: string;
+  if (remainingMs <= 0) {
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: getAppSettings().timezone });
+    tone = 'bg-rose-100 text-rose-800 border-rose-200';
+    text = occurrenceDate < todayStr ? 'overdue' : 'today';
+  } else {
+    tone =
+      remainingMs <= softMs
+        ? 'bg-amber-100 text-amber-800 border-amber-200'
+        : 'bg-slate-100 text-slate-600 border-slate-200';
+    const totalMinutes = Math.floor(remainingMs / 6e4);
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const minutes = totalMinutes % 60;
+    text = days > 0 ? `in ${days}d ${hours}h` : hours > 0 ? `in ${hours}h ${minutes}m` : `in ${minutes}m`;
+  }
+
+  return (
+    <span
+      title="Schedule before the visit"
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${tone}`}
+    >
+      <Clock className="w-3 h-3" />
+      {text}
+    </span>
+  );
+};

@@ -2,19 +2,22 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
 import type { Job } from '../../../types/index.ts';
 import { PROCESS_TARGET_HOURS } from '../../../config/jobs.ts';
-import { JobStatusChip, RecurringBadge, formatJobTimeWindow } from './JobsBoardView.tsx';
-import { TargetChip } from './TargetChip.tsx';
+import { JobStatusChip, RecurringBadge, formatJobTimeWindow, formatScheduledDay } from './JobsBoardView.tsx';
+import { TargetChip, VisitDueChip } from './TargetChip.tsx';
 import { AlertTriangle, CheckCircle2, MapPin, RefreshCw } from 'lucide-react';
 
-const Row: React.FC<{ job: Job; onOpen: (id: string) => void; soft: number; hard: number; since: string | null | undefined; targetLabel: string }> = ({
-  job,
-  onOpen,
-  soft,
-  hard,
-  since,
-  targetLabel,
-}) => {
+const Row: React.FC<{
+  job: Job;
+  onOpen: (id: string) => void;
+  soft: number;
+  hard: number;
+  since: string | null | undefined;
+  targetLabel: string;
+  /** Set for recurring visits awaiting scheduling: the chip counts down to this date. */
+  dueDate?: string | null;
+}> = ({ job, onOpen, soft, hard, since, targetLabel, dueDate }) => {
   const where = job.address || '';
+  const visitLabel = dueDate && !job.scheduled_date ? `Visit ${formatScheduledDay(dueDate)}` : '';
   return (
     <button
       type="button"
@@ -25,10 +28,10 @@ const Row: React.FC<{ job: Job; onOpen: (id: string) => void; soft: number; hard
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
             <span className="font-mono">{job.job_order_number}</span>
-            {formatJobTimeWindow(job) && (
+            {(formatJobTimeWindow(job) || visitLabel) && (
               <>
                 <span className="text-slate-300">•</span>
-                <span>{formatJobTimeWindow(job)}</span>
+                <span>{formatJobTimeWindow(job) || visitLabel}</span>
               </>
             )}
           </div>
@@ -41,7 +44,11 @@ const Row: React.FC<{ job: Job; onOpen: (id: string) => void; soft: number; hard
           )}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <TargetChip sinceIso={since} softHours={soft} hardHours={hard} label={targetLabel} />
+          {dueDate ? (
+            <VisitDueChip occurrenceDate={dueDate} />
+          ) : (
+            <TargetChip sinceIso={since} softHours={soft} hardHours={hard} label={targetLabel} />
+          )}
           {job.series_id ? <RecurringBadge /> : null}
           <JobStatusChip status={job.status} />
         </div>
@@ -70,9 +77,14 @@ export const ProcessQueueView: React.FC<ProcessQueueViewProps> = ({ onOpenJob, r
         apiFetch<{ jobs: Job[] }>('/api/jobs?status=ready'),
         apiFetch<{ jobs: Job[] }>('/api/jobs?status=completed'),
       ]);
-      const byReadyAt = (a: Job, b: Job) => (a.ready_at || a.created_at).localeCompare(b.ready_at || b.created_at);
+      // Deadline order: recurring visits by visit date, one-off jobs by wait
+      // time — most urgent first, so a visit tomorrow outranks one in two weeks.
+      const processDue = (job: Job) => job.occurrence_date || job.ready_at || job.created_at;
+      const byProcessDue = (a: Job, b: Job) =>
+        processDue(a).localeCompare(processDue(b)) ||
+        (a.ready_at || a.created_at).localeCompare(b.ready_at || b.created_at);
       const byCompletedAt = (a: Job, b: Job) => (b.completed_at || b.created_at).localeCompare(a.completed_at || a.created_at);
-      setToProcess((readyRes.jobs || []).slice().sort(byReadyAt));
+      setToProcess((readyRes.jobs || []).slice().sort(byProcessDue));
       setFinalCheck((completedRes.jobs || []).slice().sort(byCompletedAt));
     } catch (err: any) {
       setError(err?.message || 'Failed to load the process queue');
@@ -135,6 +147,7 @@ export const ProcessQueueView: React.FC<ProcessQueueViewProps> = ({ onOpenJob, r
                     soft={PROCESS_TARGET_HOURS}
                     hard={PROCESS_TARGET_HOURS}
                     targetLabel="Processing"
+                    dueDate={job.occurrence_date}
                   />
                 ))}
               </div>
