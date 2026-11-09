@@ -311,12 +311,52 @@ export const jobs = pgTable('jobs', {
   cancelled_reason: text('cancelled_reason'),
   cancelled_at: text('cancelled_at'),
   created_by_user_id: text('created_by_user_id').references(() => users.id),
+  series_id: text('series_id').references(() => jobSeries.id, { onDelete: 'set null' }), // recurring series this visit belongs to
+  occurrence_date: text('occurrence_date'), // YYYY-MM-DD visit date within its series (set for recurring visits only)
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
 }, (table) => [
   uniqueIndex('jobs_order_number_idx').on(table.job_order_number),
   index('jobs_status_idx').on(table.status),
   index('jobs_scheduled_date_idx').on(table.scheduled_date),
+  index('jobs_series_idx').on(table.series_id),
+  // A series can never have two visits on the same date (insert-or-ignore generation).
+  uniqueIndex('jobs_series_occurrence_idx').on(table.series_id, table.occurrence_date),
+]);
+
+export const jobSeries = pgTable('job_series', {
+  id: text('id').primaryKey(),
+  status: text('status').notNull().default('pending'), // 'pending' (visit 1 gathering details) | 'active' | 'ended'
+  frequency: text('frequency').notNull(), // 'daily' | 'weekly' | 'fortnightly'
+  days_of_week: text('days_of_week').notNull().default('[]'), // JSON array of ISO weekdays 1=Mon..7=Sun; required weekly/fortnightly, empty for daily
+  start_date: text('start_date').notNull(), // YYYY-MM-DD business-local; first requested date (immutable)
+  end_date: text('end_date'), // YYYY-MM-DD nullable; last date of the series
+  start_time: text('start_time').notNull(), // HH:mm business-local (usual visit time; prefill for scheduling)
+  finish_time: text('finish_time').notNull(), // HH:mm business-local
+  first_job_id: text('first_job_id').references(() => jobs.id, { onDelete: 'set null' }), // visit 1 (the anchor job)
+  generated_through: text('generated_through'), // YYYY-MM-DD; visits generated up to and including this date
+  // Template copied from visit 1's details when the series activates; applied to generated visits.
+  title: text('title').notNull().default(''),
+  job_type: text('job_type').notNull().default(''),
+  services_text: text('services_text'),
+  lead_source: text('lead_source').notNull().default('manual'),
+  customer_name: text('customer_name').notNull().default(''),
+  customer_phone: text('customer_phone'),
+  customer_email: text('customer_email'),
+  site_contact_name: text('site_contact_name'),
+  site_contact_phone: text('site_contact_phone'),
+  address: text('address').notNull().default(''),
+  location_notes: text('location_notes'),
+  access_notes: text('access_notes'),
+  agreed_price: text('agreed_price'),
+  ended_at: text('ended_at'),
+  ended_by_user_id: text('ended_by_user_id').references(() => users.id),
+  end_reason: text('end_reason'),
+  created_by_user_id: text('created_by_user_id').references(() => users.id),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+}, (table) => [
+  index('job_series_status_idx').on(table.status),
 ]);
 
 export const jobAssignments = pgTable('job_assignments', {

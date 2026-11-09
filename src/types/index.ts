@@ -341,5 +341,58 @@ export interface Job {
   updated_at: string;
   assignments?: JobAssignment[];
   media?: JobMedia[];
+  series_id?: string | null; // set on visits belonging to a recurring series
+  occurrence_date?: string | null; // YYYY-MM-DD visit date within its series
+  series?: JobSeriesSummary; // pattern summary (office roles, single-job payloads only)
+}
+
+export type JobSeriesFrequency = 'daily' | 'weekly' | 'fortnightly';
+export type JobSeriesStatus = 'pending' | 'active' | 'ended';
+
+export interface JobSeriesRecurrence {
+  frequency: JobSeriesFrequency;
+  days_of_week: number[]; // ISO weekdays 1=Mon..7=Sun; required for weekly/fortnightly, empty for daily
+  start_date: string; // YYYY-MM-DD
+  start_time: string; // HH:mm
+  finish_time: string; // HH:mm
+  end_date?: string | null; // YYYY-MM-DD; null/omitted = never ends
+}
+
+/** Pattern-only summary embedded in job payloads. Never includes price. */
+export interface JobSeriesSummary {
+  id: string;
+  status: JobSeriesStatus;
+  frequency: JobSeriesFrequency;
+  days_of_week: number[];
+  start_date: string;
+  end_date: string | null;
+  start_time: string;
+  finish_time: string;
+}
+
+export interface JobSeries extends JobSeriesSummary {
+  title: string;
+  job_type: string;
+  services_text?: string | null;
+  lead_source: LeadSource;
+  customer_name: string;
+  customer_phone?: string | null;
+  customer_email?: string | null;
+  site_contact_name?: string | null;
+  site_contact_phone?: string | null;
+  address: string;
+  location_notes?: string | null;
+  access_notes?: string | null;
+  agreed_price?: string | null; // omitted in non-manager payloads
+  first_job_id?: string | null;
+  generated_through?: string | null;
+  ended_at?: string | null;
+  ended_by_user_id?: string | null;
+  end_reason?: string | null;
+  created_by_user_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Computed server-side for the Recurring tab list. */
+  next_visit_date?: string | null;
 }
 

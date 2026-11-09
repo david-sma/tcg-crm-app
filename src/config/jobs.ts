@@ -51,3 +51,42 @@ export const JOB_STATUS_LABELS: Record<string, string> = {
   completed: 'Completed',
   cancelled: 'Cancelled',
 };
+
+/** Recurring series (job_series). */
+export const JOB_SERIES_INTERVAL_MS = 60 * 60 * 1000; // hourly generation of upcoming visits
+
+export const RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'fortnightly'] as const;
+
+export const RECURRENCE_FREQUENCY_LABELS: Record<string, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  fortnightly: 'Fortnightly',
+};
+
+/** ISO weekdays 1=Monday..7=Sunday. */
+export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+export const WEEKDAYS_ISO = [1, 2, 3, 4, 5, 6, 7] as const;
+
+export interface RecurrenceSummaryInput {
+  frequency: string;
+  days_of_week: number[];
+  start_time: string;
+  finish_time: string;
+  end_date?: string | null;
+}
+
+/** Human pattern summary, e.g. "Weekly on Tue & Thu, 09:00–11:00 · ends 30 Jan". */
+export function describeRecurrence(input: RecurrenceSummaryInput): string {
+  const freq = RECURRENCE_FREQUENCY_LABELS[input.frequency] ?? input.frequency;
+  const days = (input.days_of_week || [])
+    .slice()
+    .sort((a, b) => a - b)
+    .map((d) => WEEKDAY_LABELS[d - 1] ?? String(d));
+  const when =
+    input.frequency === 'daily'
+      ? 'Every day'
+      : `${freq} on ${days.length > 1 ? `${days.slice(0, -1).join(', ')} & ${days[days.length - 1]}` : days[0] ?? ''}`;
+  const time = `${input.start_time}–${input.finish_time}`;
+  const ends = input.end_date ? `ends ${input.end_date}` : 'never ends';
+  return `${when}, ${time} · ${ends}`;
+}
