@@ -133,7 +133,7 @@ export const InstallPwaPrompt: React.FC = () => {
 
       {/* iOS / Safari Step-by-step Guide Modal */}
       {showIOSGuide && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+        <div className="fixed inset-0 safe-overlay z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
           <div className="bg-white text-slate-900 rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-300">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-3">

@@ -510,7 +510,7 @@ export const ManagerRosterBuilder: React.FC = () => {
 
       {/* Copy Prior Week Confirmation Modal */}
       {copyModalOpen && (
-        <div id="copy-prior-week-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div id="copy-prior-week-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div id="copy-prior-week-modal-card" className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">

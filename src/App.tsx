@@ -8,6 +8,7 @@ import { InstallPwaPrompt } from './components/common/InstallPwaPrompt.tsx';
 import { PushNotificationPrompt } from './components/common/PushNotificationPrompt.tsx';
 import { CRM_MODULES } from './config/modules.ts';
 import { ModuleRoadmapView } from './components/common/ModuleRoadmapModal.tsx';
+import { MobileBottomNav } from './components/common/MobileBottomNav.tsx';
 
 // Staff Views
 import { StaffDashboard } from './components/staff/StaffDashboard.tsx';
@@ -292,7 +293,7 @@ function MainLayout() {
 
       {/* Secondary Desktop & Tablet Tab Bar (module tabs share one seamless bar) */}
       {(activeModuleId === 'staff-ops' || activeModuleId === 'jobs-dispatches') && (
-        <div className="bg-white border-b border-slate-200 sticky top-16 z-30 hidden sm:block shadow-2xs">
+        <div className="bg-white border-b border-slate-200 sticky sticky-below-header z-30 hidden sm:block shadow-2xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-1 overflow-x-auto scrollbar-none">
             {barNavItems.map((item) => {
               const Icon = item.icon;
@@ -319,39 +320,20 @@ function MainLayout() {
       )}
 
       {/* Main Content View */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24 sm:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 pb-24 sm:pb-8 safe-main">
         <InstallPwaPrompt />
         <PushNotificationPrompt />
         {renderContent()}
       </main>
 
-      {/* Mobile Bottom Navigation Bar */}
+      {/* Mobile Bottom Navigation Bar (more than 5 tabs → 4 + "More" sheet) */}
       {(activeModuleId === 'staff-ops' || activeModuleId === 'jobs-dispatches') && (
-        <nav
-          id="mobile-bottom-nav"
-          className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-around shadow-lg"
-        >
-          {barNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            return (
-              <button
-                key={item.id}
-                id={`mobile-nav-${item.id}`}
-                type="button"
-                onClick={() => setActiveTab(item.id)}
-                aria-label={item.label}
-                title={item.label}
-                className={`flex flex-col items-center justify-center p-1.5 rounded-xl text-center transition-all cursor-pointer ${
-                  isActive ? 'text-blue-600 bg-blue-50/80 font-bold' : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5] text-blue-600' : 'stroke-[1.75]'}`} />
-                <span className="text-[10px] mt-0.5 max-w-[65px] truncate">{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <MobileBottomNav
+          items={barNavItems}
+          activeId={currentTab}
+          onSelect={setActiveTab}
+          primaryIds={['dashboard', 'timesheets', 'roster-builder', 'staff']}
+        />
       )}
     </div>
   );

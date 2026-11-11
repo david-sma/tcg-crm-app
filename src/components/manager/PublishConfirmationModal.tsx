@@ -54,7 +54,7 @@ export const PublishConfirmationModal: React.FC<PublishConfirmationModalProps> =
   };
 
   return (
-    <div id="publish-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div id="publish-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div id="publish-modal-card" className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">

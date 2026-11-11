@@ -96,7 +96,7 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
   if (!isOpen || !photoUrl) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">

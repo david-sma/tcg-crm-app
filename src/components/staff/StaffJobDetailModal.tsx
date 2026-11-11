@@ -201,7 +201,7 @@ export const StaffJobDetailModal: React.FC<StaffJobDetailModalProps> = ({
   const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(fullAddress)}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs">
+    <div className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs">
       <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 to-violet-700 p-5 text-white relative shrink-0">
           <button

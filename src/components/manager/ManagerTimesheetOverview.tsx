@@ -602,7 +602,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
 
       {/* INSPECT STAFF TIMESHEET MODAL / PAPER REPLICA DRAWER */}
       {inspectingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
+        <div className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 my-8">
             {/* Modal Header */}
             <div className="bg-slate-900 text-white p-6 flex items-center justify-between">
@@ -982,7 +982,7 @@ export const ManagerTimesheetOverview: React.FC<ManagerTimesheetOverviewProps> =
 
       {/* MANAGER OVERRIDE MODAL (Strictly Manager Only) */}
       {overrideReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
+        <div className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
           <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
             <div className="bg-amber-600 text-white p-5 flex items-center justify-between">
               <div>

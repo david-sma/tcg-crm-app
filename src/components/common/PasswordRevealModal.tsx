@@ -33,7 +33,7 @@ export const PasswordRevealModal: React.FC<PasswordRevealModalProps> = ({
   };
 
   return (
-    <div id="password-reveal-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div id="password-reveal-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div id="password-reveal-modal-card" className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">

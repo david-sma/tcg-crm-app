@@ -640,7 +640,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
 
       {/* Role Change Confirmation Modal */}
       {roleModalOpen && targetRoleStaff && (
-        <div id="role-change-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div id="role-change-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div id="role-change-modal-card" className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -750,7 +750,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
 
       {/* Create Team Member Modal */}
       {createModalOpen && (
-        <div id="create-staff-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div id="create-staff-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div id="create-staff-modal-card" className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -880,7 +880,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
 
       {/* Edit Staff / Manager Modal */}
       {editModalOpen && (
-        <div id="edit-staff-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div id="edit-staff-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div id="edit-staff-modal-card" className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -1000,7 +1000,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
 
       {/* Toggle Status Confirmation Modal */}
       {toggleModalOpen && targetToggleStaff && (
-        <div id="toggle-status-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div id="toggle-status-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div id="toggle-status-modal-card" className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -1092,7 +1092,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
 
       {/* Reset Password Confirmation Modal */}
       {resetModalOpen && targetResetStaff && (
-        <div id="reset-password-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div id="reset-password-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div id="reset-password-modal-card" className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">

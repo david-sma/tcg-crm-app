@@ -420,7 +420,7 @@ export const JobsCalendarView: React.FC<JobsCalendarViewProps> = ({ onOpenJob, r
 
       {/* Slot picker: choose which waiting job to place here */}
       {slotPick && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div className="fixed inset-0 safe-overlay z-50 flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>

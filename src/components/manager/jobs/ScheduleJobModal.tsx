@@ -144,7 +144,7 @@ export const ScheduleJobModal: React.FC<ScheduleJobModalProps> = ({ isOpen, job,
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+    <div className="fixed inset-0 safe-overlay z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-600 to-violet-700">
           <div className="flex items-center gap-2.5">

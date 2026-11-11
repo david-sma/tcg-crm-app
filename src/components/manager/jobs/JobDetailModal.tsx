@@ -345,7 +345,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
   const labelClass = 'block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+    <div className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
         <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-3 bg-gradient-to-r from-indigo-600 to-violet-700">
           <div className="min-w-0">

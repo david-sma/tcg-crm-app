@@ -119,7 +119,7 @@ export const EnterAvailabilityModal: React.FC<EnterAvailabilityModalProps> = ({
   };
 
   return (
-    <div id="on-behalf-modal-backdrop" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div id="on-behalf-modal-backdrop" className="fixed inset-0 safe-overlay z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div id="on-behalf-modal-card" className="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div>

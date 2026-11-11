@@ -74,8 +74,8 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ customer, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4" role="dialog" aria-modal="true">
-      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-3xl shadow-xl">
+    <div className="fixed inset-0 safe-overlay z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-3 sm:p-4" role="dialog" aria-modal="true">
+      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto bg-white rounded-3xl shadow-xl">
         <div className="sticky top-0 bg-white border-b border-slate-100 px-5 py-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900">{customer ? 'Edit customer' : 'New customer'}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer">

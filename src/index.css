@@ -19,3 +19,34 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+
+/*
+ * iPhone safe areas. index.html uses viewport-fit=cover with a translucent
+ * status bar, so the Home Screen app draws under the notch / Dynamic Island
+ * and the home indicator. These keep content clear of them. env() is 0 on
+ * Android and desktop, so nothing changes there. Unlayered on purpose: they
+ * must win over Tailwind padding utilities on the same element.
+ */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.sticky-below-header {
+  top: calc(4rem + env(safe-area-inset-top));
+}
+.safe-bottom-nav {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+@media (max-width: 639px) {
+  .safe-main {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+  /* Full-screen overlays (modals, drawers, sheets) keep their content clear too. */
+  .safe-overlay {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+/* "More" sheet sits just above the mobile bottom bar. */
+.mobile-more-sheet {
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
