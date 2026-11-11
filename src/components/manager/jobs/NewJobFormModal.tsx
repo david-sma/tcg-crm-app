@@ -413,12 +413,16 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
             {canRepeat && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Repeat className="w-4 h-4 text-indigo-600" />
-                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Repeat</h3>
-                  </div>
+                  {repeatOn ? (
+                    <div className="flex items-center gap-2">
+                      <Repeat className="w-4 h-4 text-indigo-600" />
+                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Recurring job</h3>
+                    </div>
+                  ) : (
+                    <span />
+                  )}
                   <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                    <span className="text-xs font-semibold text-slate-600">Repeat this job</span>
+                    <span className="text-xs font-semibold text-slate-600">Recurring job</span>
                     <input
                       id="new-job-repeat"
                       type="checkbox"

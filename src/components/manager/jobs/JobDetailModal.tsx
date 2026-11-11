@@ -757,7 +757,7 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                     </Row>
                   )}
                   {job.series && (
-                    <Row label="Repeats">
+                    <Row label="Recurring">
                       <div className="flex flex-wrap items-center gap-2">
                         <Repeat className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                         <span className="font-medium">{describeRecurrence(job.series)}</span>

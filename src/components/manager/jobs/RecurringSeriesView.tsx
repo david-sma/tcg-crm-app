@@ -173,7 +173,7 @@ export const RecurringSeriesView: React.FC<RecurringSeriesViewProps> = ({
           <Repeat className="w-8 h-8 text-slate-300 mb-2" />
           <p className="text-sm font-semibold text-slate-600">No recurring series</p>
           <p className="text-xs text-slate-400 mt-1 max-w-xs">
-            Mark a new job as repeating to set up a daily, weekly or fortnightly series.
+            Switch on “Recurring job” when creating a job to set up a daily, weekly or fortnightly series.
           </p>
         </div>
       ) : (
