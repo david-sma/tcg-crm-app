@@ -50,6 +50,8 @@ Mobile-first workforce roster/timesheet PWA. Express + Vite/React 19 single proc
 
 - Customers (`customers` table, `/api/customers`, `src/components/customers/`): the single source of truth for customer contact details. `jobs`/`job_series` keep `customer_name/phone/email` as a mirror (synced by `syncCustomerMirrors()` on customer edit) and link via `customer_id`; job and series edits never change contact details. Visible to office roles; create/edit/archive is manager + customer service; customers are archived, never deleted.
 - Pricing is `price_cents` (integer, NZD cents) + optional `agreed_price` text used as the pricing note (API: `price_amount` in, `price_cents`/`price_note` out). Manager-only everywhere, including customer profile totals.
+- Job `frequency` (+ `frequency_note` for Custom) is a reporting TAG only — required on new jobs, One-off by default, and never linked to recurring series config. `job_series.frequency` is the recurrence pattern; the series' copy of the tag is `job_series.job_frequency`.
+- Mobile layout: the iPhone Home Screen app draws under the notch (`viewport-fit=cover`), so the header, bottom bar and full-screen overlays use the safe-area classes in `src/index.css` (`safe-top`, `safe-bottom-nav`, `safe-main`, `safe-overlay`). New full-screen overlays should use `fixed inset-0 safe-overlay`. Bottom bars with more than 5 tabs collapse into 4 + "More" (`MobileBottomNav`).
 - Entity profiles share `src/components/common/profile/ProfileLayout.tsx` (header, stat tiles, sections) so Staff and Fleet profiles match Customers.
 
 ## Gotchas
