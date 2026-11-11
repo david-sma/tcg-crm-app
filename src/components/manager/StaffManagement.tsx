@@ -392,14 +392,14 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
           {/* Role Filter */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl shrink-0">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl max-w-full overflow-x-auto scrollbar-none">
             <button
               id="filter-role-all-btn"
               type="button"
               onClick={() => setRoleFilter('all')}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all shrink-0 whitespace-nowrap ${
                 roleFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -411,7 +411,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
                 id={`filter-role-${role.replace(/_/g, '-')}-btn`}
                 type="button"
                 onClick={() => setRoleFilter(role)}
-                className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all shrink-0 whitespace-nowrap ${
                   roleFilter === role ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -421,12 +421,12 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
           </div>
 
           {/* Status Filter */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl shrink-0">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl max-w-full overflow-x-auto scrollbar-none">
             <button
               id="filter-status-active-btn"
               type="button"
               onClick={() => setStatusFilter('active')}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all shrink-0 whitespace-nowrap ${
                 statusFilter === 'active' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -436,7 +436,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
               id="filter-status-inactive-btn"
               type="button"
               onClick={() => setStatusFilter('inactive')}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all shrink-0 whitespace-nowrap ${
                 statusFilter === 'inactive' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -446,7 +446,7 @@ export const StaffManagement: React.FC<StaffManagementProps> = ({ initialSearch,
               id="filter-status-all-btn"
               type="button"
               onClick={() => setStatusFilter('all')}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all shrink-0 whitespace-nowrap ${
                 statusFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >

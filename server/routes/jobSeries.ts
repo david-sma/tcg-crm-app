@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, inArray, notInArray, sql } from 'drizzle-orm';
 import { db } from '../../src/db/index.ts';
 import { jobSeries, jobs } from '../../src/db/schema.ts';
 import { requireAuth, requireAnyRole } from '../middleware/auth.ts';
+import { INTAKE_ROLES } from '../../src/config/roles.ts';
 import { logAuditEvent } from '../services/audit.ts';
 import {
   addDaysToDateString,
@@ -25,7 +26,7 @@ export const jobSeriesRouter = Router();
 
 jobSeriesRouter.use(requireAuth);
 // Recurring series are managed by managers and customer service only.
-jobSeriesRouter.use(requireAnyRole('manager', 'customer_service'));
+jobSeriesRouter.use(requireAnyRole(...INTAKE_ROLES));
 
 const VALID_LEAD_SOURCES = new Set<string>(['manual', 'phone', 'facebook', 'website', 'referral', 'other']);
 

@@ -13,8 +13,11 @@ export const WORKER_ROLES: UserRole[] = ['staff', 'customer_service', 'service_t
 /** Office roles that manage job orders (intake, processing, scheduling). */
 export const OFFICE_ROLES: UserRole[] = ['manager', 'customer_service', 'service_team'];
 
-/** Roles that may confirm deals, schedule, allocate crew and cancel jobs. */
+/** Roles that schedule, allocate crew and cancel jobs (the Process Queue). */
 export const PROCESSING_ROLES: UserRole[] = ['manager', 'service_team'];
+
+/** Intake: who creates job orders (and customers / recurring series). Not the service team. */
+export const INTAKE_ROLES: UserRole[] = ['manager', 'customer_service'];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   manager: 'Manager',

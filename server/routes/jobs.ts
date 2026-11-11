@@ -3,7 +3,7 @@ import { and, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from 'driz
 import { db } from '../db/index.ts';
 import { jobAssignments, jobMedia, jobs, users } from '../db/schema.ts';
 import { requireAuth, requireRole, requireAnyRole } from '../middleware/auth.ts';
-import { OFFICE_ROLES, PROCESSING_ROLES, WORKER_ROLES } from '../../src/config/roles.ts';
+import { INTAKE_ROLES, OFFICE_ROLES, PROCESSING_ROLES, WORKER_ROLES } from '../../src/config/roles.ts';
 import { logAuditEvent } from '../services/audit.ts';
 import {
   addDaysToDateString,
@@ -265,7 +265,8 @@ async function buildJobsQuery(params: {
 }
 
 // POST /api/jobs - Create job order (intake roles)
-jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: Response) => {
+// Only intake roles (manager, customer service) create jobs — never the service team.
+jobsRouter.post('/', requireAnyRole(...INTAKE_ROLES), async (req: Request, res: Response) => {
   try {
     const body: Body = req.body || {};
 
@@ -291,9 +292,6 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     // Optional recurrence (manager + customer_service only).
     let recurrence: JobSeriesRecurrence | null = null;
     if (body.recurrence !== undefined && body.recurrence !== null) {
-      if (req.user!.role !== 'manager' && req.user!.role !== 'customer_service') {
-        return res.status(403).json({ error: 'Only managers and customer service can create recurring jobs' });
-      }
       const parsed = parseRecurrence(body.recurrence);
       if (parsed.error) return res.status(400).json({ error: parsed.error });
       recurrence = parsed.value!;
@@ -889,7 +887,7 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
     // roles may re-link the job to a different customer if the wrong one was
     // picked; the contact mirror follows the new customer.
     if (hasField(body, 'customer_id')) {
-      if (req.user!.role !== 'manager' && req.user!.role !== 'customer_service') {
+      if (!INTAKE_ROLES.includes(req.user!.role)) {
         return res.status(403).json({ error: 'Only managers and customer service can change the customer' });
       }
       const nextId = typeof body.customer_id === 'string' ? body.customer_id.trim() : '';

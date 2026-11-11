@@ -3,6 +3,8 @@ import { apiFetch } from '../../../lib/api.ts';
 import type { Job, JobStatus } from '../../../types/index.ts';
 import { JOB_STATUSES, JOB_STATUS_LABELS } from '../../../config/jobs.ts';
 import { NewJobFormModal } from './NewJobFormModal.tsx';
+import { useAuth } from '../../../context/AuthContext.tsx';
+import { INTAKE_ROLES } from '../../../config/roles.ts';
 import { IntakeTargetChip } from './TargetChip.tsx';
 import { Plus, Search, AlertTriangle, CheckCircle2, X, Loader2, Briefcase, ChevronDown, ChevronRight, Repeat } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
@@ -85,6 +87,9 @@ interface JobsBoardViewProps {
 }
 
 export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refreshKey = 0 }) => {
+  const { user } = useAuth();
+  // Only intake roles (manager, customer service) create jobs; the server enforces it too.
+  const canCreateJobs = Boolean(user && INTAKE_ROLES.includes(user.role));
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -233,14 +238,16 @@ export const JobsBoardView: React.FC<JobsBoardViewProps> = ({ onOpenJob, refresh
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setNewJobOpen(true)}
-          className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          New Job
-        </button>
+        {canCreateJobs && (
+          <button
+            type="button"
+            onClick={() => setNewJobOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            New Job
+          </button>
+        )}
 
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

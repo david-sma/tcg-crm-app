@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'd
 import { db } from '../db/index.ts';
 import { customers, jobSeries, jobs, users } from '../db/schema.ts';
 import { requireAuth, requireAnyRole } from '../middleware/auth.ts';
-import { OFFICE_ROLES } from '../../src/config/roles.ts';
+import { INTAKE_ROLES, OFFICE_ROLES } from '../../src/config/roles.ts';
 import { logAuditEvent } from '../services/audit.ts';
 import { formatJob } from '../services/jobs.ts';
 import { businessToday, formatSeries } from '../services/jobSeries.ts';
@@ -30,7 +30,7 @@ customersRouter.use(requireAuth);
 customersRouter.use(requireAnyRole(...OFFICE_ROLES));
 
 /** Creating/editing/archiving customers: the roles that take job intake. */
-const requireCustomerEditor = requireAnyRole('manager', 'customer_service');
+const requireCustomerEditor = requireAnyRole(...INTAKE_ROLES);
 
 type Body = Record<string, unknown>;
 

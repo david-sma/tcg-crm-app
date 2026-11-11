@@ -50,3 +50,10 @@ body {
 .mobile-more-sheet {
   bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
+/* Horizontal scrollers (filter pills, tab bars) without a visible scrollbar. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

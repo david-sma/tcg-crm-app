@@ -3,6 +3,7 @@ import { apiFetch } from '../../lib/api.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import type { Customer, CustomerListItem, CustomerProfile, Job } from '../../types/index.ts';
 import { CUSTOMER_TYPE_LABELS } from '../../config/customers.ts';
+import { INTAKE_ROLES } from '../../config/roles.ts';
 import { getJobTypeLabel } from '../../config/jobServices.ts';
 import { describeJobFrequency, describeRecurrence } from '../../config/jobs.ts';
 import { formatCents } from '../../lib/money.ts';
@@ -68,7 +69,7 @@ export const CustomersModule: React.FC<CustomersModuleProps> = ({
   onOpenSeries,
 }) => {
   const { user } = useAuth();
-  const canEdit = user?.role === 'manager' || user?.role === 'customer_service';
+  const canEdit = Boolean(user && INTAKE_ROLES.includes(user.role));
   const [selectedId, setSelectedId] = useState<string | null>(initialCustomerId ?? null);
   const [creating, setCreating] = useState(false);
   const [listKey, setListKey] = useState(0);
