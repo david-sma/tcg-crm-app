@@ -291,6 +291,8 @@ export async function publishRosterWeek(params: {
 
   // 9. Generate Staff Snapshots based on per-shift statuses
   const staffToNotify: Array<{ user_id: string; title: string; body: string }> = [];
+  // Fingerprint of "no shifts", for staff without a snapshot in the previous version.
+  const emptyRosterHash = computeStaffVisibleRosterHash([]);
 
   for (const staff of activeStaff) {
     const staffShifts = insertedShiftsByUser.get(staff.id) || [];
@@ -345,16 +347,35 @@ export async function publishRosterWeek(params: {
       responded_at: respondedAt,
     });
 
+    // Revisions alert ONLY staff whose own roster changed (a shift added,
+    // moved, edited or removed), judged by the staff-visible fingerprint of
+    // their shifts versus the previous version. Unchanged staff get nothing,
+    // even if they still have unconfirmed shifts from the earlier version.
+    const previousHash = previousSnapshotsMap.get(staff.id)?.content_hash ?? emptyRosterHash;
+    const rosterChanged = contentHash !== previousHash;
+    if (isRevision) {
+      shouldNotify = rosterChanged;
+    }
+
     if (shouldNotify) {
       const pendingCount = staffShifts.filter((s) => s.response_status === 'pending').length;
       const title = isRevision
         ? `Roster Updated (Week of ${week.week_start_date})`
         : `New Roster Published (Week of ${week.week_start_date})`;
-      const body = hasShifts
-        ? pendingCount > 0 && isRevision
-          ? `Your roster was updated with ${pendingCount} shift${pendingCount > 1 ? 's' : ''} requiring your confirmation.`
-          : `Your roster has ${shiftCount} shift${shiftCount > 1 ? 's' : ''} for the week starting ${week.week_start_date}. Please review and confirm.`
-        : `Your roster has been published with No shifts assigned for the week starting ${week.week_start_date}.`;
+      let body: string;
+      if (isRevision && !hasShifts) {
+        // All of this person's shifts were removed: a short, generic heads-up.
+        body = 'Your roster was changed. Please check it as soon as possible.';
+      } else if (isRevision) {
+        body =
+          pendingCount > 0
+            ? `Your roster was updated with ${pendingCount} shift${pendingCount > 1 ? 's' : ''} requiring your confirmation.`
+            : 'Your roster was updated. Please check it as soon as possible.';
+      } else {
+        body = hasShifts
+          ? `Your roster has ${shiftCount} shift${shiftCount > 1 ? 's' : ''} for the week starting ${week.week_start_date}. Please review and confirm.`
+          : `Your roster has been published with No shifts assigned for the week starting ${week.week_start_date}.`;
+      }
 
       staffToNotify.push({ user_id: staff.id, title, body });
     }
