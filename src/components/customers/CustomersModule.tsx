@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext.tsx';
 import type { Customer, CustomerListItem, CustomerProfile, Job } from '../../types/index.ts';
 import { CUSTOMER_TYPE_LABELS } from '../../config/customers.ts';
 import { getJobTypeLabel } from '../../config/jobServices.ts';
-import { describeRecurrence } from '../../config/jobs.ts';
+import { describeJobFrequency, describeRecurrence } from '../../config/jobs.ts';
 import { formatCents } from '../../lib/money.ts';
 import { JobStatusChip, RecurringBadge, formatScheduledDay } from '../manager/jobs/JobsBoardView.tsx';
 import { JobDetailModal } from '../manager/jobs/JobDetailModal.tsx';
@@ -358,6 +358,8 @@ const CustomerProfileView: React.FC<{
           : job.status !== 'completed' && job.status !== 'cancelled',
   );
   const addresses = [...new Set(jobs.map((job) => job.address).filter(Boolean))];
+  // Jobs are newest first: the latest job with a frequency tag describes the customer.
+  const latestTagged = jobs.find((job) => job.frequency);
 
   return (
     <>
@@ -437,6 +439,14 @@ const CustomerProfileView: React.FC<{
               ) : (
                 <span className="text-slate-400 italic">No email</span>
               )}
+            </div>
+            <div className="flex items-start gap-2">
+              <Repeat className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+              <span className={latestTagged ? 'text-slate-800' : 'text-slate-400 italic'}>
+                {latestTagged
+                  ? `${describeJobFrequency(latestTagged.frequency, latestTagged.frequency_note)} (latest job)`
+                  : 'Frequency not set'}
+              </span>
             </div>
             <div className="flex items-start gap-2">
               <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />

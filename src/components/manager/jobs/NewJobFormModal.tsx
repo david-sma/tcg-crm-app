@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../../lib/api.ts';
-import type { Job, JobSeriesFrequency, LeadSource } from '../../../types/index.ts';
+import type { Job, JobFrequency, JobSeriesFrequency, LeadSource } from '../../../types/index.ts';
 import {
   JOB_TYPE_OPTIONS,
   LEAD_SOURCE_OPTIONS,
 } from '../../../config/jobServices.ts';
 import {
   describeRecurrence,
+  JOB_FREQUENCIES,
+  JOB_FREQUENCY_LABELS,
   RECURRENCE_FREQUENCIES,
   RECURRENCE_FREQUENCY_LABELS,
   WEEKDAYS_ISO,
@@ -38,6 +40,9 @@ const EMPTY_FORM = {
   job_type: JOB_TYPE_OPTIONS[0]?.id || 'other',
   services_text: '',
   lead_source: 'manual' as LeadSource,
+  // Frequency TAG (required, One-off pre-selected). Independent of "Recurring job".
+  frequency: 'one_off' as JobFrequency,
+  frequency_note: '',
   site_contact_name: '',
   site_contact_phone: '',
   address: '',
@@ -136,6 +141,8 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
           services: [],
           services_text: form.services_text.trim() || undefined,
           lead_source: form.lead_source,
+          frequency: form.frequency,
+          frequency_note: form.frequency === 'custom' ? form.frequency_note.trim() || null : null,
           ...(customer?.mode === 'existing'
             ? { customer_id: customer.customer.id }
             : customer?.mode === 'new'
@@ -286,6 +293,40 @@ export const NewJobFormModal: React.FC<NewJobFormModalProps> = ({ isOpen, onClos
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className={labelClass} htmlFor="new-job-frequency">
+                  Frequency <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-3">
+                  <select
+                    id="new-job-frequency"
+                    value={form.frequency}
+                    onChange={(e) => setField('frequency', e.target.value)}
+                    className={inputClass()}
+                  >
+                    {JOB_FREQUENCIES.map((value) => (
+                      <option key={value} value={value}>
+                        {JOB_FREQUENCY_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
+                  {form.frequency === 'custom' && (
+                    <input
+                      id="new-job-frequency-note"
+                      type="text"
+                      aria-label="Custom frequency note"
+                      value={form.frequency_note}
+                      onChange={(e) => setField('frequency_note', e.target.value)}
+                      placeholder="e.g. every 3 weeks"
+                      className={inputClass()}
+                    />
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  How often this customer books this job. For records only — it doesn't create a recurring series.
+                </p>
               </div>
 
               <div>

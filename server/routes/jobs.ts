@@ -21,6 +21,7 @@ import {
   notifyRoles,
   notifyUserSafe,
   nextJobOrderNumber,
+  parseJobFrequency,
   type ActorInfo,
   type JobRowWithCreator,
 } from '../services/jobs.ts';
@@ -283,6 +284,10 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
     const leadSource = readLeadSource(body.lead_source);
     if (leadSource.error) return res.status(400).json({ error: leadSource.error });
 
+    // Frequency tag (required; reporting only — independent of `recurrence`).
+    const frequency = parseJobFrequency(body, true);
+    if (frequency.error) return res.status(400).json({ error: frequency.error });
+
     // Optional recurrence (manager + customer_service only).
     let recurrence: JobSeriesRecurrence | null = null;
     if (body.recurrence !== undefined && body.recurrence !== null) {
@@ -352,6 +357,8 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
           job_type: (jobType.value as string) ?? '',
           services_text: servicesTextValue,
           lead_source: leadSource.value ?? 'manual',
+          job_frequency: frequency.frequency ?? null,
+          job_frequency_note: frequency.note ?? null,
           customer_id: customer.id,
           customer_name: mirror.customer_name,
           customer_phone: mirror.customer_phone,
@@ -378,6 +385,8 @@ jobsRouter.post('/', requireAnyRole(...OFFICE_ROLES), async (req: Request, res: 
       job_type: (jobType.value as string) ?? '',
       services: JSON.stringify(services.value ?? []),
       lead_source: leadSource.value ?? 'manual',
+      frequency: frequency.frequency ?? null,
+      frequency_note: frequency.note ?? null,
       ...mirror,
       site_contact_name: optionalText.site_contact_name ?? null,
       site_contact_phone: optionalText.site_contact_phone ?? null,
@@ -915,6 +924,15 @@ jobsRouter.put('/:id', requireAnyRole(...OFFICE_ROLES), async (req: Request, res
       const value = readLeadSource(body.lead_source);
       if (value.error) return res.status(400).json({ error: value.error });
       patch.lead_source = value.value ?? 'manual';
+    }
+
+    if (hasField(body, 'frequency') || hasField(body, 'frequency_note')) {
+      const value = parseJobFrequency(body, false);
+      if (value.error) return res.status(400).json({ error: value.error });
+      if (value.frequency !== undefined) {
+        patch.frequency = value.frequency;
+        patch.frequency_note = value.note ?? null;
+      }
     }
 
     for (const key of [

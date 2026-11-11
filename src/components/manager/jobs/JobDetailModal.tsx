@@ -9,7 +9,12 @@ import {
 } from '../../../config/jobServices.ts';
 import { formatDateTimeLocal } from '../../../lib/dateUtils.ts';
 import { amountInputToCents, centsToInput, formatCents, isValidAmountInput } from '../../../lib/money.ts';
-import { describeRecurrence } from '../../../config/jobs.ts';
+import {
+  describeJobFrequency,
+  describeRecurrence,
+  JOB_FREQUENCIES,
+  JOB_FREQUENCY_LABELS,
+} from '../../../config/jobs.ts';
 import { useAuth } from '../../../context/AuthContext.tsx';
 import { JobMediaUploader } from '../../common/JobMediaUploader.tsx';
 import { ScheduleJobModal } from './ScheduleJobModal.tsx';
@@ -54,6 +59,8 @@ interface JobDraft {
   job_type: string;
   services_text: string;
   lead_source: LeadSource;
+  frequency: string; // '' = not set (older jobs)
+  frequency_note: string;
   site_contact_name: string;
   site_contact_phone: string;
   address: string;
@@ -66,6 +73,8 @@ const draftFromJob = (job: Job): JobDraft => ({
   job_type: job.job_type || '',
   services_text: job.services_text || '',
   lead_source: job.lead_source || 'manual',
+  frequency: job.frequency || '',
+  frequency_note: job.frequency_note || '',
   site_contact_name: job.site_contact_name || '',
   site_contact_phone: job.site_contact_phone || '',
   address: job.address || '',
@@ -254,6 +263,12 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
           services: [],
           services_text: draft.services_text.trim() || null,
           lead_source: draft.lead_source,
+          ...(draft.frequency
+            ? {
+                frequency: draft.frequency,
+                frequency_note: draft.frequency === 'custom' ? draft.frequency_note.trim() || null : null,
+              }
+            : {}),
           site_contact_name: draft.site_contact_name.trim() || null,
           site_contact_phone: draft.site_contact_phone.trim() || null,
           address: draft.address.trim(),
@@ -486,6 +501,35 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                         </select>
                       </div>
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-3">
+                      <div>
+                        <label className={labelClass} htmlFor="edit-job-frequency">Frequency</label>
+                        <select
+                          id="edit-job-frequency"
+                          value={draft.frequency}
+                          onChange={(e) => setDraftField('frequency', e.target.value)}
+                          className={inputClass}
+                        >
+                          {!draft.frequency && <option value="">Not set</option>}
+                          {JOB_FREQUENCIES.map((value) => (
+                            <option key={value} value={value}>{JOB_FREQUENCY_LABELS[value]}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {draft.frequency === 'custom' && (
+                        <div>
+                          <label className={labelClass} htmlFor="edit-job-frequency-note">Custom frequency</label>
+                          <input
+                            id="edit-job-frequency-note"
+                            type="text"
+                            value={draft.frequency_note}
+                            onChange={(e) => setDraftField('frequency_note', e.target.value)}
+                            placeholder="e.g. every 3 weeks"
+                            className={inputClass}
+                          />
+                        </div>
+                      )}
+                    </div>
                     <div>
                       <label className={labelClass} htmlFor="edit-job-services-text">Services Required / Job Scope</label>
                       <textarea
@@ -588,6 +632,9 @@ export const JobDetailModal: React.FC<JobDetailModalProps> = ({
                       </Row>
                       <Row label="Lead source">
                         {job.lead_source ? getLeadSourceLabel(job.lead_source) : <EmptyValue />}
+                      </Row>
+                      <Row label="Frequency">
+                        {job.frequency ? describeJobFrequency(job.frequency, job.frequency_note) : <EmptyValue>Not set</EmptyValue>}
                       </Row>
                     </Section>
 

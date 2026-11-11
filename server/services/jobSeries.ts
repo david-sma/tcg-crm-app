@@ -195,6 +195,8 @@ export interface SeriesTemplateFields {
   agreed_price: string | null; // pricing note (manager-only)
   price_cents: number | null; // agreed amount (manager-only)
   customer_id: string | null;
+  job_frequency: string | null; // frequency TAG copied onto visits (not the pattern)
+  job_frequency_note: string | null;
 }
 
 export function templateFromJobRow(job: {
@@ -213,6 +215,10 @@ export function templateFromJobRow(job: {
   agreed_price: string | null;
   price_cents: number | null;
   customer_id: string | null;
+  frequency?: string | null;
+  frequency_note?: string | null;
+  job_frequency?: string | null;
+  job_frequency_note?: string | null;
 }): SeriesTemplateFields {
   return {
     title: job.title,
@@ -230,6 +236,11 @@ export function templateFromJobRow(job: {
     agreed_price: job.agreed_price,
     price_cents: job.price_cents,
     customer_id: job.customer_id,
+    // A series row carries the tag as job_frequency/_note (its own `frequency`
+    // is the recurrence pattern); a job row carries it as frequency/_note.
+    ...('job_frequency' in job
+      ? { job_frequency: job.job_frequency ?? null, job_frequency_note: job.job_frequency_note ?? null }
+      : { job_frequency: job.frequency ?? null, job_frequency_note: job.frequency_note ?? null }),
   };
 }
 
@@ -250,6 +261,8 @@ function templateToColumns(template: SeriesTemplateFields) {
     agreed_price: template.agreed_price,
     price_cents: template.price_cents,
     customer_id: template.customer_id,
+    job_frequency: template.job_frequency,
+    job_frequency_note: template.job_frequency_note,
   };
 }
 
@@ -345,6 +358,8 @@ export async function generateVisitsForSeries(series: JobSeriesRow, today: strin
     agreed_price: series.agreed_price,
     price_cents: series.price_cents,
     customer_id: series.customer_id,
+    job_frequency: series.job_frequency,
+    job_frequency_note: series.job_frequency_note,
   };
 
   let lastMatching: string | null = null;
@@ -378,6 +393,8 @@ export async function generateVisitsForSeries(series: JobSeriesRow, today: strin
           agreed_price: template.agreed_price,
           price_cents: template.price_cents,
           customer_id: template.customer_id,
+          frequency: template.job_frequency,
+          frequency_note: template.job_frequency_note,
           ready_at: nowIso,
           series_id: series.id,
           occurrence_date: date,

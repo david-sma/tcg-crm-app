@@ -1,3 +1,5 @@
+import type { JobFrequency } from '../types/index.ts';
+
 /** Job module limits & tunables (upload pipeline, media queue). */
 
 export const JOB_PHOTO_MAX_BYTES = 15 * 1024 * 1024;
@@ -89,4 +91,22 @@ export function describeRecurrence(input: RecurrenceSummaryInput): string {
   const time = `${input.start_time}–${input.finish_time}`;
   const ends = input.end_date ? `ends ${input.end_date}` : 'never ends';
   return `${when}, ${time} · ${ends}`;
+}
+
+/** Frequency tag options for a job (data capture only — not tied to recurring series). */
+export const JOB_FREQUENCIES: JobFrequency[] = ['one_off', 'weekly', 'two_weekly', 'monthly', 'custom'];
+
+export const JOB_FREQUENCY_LABELS: Record<JobFrequency, string> = {
+  one_off: 'One-off',
+  weekly: 'Weekly',
+  two_weekly: 'Two-weekly',
+  monthly: 'Monthly',
+  custom: 'Custom',
+};
+
+/** "Custom — every 3 weeks", "Weekly", or "Not set". */
+export function describeJobFrequency(frequency?: string | null, note?: string | null): string {
+  if (!frequency) return 'Not set';
+  const label = JOB_FREQUENCY_LABELS[frequency as JobFrequency] ?? frequency;
+  return frequency === 'custom' && note ? `${label} — ${note}` : label;
 }

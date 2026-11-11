@@ -307,6 +307,8 @@ export interface Job {
   services: string[]; // legacy structured selection (superseded by services_text)
   services_text?: string | null; // free-text services required / job scope
   lead_source?: LeadSource;
+  frequency?: JobFrequency | null; // tag only (not recurring config); null = not set (older jobs)
+  frequency_note?: string | null; // detail for 'custom'
   customer_name?: string;
   customer_phone?: string | null;
   customer_email?: string | null;
@@ -349,6 +351,8 @@ export interface Job {
 }
 
 export type JobSeriesFrequency = 'daily' | 'weekly' | 'fortnightly';
+/** Frequency TAG on a job (reporting only; independent of recurring series). */
+export type JobFrequency = 'one_off' | 'weekly' | 'two_weekly' | 'monthly' | 'custom';
 export type JobSeriesStatus = 'pending' | 'active' | 'ended';
 
 export interface JobSeriesRecurrence {

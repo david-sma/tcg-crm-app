@@ -18,6 +18,7 @@ import type {
   JobMediaType,
   JobSeriesFrequency,
   JobSeriesStatus,
+  JobFrequency,
   JobStatus,
   LeadSource,
 } from '../../src/types/index.ts';
@@ -288,6 +289,8 @@ export async function formatJob(
     job.services = parseServices(row.services);
     job.services_text = row.services_text ?? null;
     job.lead_source = row.lead_source as LeadSource;
+    job.frequency = (row.frequency as JobFrequency | null) ?? null;
+    job.frequency_note = row.frequency_note ?? null;
     job.customer_name = row.customer_name;
     job.customer_phone = row.customer_phone;
     job.customer_email = row.customer_email;
@@ -503,6 +506,35 @@ export async function cancelJobWithReason(
       relatedEntityId: job.id,
     });
   }
+}
+
+const JOB_FREQUENCY_VALUES = new Set<string>(['one_off', 'weekly', 'two_weekly', 'monthly', 'custom']);
+
+/**
+ * Validate the job frequency TAG (reporting only — never touches recurring
+ * series). The note is kept only for 'custom'. `required` rejects a missing
+ * frequency (job create); otherwise absent means "leave unchanged".
+ */
+export function parseJobFrequency(
+  body: Record<string, unknown>,
+  required: boolean,
+): { frequency?: string; note?: string | null; error?: string } {
+  const raw = body.frequency;
+  if (raw === undefined || raw === null || raw === '') {
+    if (required) return { error: 'frequency is required' };
+    if (body.frequency_note !== undefined) return { error: 'frequency_note needs a frequency' };
+    return {};
+  }
+  if (typeof raw !== 'string' || !JOB_FREQUENCY_VALUES.has(raw)) {
+    return { error: 'frequency must be one of: one_off, weekly, two_weekly, monthly, custom' };
+  }
+  let note: string | null = null;
+  if (raw === 'custom' && typeof body.frequency_note === 'string') {
+    const trimmed = body.frequency_note.trim();
+    if (trimmed.length > 200) return { error: 'frequency_note is too long' };
+    note = trimmed.length > 0 ? trimmed : null;
+  }
+  return { frequency: raw, note };
 }
 
 export function newId(): string {
