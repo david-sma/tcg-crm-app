@@ -306,6 +306,8 @@ export const jobs = pgTable('jobs', {
   services: text('services').notNull().default('[]'), // legacy JSON array of service catalog ids (superseded by services_text)
   services_text: text('services_text'), // free-text services required / job scope
   lead_source: text('lead_source').notNull().default('manual'), // 'manual' | 'phone' | 'facebook' | 'website' | 'referral' | 'other'
+  frequency: text('frequency'), // tag only (not recurring config): 'one_off' | 'weekly' | 'two_weekly' | 'monthly' | 'custom'; null = not set (older jobs)
+  frequency_note: text('frequency_note'), // optional detail when frequency = 'custom' (e.g. "every 3 weeks")
   customer_name: text('customer_name').notNull().default(''),
   customer_phone: text('customer_phone'),
   customer_email: text('customer_email'),
@@ -365,6 +367,10 @@ export const jobSeries = pgTable('job_series', {
   job_type: text('job_type').notNull().default(''),
   services_text: text('services_text'),
   lead_source: text('lead_source').notNull().default('manual'),
+  // Frequency TAG of the job (not the recurrence pattern above), copied onto
+  // generated visits from visit 1. Named job_* to avoid clashing with `frequency`.
+  job_frequency: text('job_frequency'),
+  job_frequency_note: text('job_frequency_note'),
   customer_name: text('customer_name').notNull().default(''),
   customer_phone: text('customer_phone'),
   customer_email: text('customer_email'),
